@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#2a1d2e">
+  <title>Golden Hour Valley</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="world" aria-label="Golden Hour Valley game world"></canvas>
+
+  <!-- Heads-up display -->
+  <div id="hud" class="hidden">
+    <div id="clock" class="panel">
+      <div class="date"><span id="hud-date">Ambertide 1</span><span id="hud-weather" class="weather"></span></div>
+      <div class="time" id="hud-time">6:00 AM</div>
+      <div class="gold"><span class="coin"></span><span id="hud-gold">0</span>g</div>
+    </div>
+    <button id="lantern-chip" class="panel chip" title="Great Lantern offering">
+      <span class="chip-icon"></span><span id="hud-lantern">Lantern 0%</span>
+    </button>
+    <div id="meters">
+      <div class="meter" title="Energy">
+        <div class="meter-label">E</div>
+        <div class="meter-track"><div id="energy-fill" class="meter-fill energy"></div></div>
+      </div>
+      <div class="meter" title="Watering can">
+        <div class="meter-label water-drop"></div>
+        <div class="meter-track"><div id="water-fill" class="meter-fill water"></div></div>
+      </div>
+    </div>
+    <div id="toasts" aria-live="polite"></div>
+    <div id="prompt" class="hidden"></div>
+    <div id="item-name" class="hidden"></div>
+    <div id="hotbar"></div>
+  </div>
+
+  <!-- Touch controls -->
+  <div id="touch-controls">
+    <div id="stick-zone"><div id="stick-base"><div id="stick-knob"></div></div></div>
+    <div id="touch-buttons">
+      <button id="btn-menu" class="tbtn small" aria-label="Menu">☰</button>
+      <button id="btn-bag" class="tbtn small" aria-label="Bag">Bag</button>
+      <button id="btn-eat" class="tbtn small" aria-label="Eat">Eat</button>
+      <button id="btn-act" class="tbtn big" aria-label="Use">Use</button>
+    </div>
+  </div>
+
+  <!-- Dialogue -->
+  <div id="dialog" class="hidden" role="dialog" aria-live="polite">
+    <div id="dialog-name"></div>
+    <div id="dialog-text"></div>
+    <div id="dialog-next">▼</div>
+  </div>
+
+  <!-- Title screen -->
+  <div id="title" class="screen">
+    <div class="title-card">
+      <div class="sun"></div>
+      <h1>Golden Hour<span>Valley</span></h1>
+      <p class="tagline">Where the sun has been setting for a hundred years.</p>
+      <div class="menu">
+        <button id="btn-continue" class="btn primary hidden">Continue</button>
+        <button id="btn-new" class="btn">New Game</button>
+        <button id="btn-howto" class="btn ghost">How to Play</button>
+      </div>
+      <p class="fine">Sound starts when you press a button. Progress saves in this browser.</p>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-backdrop" class="hidden"></div>
+
+  <div id="m-sleep" class="modal small hidden" role="dialog">
+    <h2>Go to bed?</h2>
+    <p id="sleep-text">Call it a day and wake up at 6 AM.</p>
+    <div class="row">
+      <button class="btn primary" data-act="sleep-yes">Sleep</button>
+      <button class="btn ghost" data-act="close">Not yet</button>
+    </div>
+  </div>
+
+  <div id="m-summary" class="modal hidden" role="dialog">
+    <h2 id="summary-title">Day 1 is over</h2>
+    <p id="summary-note"></p>
+    <div id="summary-items" class="summary-items"></div>
+    <div class="summary-total">Total <span id="summary-total">0g</span></div>
+    <p id="summary-forecast" class="forecast"></p>
+    <div class="row"><button class="btn primary" data-act="summary-ok">Wake up</button></div>
+  </div>
+
+  <div id="m-shop" class="modal wide hidden" role="dialog">
+    <div class="modal-head">
+      <div class="portrait mabel"></div>
+      <div>
+        <h2>Mabel's Stall</h2>
+        <p id="shop-greet" class="greet"></p>
+      </div>
+      <div class="purse"><span class="coin"></span><span id="shop-gold">0</span>g</div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="goods">Seeds &amp; Goods</button>
+      <button class="tab" data-tab="upgrades">Upgrades</button>
+    </div>
+    <div id="shop-list" class="shop-list"></div>
+    <p id="shop-msg" class="shop-msg"></p>
+    <div class="row"><button class="btn ghost" data-act="close">Leave</button></div>
+  </div>
+
+  <div id="m-inventory" class="modal wide hidden" role="dialog">
+    <div class="modal-head">
+      <h2>Bag</h2>
+      <div class="purse"><span class="coin"></span><span id="inv-gold">0</span>g</div>
+    </div>
+    <p class="hint">Click an item to select it, then click another slot to move it. The top row is your hotbar.</p>
+    <div id="inv-grid" class="inv-grid"></div>
+    <div id="inv-detail" class="inv-detail"></div>
+    <div class="row"><button class="btn ghost" data-act="close">Close</button></div>
+  </div>
+
+  <div id="m-offering" class="modal hidden" role="dialog">
+    <h2>The Great Lantern</h2>
+    <p id="offering-lore" class="lore"></p>
+    <div id="offering-list" class="offering-list"></div>
+    <div class="progress-big"><div id="offering-bar"></div></div>
+    <p id="offering-msg" class="shop-msg"></p>
+    <div class="row">
+      <button id="btn-offer" class="btn primary" data-act="offer">Offer from my bag</button>
+      <button class="btn ghost" data-act="close">Step back</button>
+    </div>
+  </div>
+
+  <div id="m-pause" class="modal small hidden" role="dialog">
+    <h2>Paused</h2>
+    <div class="menu">
+      <button class="btn primary" data-act="close">Resume</button>
+      <button class="btn" data-act="save">Save game</button>
+      <button class="btn" data-act="howto">How to play</button>
+      <button class="btn" data-act="toggle-sound" id="opt-sound">Sound: on</button>
+      <button class="btn" data-act="toggle-music" id="opt-music">Music: on</button>
+      <button class="btn ghost" data-act="quit">Save &amp; quit to title</button>
+    </div>
+  </div>
+
+  <div id="m-howto" class="modal hidden" role="dialog">
+    <h2>How to play</h2>
+    <div class="howto">
+      <p>Grandma Juniper left you her farm in Golden Hour Valley. The village's <b>Great Lantern</b> is fading — grow and gather everything on its offering list to light it again.</p>
+      <ul>
+        <li><b>Till</b> farm grass with the hoe, <b>plant</b> seeds, and <b>water</b> them every day. Watered crops grow overnight.</li>
+        <li><b>Ship</b> anything by holding it and using the shipping bin beside your house. You're paid while you sleep.</li>
+        <li>Buy seeds, food and upgrades at <b>Mabel's Stall</b> in the village (8 AM – 8 PM).</li>
+        <li>Using tools costs <b>energy</b>. Eat food or go to bed. Stay up past 2 AM and you'll pass out and lose some gold.</li>
+        <li><b>Glowcaps</b> grow wild south of the river. <b>Sunshowers</b> water your crops for you.</li>
+      </ul>
+      <table class="keys">
+        <tr><th>Move</th><td>WASD / Arrow keys</td></tr>
+        <tr><th>Use / talk</th><td>Space, Enter or Left click</td></tr>
+        <tr><th>Eat held item</th><td>F or Right click</td></tr>
+        <tr><th>Hotbar</th><td>1 – 0, Q / E, mouse wheel</td></tr>
+        <tr><th>Bag</th><td>I or Tab</td></tr>
+        <tr><th>Menu</th><td>Esc</td></tr>
+        <tr><th>Music</th><td>M</td></tr>
+      </table>
+      <p class="fine">On touch screens: drag the left stick to walk, tap <b>Use</b> or tap a tile next to you.</p>
+    </div>
+    <div class="row"><button class="btn primary" data-act="close">Got it</button></div>
+  </div>
+
+  <div id="m-confirm-new" class="modal small hidden" role="dialog">
+    <h2>Start over?</h2>
+    <p>This replaces your saved farm.</p>
+    <div class="row">
+      <button class="btn primary" data-act="new-yes">Start fresh</button>
+      <button class="btn ghost" data-act="close">Keep my farm</button>
+    </div>
+  </div>
+
+  <div id="ending" class="screen hidden">
+    <div class="ending-card">
+      <div class="sun big"></div>
+      <h1>The Lantern Burns Again</h1>
+      <p id="ending-text"></p>
+      <div id="ending-stats" class="ending-stats"></div>
+      <button class="btn primary" id="btn-keep-farming">Keep farming</button>
+    </div>
+  </div>
+
+  <div id="fade"></div>
+
+  <script src="src/config.js"></script>
+  <script src="src/util.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/inventory.js"></script>
+  <script src="src/game.js"></script>
+  <script src="src/sprites.js"></script>
+  <script src="src/render.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/input.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
