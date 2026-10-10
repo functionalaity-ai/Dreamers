@@ -22,7 +22,7 @@ export const WEAPONS = {
     recoil: { v: 0.58, h: 0.24, recover: 7, pattern: pattern(30, 0.58, 0.32) },
     adsTime: 0.24, reload: { tactical: 2.1, empty: 2.7 }, draw: 0.6, weight: 3.4,
     zoomFov: 0.8, sound: { crack: 1.0, body: 1.0, pitch: 1.0, tail: 1.0 },
-    attachments: ['reddot', 'scope4x', 'suppressor', 'compensator', 'vgrip', 'agrip', 'extmag', 'laser'],
+    attachments: ['reddot', 'scope4x', 'suppressor', 'compensator', 'vgrip', 'agrip', 'extmag', 'laser', 'black', 'fde', 'odg'], finish: 'fde',
   },
   bastion: {
     id: 'bastion', name: 'M12 Bastion', type: 'Pump shotgun', caliber: '12 gauge 00 buck', slot: 'primary',
@@ -32,7 +32,7 @@ export const WEAPONS = {
     recoil: { v: 3.2, h: 0.8, recover: 5, pattern: pattern(8, 3.2, 0.6) },
     adsTime: 0.3, reload: { shell: 0.52, start: 0.35, pump: 0.55 }, draw: 0.7, weight: 3.6,
     zoomFov: 0.85, sound: { crack: 0.8, body: 1.6, pitch: 0.7, tail: 1.3 },
-    attachments: ['reddot', 'choke', 'extmag', 'laser'],
+    attachments: ['reddot', 'choke', 'extmag', 'laser', 'black', 'fde', 'odg'], finish: 'black',
   },
   warden: {
     id: 'warden', name: 'P9 Warden', type: 'Pistol', caliber: '9×19mm', slot: 'secondary',
@@ -42,12 +42,12 @@ export const WEAPONS = {
     recoil: { v: 1.1, h: 0.35, recover: 9, pattern: pattern(17, 1.1, 0.4) },
     adsTime: 0.16, reload: { tactical: 1.45, empty: 1.85 }, draw: 0.35, weight: 0.9,
     zoomFov: 0.88, sound: { crack: 0.75, body: 0.6, pitch: 1.35, tail: 0.7 },
-    attachments: ['reddot', 'suppressor', 'extmag', 'laser'],
+    attachments: ['reddot', 'suppressor', 'extmag', 'laser', 'black', 'fde', 'odg'], finish: 'black',
   },
 };
 
-export const ATTACHMENT_SLOTS = ['optic', 'muzzle', 'underbarrel', 'magazine', 'laser'];
-export const SLOT_NAMES = { optic: 'Optic', muzzle: 'Muzzle', underbarrel: 'Underbarrel', magazine: 'Magazine', laser: 'Laser' };
+export const ATTACHMENT_SLOTS = ['optic', 'muzzle', 'underbarrel', 'magazine', 'laser', 'finish'];
+export const SLOT_NAMES = { optic: 'Optic', muzzle: 'Muzzle', underbarrel: 'Underbarrel', magazine: 'Magazine', laser: 'Laser', finish: 'Finish' };
 
 // mods are added to (or multiply, for *Mul) the weapon's base stats.
 export const ATTACHMENTS = {
@@ -60,6 +60,10 @@ export const ATTACHMENTS = {
   agrip: { slot: 'underbarrel', name: 'Angled foregrip', desc: 'Faster to aim, light recoil help.', mods: { adsTime: -0.035, recoilVMul: -0.05, weight: 0.1 } },
   extmag: { slot: 'magazine', name: 'Extended magazine', desc: 'More rounds, slower reloads.', mods: { reloadMul: 0.14, adsTime: 0.02, weight: 0.3 }, extMag: true },
   laser: { slot: 'laser', name: 'LA-2 laser', desc: 'Tighter hip-fire. The beam can give you away.', mods: { hipSpreadMul: -0.3, weight: 0.08 } },
+  // Finishes are cosmetic: receiver metal and polymer furniture.
+  black: { slot: 'finish', name: 'Black', desc: 'Hard-anodised receiver, black polymer.', mods: {} },
+  fde: { slot: 'finish', name: 'Flat Dark Earth', desc: 'Tan Cerakote receiver and matching furniture.', mods: {} },
+  odg: { slot: 'finish', name: 'OD Green', desc: 'Olive drab Cerakote receiver and furniture.', mods: {} },
 };
 
 export const THROWABLES = {
@@ -116,8 +120,8 @@ export const PRESETS = {
   // frame, and the resolution drops (down to 55%) whenever frames run slow.
   mobile: { name: 'Mobile', pixelRatio: 1, shadowSize: 2048, softShadows: false, ao: false, bloom: false, aa: 'fxaa', anisotropy: 2, scopeRes: 256, textureSize: 512, volumetric: { steps: 16, scale: 0.4 }, dust: 600, windowShadows: false, shadowEvery: 2, adaptive: true },
   medium: { name: 'Medium', pixelRatio: 1, shadowSize: 2048, softShadows: false, ao: false, bloom: false, aa: 'fxaa', anisotropy: 4, scopeRes: 384, textureSize: 512, volumetric: { steps: 24, scale: 0.5 }, dust: 1500, windowShadows: false },
-  high: { name: 'High', pixelRatio: 1.5, shadowSize: 4096, softShadows: true, ao: true, aoRes: 0.5, bloom: true, aa: 'smaa', anisotropy: 8, scopeRes: 512, textureSize: 1024, volumetric: { steps: 40, scale: 0.5 }, dust: 3000 },
-  ultra: { name: 'Ultra', pixelRatio: 2, shadowSize: 4096, softShadows: true, ao: true, aoRes: 1, bloom: true, aa: 'smaa', anisotropy: 16, scopeRes: 1024, textureSize: 2048, volumetric: { steps: 64, scale: 0.5 }, dust: 5000 },
+  high: { name: 'High', pixelRatio: 1.5, shadowSize: 4096, softShadows: true, ao: true, aoRes: 0.5, bloom: true, aa: 'smaa', anisotropy: 8, scopeRes: 512, textureSize: 1024, volumetric: { steps: 40, scale: 0.5 }, dust: 3000, vmShadows: true },
+  ultra: { name: 'Ultra', pixelRatio: 2, shadowSize: 4096, softShadows: true, ao: true, aoRes: 1, bloom: true, aa: 'smaa', anisotropy: 16, scopeRes: 1024, textureSize: 2048, volumetric: { steps: 64, scale: 0.5 }, dust: 5000, vmShadows: true },
 };
 
 export const DEFAULT_SETTINGS = {

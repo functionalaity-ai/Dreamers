@@ -172,6 +172,12 @@ export class Materials {
     G.copper = new THREE.MeshStandardMaterial({ color: 0xb8733a, metalness: 1, roughness: 0.32 });
     G.shell = new THREE.MeshStandardMaterial({ color: 0x9a2018, roughness: 0.55 });
     G.cerakote = new THREE.MeshStandardMaterial({ color: 0x3b3c37, metalness: 0.25, roughness: 1, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
+    // Coloured finishes: ceramic-coated receivers (dielectric, satin) and matching polymer.
+    G.anodBlack = G.anodized.clone();
+    G.fdeMetal = new THREE.MeshStandardMaterial({ color: 0x7c6b51, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
+    G.odgMetal = new THREE.MeshStandardMaterial({ color: 0x4d5240, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
+    G.fdePoly = new THREE.MeshStandardMaterial({ color: 0x7b6a4f, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
+    G.odgPoly = new THREE.MeshStandardMaterial({ color: 0x4f5541, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
     G.lens = new THREE.MeshStandardMaterial({ color: 0x0c1418, metalness: 1, roughness: 0.04, transparent: true, opacity: 0.55, envMapIntensity: 1.6 });
     G.lensTint = new THREE.MeshStandardMaterial({ color: 0x2a3a30, metalness: 0.8, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
     G.reticle = new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, depthTest: false, depthWrite: false });
@@ -201,7 +207,7 @@ export class Materials {
       for (const k of ['sleeve', 'glove', 'knuckle']) G[k].envMapIntensity = 0.6;
     }
     // Double-sided variants for open tubes such as sight bodies, shared by every gun build.
-    for (const k of ['anodized', 'rubber']) { const m = G[k].clone(); m.side = THREE.DoubleSide; m.name = G[k].name + 'DS'; G[k + 'DS'] = m; }
+    for (const k of ['anodized', 'rubber', 'fdeMetal', 'odgMetal']) { const m = G[k].clone(); m.side = THREE.DoubleSide; m.name = G[k].name + 'DS'; G[k + 'DS'] = m; }
     // First-person copies: same look, but their sky reflections follow the turning camera.
     this.gunFP = {};
     for (const k in G) {

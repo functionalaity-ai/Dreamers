@@ -544,7 +544,7 @@ export function gunFinish(B, size, seed) {
     shade: /* glsl */`
       void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
         // a multiplier around 1: brighter where scratched or rubbed
-        float v = 0.92 + 0.12 * (fbm(uv, 30.0, 3) + 0.5) + F.y * 0.9 + F.z * 0.25;
+        float v = 0.94 + 0.1 * (fbm(uv, 30.0, 3) + 0.5) + F.y * 0.85 + F.z * 0.1;
         alb = vec3(v) * (1.0 - F.w * 0.08);
         rough = clamp(0.62 + 0.14 * fbm(uv, 25.0, 3) - F.y * 0.35 - F.z * 0.12 + F.w * 0.2, 0.15, 1.0);
         metal = clamp(0.5 + F.y * 0.5 + F.z * 0.2, 0.0, 1.0);

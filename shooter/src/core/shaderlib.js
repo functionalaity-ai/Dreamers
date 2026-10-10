@@ -138,7 +138,9 @@ export function enhance(mat, opts) {
 
     // Cloud shadows: the sun's shadow camera looks straight down the sun's rays, so a cloud
     // pattern laid out in shadow-map space falls exactly where real cloud shadows would.
-    f = f.replace('#include <shadowmap_pars_fragment>', CLOUD_SHADE + THREE.ShaderChunk.shadowmap_pars_fragment.replace('return shadow;', 'return shadow * cloudShade( shadowCoord.xy );'));
+    // (Not on the first-person gun: its scene has its own small shadow map, and the world sun's
+    // visibility, clouds included, already dims its light.)
+    if (!opts.viewEnv) f = f.replace('#include <shadowmap_pars_fragment>', CLOUD_SHADE + THREE.ShaderChunk.shadowmap_pars_fragment.replace('return shadow;', 'return shadow * cloudShade( shadowCoord.xy );'));
 
     if (opts.viewEnv) {
       // First-person weapon: its scene's camera never turns, so rotate the sky lookups instead.

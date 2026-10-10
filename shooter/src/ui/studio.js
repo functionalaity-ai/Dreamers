@@ -29,24 +29,31 @@ export class Studio {
       room.add(m);
     };
     // Product-shot soft boxes: a big overhead strip, two side strips and a rim.
-    panel(10, 3, 0, 5.5, 0, 26);
-    panel(3, 7, -7, 1, 3, 16);
-    panel(3, 7, 7, 1, -3, 18);
-    panel(12, 1.6, 0, -2.5, -8, 6);
-    panel(8, 2.5, 0, 0.8, 8, 9);
+    panel(10, 3, 0, 5.5, 0, 11);
+    panel(3, 7, -7, 1, 3, 7);
+    panel(3, 7, 7, 1, -3, 8);
+    panel(12, 1.6, 0, -2.5, -8, 2.6);
+    panel(8, 2.5, 0, 0.8, 8, 3.6);
     const pm = new THREE.PMREMGenerator(renderer.r);
     scene.environment = pm.fromScene(room, 0.03).texture;
     pm.dispose();
-    const key = new THREE.DirectionalLight(0xfff2e0, 14);
+    // Moody product lighting: a warm key, a soft fill and a cool rim, low enough that a tan
+    // Cerakote finish keeps its colour and black parts stay black.
+    const key = new THREE.DirectionalLight(0xfff2e0, 4.2);
     key.position.set(-1, 2, 1.4);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    Object.assign(key.shadow.camera, { left: -0.55, right: 0.55, top: 0.55, bottom: -0.55, near: 0.5, far: 5 });
+    key.shadow.bias = -0.0003;
+    key.shadow.normalBias = 0.0015;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xffffff, 5);
+    const fill = new THREE.DirectionalLight(0xffffff, 1.4);
     fill.position.set(1.6, 0.4, 1.2);
     scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xc8dcff, 9);
+    const rim = new THREE.DirectionalLight(0xc8dcff, 3.6);
     rim.position.set(0.5, 1.2, -2);
     scene.add(rim);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x303030, 2.2));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x303030, 0.5));
     this.turn = new THREE.Group();
     scene.add(this.turn);
     this.rotY = -Math.PI / 2 + 0.45;
@@ -88,6 +95,7 @@ export class Studio {
     if (this.gun) { this.turn.remove(this.gun.root); }
     this.gun = buildGun(id, att, this.M.gun, { fp: true });
     this.gun.mag.setAmmo(99);
+    this.gun.root.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = !o.material.transparent; });
     this.turn.add(this.gun.root);
     const box = new THREE.Box3().setFromObject(this.gun.root);
     const c = box.getCenter(new THREE.Vector3());
@@ -107,6 +115,7 @@ export class Studio {
     cam.updateProjectionMatrix();
     if (!this.drag) this.rotY += 0.0015;
     this.turn.rotation.set(this.rotX, this.rotY, 0, 'YXZ');
+    this.R.r.shadowMap.needsUpdate = true;
     this.R.render({ scene: this.scene, camera: cam });
   }
 }

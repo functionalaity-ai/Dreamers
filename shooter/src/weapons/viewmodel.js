@@ -1,6 +1,6 @@
 // First-person weapon rig: gun + gloved hands in camera space, poses and animations.
 import * as THREE from 'three';
-import { buildGun, buildRifleMag } from './gunmodels.js';
+import { buildGun, buildRifleMag, gunMaterials } from './gunmodels.js';
 import { roundedBox, worldUV } from '../core/geometry.js';
 
 const HIP = {
@@ -164,6 +164,7 @@ export class Viewmodel {
     this.handL = mkHand(true);
     this.foreR = mkFore();
     this.foreL = mkFore();
+    for (const o of [this.handR, this.handL, this.foreR, this.foreL]) o.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
   }
 
   buildFlash() {
@@ -216,7 +217,7 @@ export class Viewmodel {
     this.ws = ws;
     this.gun = buildGun(ws.id, ws.stats.att, this.M.gunFP, { fp: true });
     this.rig.add(this.gun.root);
-    this.gun.root.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    this.gun.root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = o.receiveShadow = !o.material.transparent; } });
     this.hip = HIP[ws.id];
     const sight = this.gun.sight;
     this.ads = { pos: [0, -sight.y, -sight.z], rot: [0, 0, 0] };
@@ -474,7 +475,7 @@ export class Viewmodel {
   dropMag(c) {
     const g = this.gun;
     let mesh;
-    if (this.ws.id === 'kestrel') mesh = buildRifleMag(this.M.gun, this.ws.stats.mag > 30, false).group;
+    if (this.ws.id === 'kestrel') mesh = buildRifleMag(gunMaterials('kestrel', this.ws.stats.att, this.M.gun), this.ws.stats.mag > 30, false).group;
     else mesh = g.mag.group.clone();
     mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.material.userData && o.material.userData.base) o.material = o.material.userData.base; } });
     const world = new THREE.Vector3();

@@ -49,7 +49,7 @@ export class Menus {
   }
 
   attText(id, att) {
-    const names = Object.values(att || {}).map((a) => ATTACHMENTS[a] && ATTACHMENTS[a].name).filter(Boolean);
+    const names = Object.values(att || {}).filter((a) => ATTACHMENTS[a] && ATTACHMENTS[a].slot !== 'finish').map((a) => ATTACHMENTS[a].name);
     return names.length ? names.join(' · ') : 'No attachments';
   }
 
@@ -107,10 +107,12 @@ export class Menus {
       box.className = 'slot';
       box.innerHTML = '<h4>' + SLOT_NAMES[slot] + '</h4><div class="opts"></div>';
       const list = box.querySelector('.opts');
-      for (const a of [null].concat(opts)) {
+      // A finish always has a value (the factory one by default); other slots can be empty.
+      const finish = slot === 'finish';
+      for (const a of finish ? opts : [null].concat(opts)) {
         const b = document.createElement('button');
-        b.className = 'opt' + ((att[slot] || null) === a ? ' on' : '');
-        b.innerHTML = a ? esc(ATTACHMENTS[a].name) + '<small>' + esc(ATTACHMENTS[a].desc) + '</small>' : 'None<small>' + (slot === 'optic' ? 'Iron sights' : slot === 'muzzle' ? (id === 'kestrel' ? 'A2-style flash hider' : 'Bare muzzle') : slot === 'magazine' ? WEAPONS[id].mag + ' rounds' : '—') + '</small>';
+        b.className = 'opt' + ((att[slot] || (finish ? w.finish : null)) === a ? ' on' : '');
+        b.innerHTML = a ? esc(ATTACHMENTS[a].name) + (finish && a === w.finish ? ' · factory' : '') + '<small>' + esc(ATTACHMENTS[a].desc) + '</small>' : 'None<small>' + (slot === 'optic' ? 'Iron sights' : slot === 'muzzle' ? (id === 'kestrel' ? 'A2-style flash hider' : 'Bare muzzle') : slot === 'magazine' ? WEAPONS[id].mag + ' rounds' : '—') + '</small>';
         b.addEventListener('click', () => {
           if (a) att[slot] = a; else delete att[slot];
           app.saveLoadouts();

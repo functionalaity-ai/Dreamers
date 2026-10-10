@@ -61,19 +61,24 @@ Phones start on the **Mobile** graphics preset, and the menus and HUD shrink to 
 - **Hotel Meridian** has three floors and a roof, connected by U-shaped stairs, with furnished rooms.
 - **The Pharmacy** has two floors and roof access, with a shop counter and shelving downstairs and a flat upstairs.
 
-**Guns, modelled part by part:**
-- **KR-5 Kestrel** (5.56 assault rifle, 780 rpm): a working bolt and dust cover, folding iron sights, a selector, a magazine with a witness window, and receiver markings.
-- **M12 Bastion** (12-gauge pump shotgun, 9-pellet 00 buck): a vent rib with a bead sight, a side saddle, a pump that cycles, and shells loaded one at a time.
-- **P9 Warden** (9 mm pistol): a slide that cycles and locks back on empty, serrations, tritium night sights, and an optics cut.
+**Guns, modelled part by part.** Every part is a bevelled extrusion of its real outline, with slots, ports and windows cut right through, so edges catch the light and nothing reads as a flat box. On High and Ultra the first-person gun and hands also shadow themselves.
+- **KR-5 Kestrel** (5.56 assault rifle, 780 rpm), in Flat Dark Earth by default:
+  - A split upper receiver with a real ejection port, a cycling bolt and a hinged dust cover, the forward assist and brass deflector.
+  - A lower with a hollow, flared magwell, the mag-release fence, bolt catch, pins, and a trigger guard with its opening cut through.
+  - A 15-inch M-LOK rail with cut-through slots, a toothed Picatinny top rail, the barrel and gas block visible through the slots, and an A2 birdcage.
+  - Flip-up sights with see-through apertures, an SL-style stock with a recessed panel, sling slot and QD cups, a castle nut, and a textured grip.
+  - A PMAG-style magazine whose witness window shows the brass left inside.
+- **M12 Bastion** (12-gauge pump shotgun, 9-pellet 00 buck): a split receiver with a real ejection port and an optics rail, a vent rib on its posts, a grooved pump on action bars, a knurled magazine cap, a side saddle, and shells loaded one at a time.
+- **P9 Warden** (9 mm pistol): a slide with chamfered edges, cut serrations and an open port showing the barrel hood. It cycles and locks back on empty. Also tritium night sights, an optics cut, and a polymer frame with a beavertail, stippled panels and an accessory rail.
 
 Every gun has ejected brass and its own reload animations: tactical, empty, pistol, and shell-by-shell for the shotgun. The first-person gun is rendered in its own pass, so it never clips through walls.
 
-**Gunsmith.** A lit turntable you can drag to rotate and scroll (or pinch) to zoom, with live stat bars that show the change from each part. There are 9 attachments across 5 slots:
+**Gunsmith.** A lit, shadowed turntable you can drag to rotate and scroll (or pinch) to zoom, with live stat bars that show the change from each part. There are 9 attachments across 5 slots, plus three finishes for every gun (Black, Flat Dark Earth and OD Green):
 
 | Slot | Attachments |
 | --- | --- |
-| Optic | Haldane red dot, Talon 4× scope (true picture-in-picture view with a mil-dot reticle) |
-| Muzzle | Hush suppressor, Brace compensator, full choke |
+| Optic | Haldane red dot on a riser with knurled turrets, Talon 4× scope in rings (true picture-in-picture view with a mil-dot reticle) |
+| Muzzle | Hush suppressor (fluted, with a knurled collar), Brace compensator (ports cut through), full choke |
 | Underbarrel | Vertical grip, angled grip |
 | Magazine | Extended magazine |
 | Laser | LA-2 laser |

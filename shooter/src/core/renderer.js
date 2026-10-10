@@ -104,6 +104,14 @@ export class Renderer {
     this.vSun = new THREE.DirectionalLight(0xffd0a0, 2.8);
     this.vSun.position.copy(SUN_DIR);
     this.vScene.add(this.vSun);
+    // Self-shadowing for the gun and hands: a small frustum around where the weapon sits.
+    this.vSun.target.position.set(0.06, -0.12, -0.34);
+    this.vScene.add(this.vSun.target);
+    const vs = this.vSun.shadow;
+    vs.mapSize.set(1024, 1024);
+    Object.assign(vs.camera, { left: -0.42, right: 0.42, top: 0.42, bottom: -0.42, near: 0.05, far: 3 });
+    vs.bias = -0.0004;
+    vs.normalBias = 0.0025;
     this.vHemi = new THREE.HemisphereLight(0xb7c6d8, 0x5d4c3c, 0.7);
     this.vScene.add(this.vHemi);
     this.vScene.add(this.vCamera);
@@ -155,7 +163,7 @@ export class Renderer {
   syncViewLights() {
     const cam = this.camera;
     const qi = cam.quaternion.clone().invert();
-    this.vSun.position.copy(SUN_DIR).applyQuaternion(qi);
+    this.vSun.position.copy(SUN_DIR).applyQuaternion(qi).multiplyScalar(1.4).add(this.vSun.target.position);
     this.vHemi.position.set(0, 1, 0).applyQuaternion(qi);
     const f = this.indoorF || 0, sv = this.viewSun === undefined ? 1 : this.viewSun;
     this.vSun.intensity = 3.4 * (1 - f * 0.9) * (0.08 + 0.92 * sv);
@@ -172,6 +180,7 @@ export class Renderer {
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
     this.r.shadowMap.needsUpdate = true;
     this.vol.configure(preset);
+    this.vSun.castShadow = !!preset.vmShadows;
     this.dust.setCount(preset.dust || 2000);
     // Window frames and shutter louvres are the densest shadow casters; Medium skips them.
     const win = this.scene.getObjectByName('windows');
@@ -302,6 +311,7 @@ export class Renderer {
     r.setRenderTarget(cur);
     r.autoClear = false;
     r.clearDepth();
+    if (this.vSun.castShadow) r.shadowMap.needsUpdate = true;
     r.render(this.vScene, this.vCamera);
     r.autoClear = true;
     if (this.bloom) this.bloom.render(r, null, cur, dt, false);
