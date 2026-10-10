@@ -7,7 +7,7 @@ const col = (hex) => { const c = new THREE.Color(hex); return new THREE.Vector3(
 // patches where the render has spalled off to the brick and older plaster underneath.
 export function stucco(B, size, color, seed) {
   return B.bake({
-    name: 'stucco', size, tile: 4, seed, normalStrength: 1.0, cavity: 1.2,
+    name: 'stucco', size, tile: 4, seed, normalStrength: 1.0, cavity: 1.2, height: [-15, 4],
     uniforms: { uColor: { value: col(color) } },
     fields: /* glsl */`
       vec4 fields(vec2 uv) {
@@ -15,8 +15,8 @@ export function stucco(B, size, color, seed) {
         float trowel = fbm(uv, vec2(10.0, 7.0), 4);
         vec2 w = uv + 0.02 * vec2(fbm(uv, 5.0, 3), fbm(uv + 0.31, 5.0, 3));
         float swirl = fbm(w, 48.0, 2);
-        float pn = fbm(uv + 0.04 * vec2(fbm(uv, 9.0, 3), fbm(uv + 0.7, 9.0, 3)), 3.0, 6);
-        float patchM = smoothstep(0.245, 0.25, pn);
+        float pn = fbm(uv + 0.04 * vec2(fbm(uv, 9.0, 3), fbm(uv + 0.7, 9.0, 3)), 2.0, 6);
+        float patchM = smoothstep(0.205, 0.212, pn);
         vec2 cw = uv + 0.022 * vec2(fbm(uv, 9.0, 5), fbm(uv + 1.7, 9.0, 5));
         vec4 v = voronoi(cw, vec2(4.0), 1.0);
         float cw0 = 0.00018 + 0.00032 * (fbm(uv, 18.0, 2) + 0.5);
@@ -24,8 +24,17 @@ export function stucco(B, size, color, seed) {
         vec4 v2 = voronoi(cw + 0.37, vec2(13.0), 1.0);
         float hair = (1.0 - smoothstep(0.0, 0.00016, v2.y / 13.0)) * smoothstep(0.2, 0.32, fbm(uv + 5.3, 5.0, 3)) * 0.6;
         float h = grain * 0.45 + trowel * 1.6 + swirl * 0.35;
-        // under the render: older lime plaster with bits of brick
-        float under = -3.5 + fbm(uv, 90.0, 3) * 1.2;
+        // under the render: brickwork, 9 mm back (14 mm in the joints), behind a ragged plaster lip
+        float rows = 54.0, cols = 18.0;
+        float r = floor(uv.y * rows);
+        float bx = uv.x * cols + mod(r, 2.0) * 0.5;
+        vec2 bq = (vec2(fract(bx), fract(uv.y * rows)) - 0.5) * vec2(0.222, 0.074);
+        vec2 dq = abs(bq) - vec2(0.104, 0.031) + 0.003;
+        float bmask = smoothstep(0.0, 0.0015, -(length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0) - 0.003));
+        float bid = hash12(sd(vec2(mod(floor(bx), cols), r)));
+        float under = mix(-14.0, -9.0 + fbm(uv, 120.0, 3) * 1.4 + bid * 0.9, bmask);
+        float lip = smoothstep(0.196, 0.205, pn) * (1.0 - patchM);
+        h += lip * 0.8;
         h = mix(h, under, patchM);
         h -= (crack + hair * 0.5) * 1.2;
         float stain = fbm(uv, vec2(4.0, 2.0), 5);
@@ -39,13 +48,63 @@ export function stucco(B, size, color, seed) {
         c *= 0.94 + 0.12 * fbm(uv, 7.0, 4);
         c = mix(c, c * vec3(0.8, 0.79, 0.77), smoothstep(0.02, 0.32, F.w) * 0.55);
         c = mix(c, c * vec3(1.06, 1.05, 1.02), smoothstep(-0.05, -0.3, F.w) * 0.5);
-        float brick = smoothstep(0.1, 0.2, fbm(uv + 2.2, 26.0, 3));
-        vec3 under = mix(uColor * 0.9 + lin(vec3(0.02, 0.02, 0.02)), lin(vec3(0.5, 0.36, 0.28)), brick * 0.35);
-        c = mix(c, under * (0.9 + 0.2 * g), F.z);
+        // exposed brickwork: varied fired colours, pale mortar, and scraps of old plaster left on it
+        float rows = 54.0, cols = 18.0;
+        float r = floor(uv.y * rows);
+        float bx = uv.x * cols + mod(r, 2.0) * 0.5;
+        vec2 bq = (vec2(fract(bx), fract(uv.y * rows)) - 0.5) * vec2(0.222, 0.074);
+        vec2 dq = abs(bq) - vec2(0.104, 0.031) + 0.003;
+        float bmask = smoothstep(0.0, 0.0015, -(length(max(dq, 0.0)) + min(max(dq.x, dq.y), 0.0) - 0.003));
+        float bid = hash12(sd(vec2(mod(floor(bx), cols), r)));
+        vec3 bc = mix(lin(vec3(0.64, 0.43, 0.32)), lin(vec3(0.53, 0.34, 0.26)), bid);
+        bc = mix(bc, lin(vec3(0.7, 0.55, 0.4)), step(0.82, bid));
+        bc *= 0.82 + 0.3 * fbm(uv, 140.0, 3);
+        vec3 mortar = lin(vec3(0.6, 0.57, 0.52)) * (0.85 + 0.25 * fbm(uv, 200.0, 2));
+        vec3 under = mix(mortar, bc, bmask);
+        under = mix(under, uColor * 0.82, smoothstep(0.15, 0.3, fbm(uv + 7.7, 40.0, 3)) * 0.55);
+        c = mix(c, under, F.z);
         c *= 1.0 - cav * 0.28;
         c = mix(c, c * 0.35, F.y * 0.7);
         alb = c;
         rough = 0.86 + 0.1 * g + F.z * 0.04;
+        metal = 0.0;
+      }`,
+  });
+}
+
+// Barrel clay tiles in courses: 0.21 m tiles, 0.42 m courses (tile = 2.1 m). Each tile has its own
+// firing colour; valleys hold dirt, ridges are sun-bleached, lichen grows in patches.
+export function roofTiles(B, size, seed) {
+  return B.bake({
+    name: 'roofTiles', size, tile: 2.1, seed, normalStrength: 0.9, cavity: 1.0,
+    fields: /* glsl */`
+      vec4 fields(vec2 uv) {
+        float cols = 10.0, rows = 5.0;
+        float r = floor(uv.y * rows);
+        float x = uv.x * cols;
+        float c = floor(x);
+        float fx = fract(x), fy = fract(uv.y * rows);
+        float id = hash12(sd(vec2(mod(c, cols), r)));
+        float barrel = pow(abs(sin(3.14159265 * fx)), 0.75);
+        float h = barrel * 40.0 + fy * 7.0 + id * 2.5 + fbm(uv, 90.0, 2) * 1.2;
+        h -= (1.0 - smoothstep(0.0, 0.05, fy)) * 9.0;          // the lip of the course below
+        float crack = step(0.93, id) * (1.0 - smoothstep(0.0, 0.02, abs(fx - 0.35 - id * 0.2)));
+        h -= crack * 2.0;
+        float lichen = smoothstep(0.12, 0.36, fbm(uv + 3.3, 6.0, 5)) * smoothstep(0.2, 0.6, barrel);
+        return vec4(h, barrel, id, lichen);
+      }`,
+    shade: /* glsl */`
+      void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
+        vec3 a = lin(vec3(0.7, 0.36, 0.22)), b = lin(vec3(0.58, 0.27, 0.17)), k = lin(vec3(0.76, 0.48, 0.32));
+        vec3 c = mix(a, b, F.z);
+        c = mix(c, k, step(0.8, F.z) * 0.7);
+        c *= 0.82 + 0.3 * fbm(uv, 60.0, 3);
+        c = mix(c * 0.55, c, smoothstep(0.0, 0.5, F.y));        // dirt in the valleys
+        c = mix(c, c * 1.15 + 0.03, smoothstep(0.75, 1.0, F.y) * 0.5);
+        c = mix(c, lin(vec3(0.62, 0.6, 0.45)), F.w * 0.45);       // lichen
+        c *= 1.0 - cav * 0.35;
+        alb = c;
+        rough = 0.82 + 0.12 * fbm(uv, 70.0, 2) - F.y * 0.08;
         metal = 0.0;
       }`,
   });
@@ -190,7 +249,7 @@ export function asphalt(B, size, seed) {
 // bedded in sand with dirt and a little moss in the joints.
 export function cobble(B, size, seed) {
   return B.bake({
-    name: 'cobble', size, tile: 2.4, seed, normalStrength: 0.8, cavity: 0.7,
+    name: 'cobble', size, tile: 2.4, seed, normalStrength: 0.8, cavity: 0.7, height: [-5, 3.5],
     fields: /* glsl */`
       vec4 sett(vec2 uv) {
         vec2 w = uv + vec2(fbm(uv, 6.0, 3), fbm(uv + 0.4, 6.0, 3)) * 0.012;
@@ -241,7 +300,7 @@ export function cobble(B, size, seed) {
 // per-brick colour, soot, efflorescence and recessed lime mortar.
 export function brick(B, size, pale, seed) {
   return B.bake({
-    name: 'brick', size, tile: 1.35, seed, normalStrength: 1.0, cavity: 1.0,
+    name: 'brick', size, tile: 1.35, seed, normalStrength: 1.0, cavity: 1.0, height: [-6.5, 2],
     uniforms: { uPale: { value: pale ? 1 : 0 } },
     fields: /* glsl */`
       vec4 fields(vec2 uv) {

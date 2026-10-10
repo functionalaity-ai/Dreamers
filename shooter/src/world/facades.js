@@ -9,6 +9,8 @@ import * as THREE from 'three';
 import { worldUV } from '../core/geometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PANEL } from '../core/surfaces.js';
+import { cornice, stringCourse, plinthCap, rusticate, quoins, surroundGeo, doorFrame, tileRoof } from './ornament.js';
+import { lantern, windowBox, drainpipe } from './dressing.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpP = new THREE.Vector3(), tmpS = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0);
 
@@ -263,6 +265,9 @@ export function faceMatrix(f, a, y, d = 0) {
   return new THREE.Matrix4().compose(pos, new THREE.Quaternion().setFromAxisAngle(Y, rotY), new THREE.Vector3(1, 1, 1));
 }
 
+// +1 when face-space x (see faceMatrix) runs the same way as the face's `a` coordinate.
+export function faceDir(f) { return f.axis === 'x' ? (f.out > 0 ? 1 : -1) : (f.out > 0 ? -1 : 1); }
+
 // Builds the wall skin of one face from levels and openings, and returns the openings.
 // levels: [{ y0, y1, holes: [{ a, w, y0, y1 }] }]
 function skin(B, f, a0, a1, levels, reveal, mat) {
@@ -336,23 +341,9 @@ export function stuccoBlock(B, kit, s) {
         const m = faceMatrix(f, h.a, h.y0);
         if (h.win) {
           kit.add('classic', m, reveal, { frame: rnd() < 0.15 ? 'alu' : 'wood', shutters: 'auto', tint: shutterTint.clone().offsetHSL((rnd() - 0.5) * 0.02, 0, (rnd() - 0.5) * 0.08) });
-          // stucco surround, stone sill, cap (pediment on the first floor)
-          const sw = 0.12, pr = 0.035;
-          faceBox(B, f, h.a - h.w / 2 - sw, h.a - h.w / 2, h.y0, h.y1 + sw, 0, pr, trim);
-          faceBox(B, f, h.a + h.w / 2, h.a + h.w / 2 + sw, h.y0, h.y1 + sw, 0, pr, trim);
-          faceBox(B, f, h.a - h.w / 2, h.a + h.w / 2, h.y1, h.y1 + sw, 0, pr, trim);
-          faceBox(B, f, h.a - h.w / 2 - 0.2, h.a + h.w / 2 + 0.2, h.y0 - 0.09, h.y0, -0.02, 0.075, 'concrete');
-          if (h.fl === 1) {
-            faceBox(B, f, h.a - h.w / 2 - 0.22, h.a + h.w / 2 + 0.22, h.y1 + sw, h.y1 + sw + 0.09, 0, 0.11, trim);
-            const tri = new THREE.Shape();
-            tri.moveTo(-h.w / 2 - 0.2, 0); tri.lineTo(h.w / 2 + 0.2, 0); tri.lineTo(0, 0.34); tri.lineTo(-h.w / 2 - 0.2, 0);
-            const g = new THREE.ExtrudeGeometry(tri, { depth: 0.08, bevelEnabled: false });
-            g.applyMatrix4(faceMatrix(f, h.a, h.y1 + sw + 0.09, 0.005));
-            worldUV(g);
-            B.geo(trim, g);
-          } else {
-            faceBox(B, f, h.a - 0.09, h.a + 0.09, h.y1 - 0.02, h.y1 + sw + 0.06, 0, 0.06, trim);
-          }
+          // carved architrave with ears and a keystone, a sill on corbels; pediments on the piano nobile
+          kit.push(surroundGeo(h.w, h.y1 - h.y0, h.fl === 1 ? 'pediment' : 'cap'), B.mat(trim), m);
+          if (h.fl >= 1 && rnd() < 0.32) windowBox(B, m, h.w, rnd);
         } else if (h.shop) {
           kit.add('shop', m.clone().scale(new THREE.Vector3(h.w / 3.2, 1, 1)), 0.18, { frame: 'bronze', shutters: 'none' });
           faceBox(B, f, h.a - h.w / 2 - 0.05, h.a + h.w / 2 + 0.05, h.y1, h.y1 + 0.55, 0, 0.06, 'darkMetal');
@@ -391,45 +382,48 @@ export function stuccoBlock(B, kit, s) {
           fan.translate(0, 2.38, -reveal + 0.03);
           fan.applyMatrix4(dm); worldUV(fan);
           B.geo('glass', fan);
-          faceBox(B, f, h.a - h.w / 2 - 0.16, h.a + h.w / 2 + 0.16, 0, 0.18, -0.02, 0.35, 'concrete');
-          faceBox(B, f, h.a - h.w / 2 - 0.16, h.a - h.w / 2, 0.18, h.y1 + 0.16, 0, 0.05, trim);
-          faceBox(B, f, h.a + h.w / 2, h.a + h.w / 2 + 0.16, 0.18, h.y1 + 0.16, 0, 0.05, trim);
-          faceBox(B, f, h.a - h.w / 2 - 0.16, h.a + h.w / 2 + 0.16, h.y1, h.y1 + 0.16, 0, 0.05, trim);
+          doorFrame(B, 'limestone', faceMatrix(f, h.a, 0), h.w, h.y1);
+          for (const sd of rnd() < 0.5 ? [-1, 1] : [rnd() < 0.5 ? -1 : 1]) lantern(B, faceMatrix(f, h.a + sd * (h.w / 2 + 0.62), 2.72));
+          if (B.decals) B.decals.add('num' + Math.floor(rnd() * 6), faceMatrix(f, h.a + (h.w / 2 + 0.62) * (rnd() < 0.5 ? -1 : 1), 2.05), 0.2, 0.2);
         }
       }
     }
-    // String courses at each floor line and a plinth band; deep cornice at the top.
-    faceBox(B, f, a0, a1, 0, 0.45, 0, 0.04, 'concrete');
-    for (let fl = 1; fl < s.floors; fl++) {
-      const y = gH + (fl - 1) * H;
-      faceBox(B, f, a0, a1, y - 0.04, y + 0.1, 0, fl === 1 ? 0.12 : 0.07, trim);
+    // Rusticated stone base with its cap, string courses at the floor lines, quoins up the
+    // corners and a profiled cornice with modillions and dentils at the top.
+    const ac = (a0 + a1) / 2, L = a1 - a0, fm = faceMatrix(f, ac, 0), fx = faceDir(f);
+    const doorGaps = gHoles.filter((h) => h.y0 < 0.45).map((h) => { const u = fx * (h.a - ac); return [u - h.w / 2 - (h.door ? 0.32 : 0.02), u + h.w / 2 + (h.door ? 0.32 : 0.02)]; });
+    rusticate(B, 'limestone', fm, L, 0.45, rnd, doorGaps);
+    plinthCap(B, 'limestone', fm, L, 0.45);
+    for (let fl = 1; fl < s.floors; fl++) stringCourse(B, trim, fm, L + 0.04, gH + (fl - 1) * H - 0.06);
+    for (const [a, dir] of [[a0, fx], [a1, -fx]]) quoins(B, 'limestone', faceMatrix(f, a, 0), 0.56, top - 0.5, dir);
+    cornice(B, trim, fm, L + 0.3, top - 0.5);
+    // posters and tags low on the wall where there's room, a street sign by each corner
+    if (B.decals) {
+      const holes = gHoles.map((h) => [h.a - h.w / 2 - 0.3, h.a + h.w / 2 + 0.3]).sort((p, q) => p[0] - q[0]);
+      let cur = a0 + 0.9;
+      for (const [h0, h1] of holes.concat([[a1 - 0.9, a1]])) {
+        if (h0 - cur > 1.0) {
+          const a = cur + (h0 - cur) * (0.3 + rnd() * 0.4), k = rnd();
+          if (k < 0.55) B.decals.add('poster' + Math.floor(rnd() * 8), faceMatrix(f, a, 1.25 + rnd() * 0.3), 0.62, 0.86);
+          else if (k < 0.8) B.decals.add(['tagVolk', 'tagArrow', 'tagMsg', 'tagCircle'][Math.floor(rnd() * 4)], faceMatrix(f, a, 0.95 + rnd() * 0.3), 1.1, 0.42);
+          else B.decals.add('note' + Math.floor(rnd() * 6), faceMatrix(f, a, 1.45), 0.3, 0.18);
+        }
+        cur = Math.max(cur, h1);
+      }
+      B.decals.add('street' + Math.floor(rnd() * 3), faceMatrix(f, a0 + 1.25, 3.25), 0.86, 0.2);
     }
-    faceBox(B, f, a0, a1, top - 0.5, top - 0.32, 0, 0.1, trim);
-    faceBox(B, f, a0, a1, top - 0.32, top - 0.18, 0, 0.22, trim);
-    faceBox(B, f, a0, a1, top - 0.18, top, 0, 0.42, trim);
-    // modillions under the cornice
-    for (let a = a0 + 0.3; a < a1 - 0.2; a += 0.55) faceBox(B, f, a, a + 0.1, top - 0.32, top - 0.18, 0.1, 0.36, trim);
   }
-  // Roof: parapet slab, a few chimneys.
-  B.solid(s.x0 - 0.05, top, s.z0 - 0.05, s.x1 + 0.05, top + 0.3, s.z1 + 0.05, 'concrete', 'brick');
-  for (let i = 0; i < 2; i++) {
-    const cx = s.x0 + 1.5 + rnd() * (s.x1 - s.x0 - 3), cz = s.z0 + 1.5 + rnd() * (s.z1 - s.z0 - 3);
-    B.solid(cx - 0.35, top + 0.3, cz - 0.5, cx + 0.35, top + 1.6, cz + 0.5, 'brick', null);
-    B.solid(cx - 0.42, top + 1.6, cz - 0.57, cx + 0.42, top + 1.72, cz + 0.57, 'concrete', null);
+  // Roof: clay tiles on a gable (or the old flat parapet where asked for)
+  if (s.roof === 'flat') {
+    B.solid(s.x0 - 0.05, top, s.z0 - 0.05, s.x1 + 0.05, top + 0.3, s.z1 + 0.05, 'concrete', 'brick');
+  } else {
+    B.collider(s.x0, top, s.z0, s.x1, top + 0.3, s.z1, 'brick');
+    tileRoof(B, s, top, s.mat, { rnd });
   }
-  // Drainpipes at the ends of street faces.
+  // Drainpipes at the ends of street faces, clear of the quoins.
   for (const side of faces) {
     const f = faceOf(side);
-    for (const a of [f.a0 + 0.25, f.a1 - 0.25]) {
-      const g = new THREE.CylinderGeometry(0.055, 0.055, top - 0.2, 10);
-      g.translate(0, (top - 0.2) / 2, 0);
-      g.applyMatrix4(faceMatrix(f, a, 0, 0.16));
-      B.geo('galvanized', g);
-      const hopper = new THREE.CylinderGeometry(0.12, 0.06, 0.25, 10);
-      hopper.translate(0, top - 0.45, 0);
-      hopper.applyMatrix4(faceMatrix(f, a, 0, 0.16));
-      B.geo('galvanized', hopper);
-    }
+    for (const a of [f.a0 + 0.78, f.a1 - 0.78]) drainpipe(B, faceMatrix(f, a, 0, 0.02), top - 0.15);
   }
   return top;
 }

@@ -117,12 +117,14 @@ export class TexBaker {
     const shadeU = Object.assign({}, uniforms, {
       tF: { value: fieldsRT.texture }, texel: { value: texel }, slope: { value: slope }, mode: { value: 0 },
       cavScale: { value: spec.cavity || 1 },
+      hRange: { value: new THREE.Vector2(...(spec.height || [0, 0])) },
     });
     const shadeMat = new THREE.ShaderMaterial({
       uniforms: shadeU, vertexShader: VERT,
       fragmentShader: NOISE + spec.shade + /* glsl */`
         uniform sampler2D tF;
         uniform float texel, slope, mode, cavScale;
+        uniform vec2 hRange;
         varying vec2 vUv;
         float H(vec2 uv) { return texture2D(tF, uv).x; }
         void main() {
@@ -142,8 +144,10 @@ export class TexBaker {
             cav = clamp(cav * 0.5 * cavScale, 0.0, 1.0);
             vec3 alb; float rough, metal;
             shade(vUv, F, cav, alb, rough, metal);
+            // alpha of the ORM map: relief for parallax (1 = the top of the surface), when the recipe gives a range
+            float relief = hRange.y > hRange.x ? clamp((F.x - hRange.x) / (hRange.y - hRange.x), 0.0, 1.0) : 1.0;
             if (mode < 0.5) gl_FragColor = vec4(clamp(alb, 0.0, 1.0), 1.0);
-            else gl_FragColor = vec4(clamp(1.0 - cav * 0.85, 0.0, 1.0), clamp(rough, 0.03, 1.0), clamp(metal, 0.0, 1.0), 1.0);
+            else gl_FragColor = vec4(clamp(1.0 - cav * 0.85, 0.0, 1.0), clamp(rough, 0.03, 1.0), clamp(metal, 0.0, 1.0), relief);
           } else {
             float hx = H(vUv + vec2(texel, 0.0)) - H(vUv - vec2(texel, 0.0));
             float hy = H(vUv + vec2(0.0, texel)) - H(vUv - vec2(0.0, texel));

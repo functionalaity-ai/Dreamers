@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { Builder, building } from './builder.js';
 import { WindowKit, stuccoBlock, sovietBlock } from './facades.js';
+import { DecalAtlas, cable } from './dressing.js';
 import * as VH from './vehicles.js';
 import * as P from './props.js';
 
@@ -19,6 +20,7 @@ export function buildOldTown(physics, materials, scene) {
   const B = new Builder(physics, materials);
   const kit = new WindowKit(materials.world, { seed: 77 });
   B.kit = kit;
+  B.decals = new DecalAtlas();
 
   // --- Ground surfaces (visual; the physics ground is y = 0) ---------------------
   B.solid(-52, -0.05, -13, 52, 0.0, 13, 'cobble', null, { shadow: false });
@@ -188,8 +190,15 @@ export function buildOldTown(physics, materials, scene) {
     { p: new THREE.Vector3(0, 0, -32.8), lane: 0 }, { p: new THREE.Vector3(1, 0, 32.2), lane: 2 },
   );
 
+  // Cables strung across the streets between the facades
+  for (const [x, z0, z1, y0, y1] of [[-30, -22.3, -13.4, 6.2, 5.6], [-6, -21.3, 21.8, 8.8, 6.4], [26, -22.3, 22.3, 7.6, 7.2], [-44, -22.3, 22.3, 6.8, 7.4], [41, -22.3, 21.7, 7.1, 6.6]]) {
+    cable(B, new THREE.Vector3(x, y0, z0), new THREE.Vector3(x + 1.2, y1, z1), 0.9);
+    cable(B, new THREE.Vector3(x + 0.4, y0 - 0.35, z0), new THREE.Vector3(x + 1.5, y1 - 0.3, z1), 1.2, 0.009);
+  }
+
   const group = B.build(scene);
   kit.build(scene);
+  B.decals.build(scene);
   return { builder: B, group, spawns: B.spawns, points: B.points, hints: B.hints, indoor: B.indoor, lights: B.lights, signs: B.signs };
 }
 

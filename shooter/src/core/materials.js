@@ -52,9 +52,11 @@ export class Materials {
       }, opts || {}));
     };
     const facadeWeather = { weather: { grime: 0.75, moss: 0.35, streaks: 0.6 }, wrap: { amount: 0.4, tint: 0xffb98a } };
+    // parallax relief (High and Ultra): depth in metres
+    const px = (opts, depth) => (P.parallax ? Object.assign({}, opts, { parallax: { depth, steps: P.parallax } }) : opts);
     const steps = [
       () => {
-        W.cobble = enhance(baked(tiled(SF.cobble(B, size, 3), 2.4, 2.4, an)), { weather: { grime: 0.15, moss: 0.25, streaks: 0, puddles: 0.55, tone: 0.7 } });
+        W.cobble = enhance(baked(tiled(SF.cobble(B, size, 3), 2.4, 2.4, an)), px({ weather: { grime: 0.15, moss: 0.25, streaks: 0, puddles: 0.55, tone: 0.7 } }, 0.028));
         W.asphalt = enhance(baked(tiled(SF.asphalt(B, size, 4), 6, 6, an)), { weather: { grime: 0, moss: 0, streaks: 0, puddles: 1, tone: 0.8 }, box: true });
       },
       () => {
@@ -62,17 +64,20 @@ export class Materials {
         W.sidewalk = enhance(baked(tiled(SF.concrete(B, small, 0xb5b0a6, 6, false, 3), 3, 3, an)), { weather: { grime: 0.3, moss: 0.15, streaks: 0, puddles: 0.35 } });
       },
       () => {
-        W.brick = enhance(baked(tiled(SF.brick(B, size, false, 7), 1.35, 1.35, an)), facadeWeather);
-        W.brickPale = enhance(baked(tiled(SF.brick(B, size, true, 8), 1.35, 1.35, an)), facadeWeather);
+        W.brick = enhance(baked(tiled(SF.brick(B, size, false, 7), 1.35, 1.35, an)), px(facadeWeather, 0.014));
+        W.brickPale = enhance(baked(tiled(SF.brick(B, size, true, 8), 1.35, 1.35, an)), px(facadeWeather, 0.014));
+        // dressed limestone for quoins, door frames, plinths and sills; clay tiles for the roofs
+        W.limestone = enhance(baked(tiled(SF.concrete(B, small, 0xc9bda7, 17, false), 1.6, 1.6, an)), facadeWeather);
+        W.roofTiles = enhance(baked(tiled(SF.roofTiles(B, size, 18), 2.1, 2.1, an)), { weather: { grime: 0.3, moss: 0.2, streaks: 0, tone: 0.6 } });
       },
       () => {
-        W.plasterCream = enhance(baked(tiled(SF.stucco(B, size, 0xd9c6a0, 1), 4, 4, an)), facadeWeather);
-        W.plasterOchre = enhance(baked(tiled(SF.stucco(B, size, 0xcf9d5e, 2), 4, 4, an)), facadeWeather);
+        W.plasterCream = enhance(baked(tiled(SF.stucco(B, size, 0xd9c6a0, 1), 4, 4, an)), px(facadeWeather, 0.022));
+        W.plasterOchre = enhance(baked(tiled(SF.stucco(B, size, 0xcf9d5e, 2), 4, 4, an)), px(facadeWeather, 0.022));
       },
       () => {
-        W.plasterSage = enhance(baked(tiled(SF.stucco(B, size, 0xa7b296, 3), 4, 4, an)), facadeWeather);
-        W.plasterWhite = enhance(baked(tiled(SF.stucco(B, size, 0xe4ddd0, 4), 4, 4, an)), facadeWeather);
-        W.plasterRose = enhance(baked(tiled(SF.stucco(B, size, 0xd6a690, 9), 4, 4, an)), facadeWeather);
+        W.plasterSage = enhance(baked(tiled(SF.stucco(B, size, 0xa7b296, 3), 4, 4, an)), px(facadeWeather, 0.022));
+        W.plasterWhite = enhance(baked(tiled(SF.stucco(B, size, 0xe4ddd0, 4), 4, 4, an)), px(facadeWeather, 0.022));
+        W.plasterRose = enhance(baked(tiled(SF.stucco(B, size, 0xd6a690, 9), 4, 4, an)), px(facadeWeather, 0.022));
       },
       () => {
         const panel = tiled(SF.sovietPanel(B, size, 0xb3ada2, 10), SF.PANEL.w, SF.PANEL.h, an);
@@ -132,6 +137,11 @@ export class Materials {
     W.fabric = new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.95 });
     W.paper = new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9 });
     W.lampGlow = new THREE.MeshStandardMaterial({ color: 0xfff1c8, emissive: 0xffd890, emissiveIntensity: 2.2 });
+    // window boxes and cables
+    W.terracotta = new THREE.MeshStandardMaterial({ color: 0x9c4f30, roughness: 0.9, name: 'terracotta' });
+    W.leaves = new THREE.MeshStandardMaterial({ color: 0x3f6e30, roughness: 0.8, flatShading: true, name: 'leaves' });
+    W.geranium = new THREE.MeshStandardMaterial({ color: 0xc8222a, roughness: 0.7, flatShading: true, name: 'geranium' });
+    W.rubberDark = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.75, name: 'rubberDark' });
     W.mastic = new THREE.MeshStandardMaterial({ color: 0x1a1918, roughness: 0.6 });
     W.galvanized = enhance(new THREE.MeshStandardMaterial({ color: 0x9a9c9c, metalness: 0.9, roughness: 0.45, normalMap: W.concrete.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) }), { weather: { grime: 0.6, moss: 0, streaks: 0.8 }, box: true });
     W.balconyRail = enhance(new THREE.MeshStandardMaterial({ color: 0x31352f, metalness: 0.7, roughness: 0.6 }), { weather: { grime: 0.3, moss: 0, streaks: 0.4 } });

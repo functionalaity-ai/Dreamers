@@ -71,6 +71,7 @@ export function enhance(mat, opts) {
   if (opts.interior) Object.assign(local, { iGrimeMap: { value: opts.interior.grimeMap || null }, iGrimeAmt: { value: opts.interior.grime ?? 0.5 },
     iWin: { value: new THREE.Vector2(...(opts.interior.win || [0.65, 1.55])) }, iRoom: { value: new THREE.Vector3(...(opts.interior.room || [0.9, 1.15, 3.6])) }, iShop: { value: opts.interior.shop ? 1 : 0 } });
   if (opts.paint) Object.assign(local, { pDirt: { value: opts.paint.dirt ?? 0.6 }, pDust: { value: opts.paint.dust ?? 0.4 } });
+  if (opts.parallax) Object.assign(local, { pxDepth: { value: opts.parallax.depth }, pxRepeat: { value: mat.map ? mat.map.repeat.x : 1 } });
   if (opts.uv || opts.glass || opts.interior) { mat.defines = Object.assign(mat.defines || {}, { USE_UV: '' }); }
   if (opts.box) SHARED_PROBE_MATS.add(mat);
   mat.userData.uniforms = local;
@@ -120,6 +121,7 @@ export function enhance(mat, opts) {
     if (opts.glass) pre += 'uniform float gTransmit, gGrimeAmt;\nuniform sampler2D gGrimeMap;\n';
     if (opts.interior) pre += 'uniform float iGrimeAmt, iShop;\nuniform vec2 iWin;\nuniform vec3 iRoom;\nuniform sampler2D iGrimeMap;\nvarying vec3 vRoomPos;\nvarying vec3 vRoomCam;\nvarying vec3 vRoomSun;\nvarying vec3 vRoomSeed;\n' + INTERIOR_FN;
     if (opts.paint) pre += 'uniform float pDirt, pDust;\nvarying vec3 vLocal;\nvarying vec3 vLocalN;\n';
+    if (opts.parallax) pre += 'uniform float pxDepth, pxRepeat;\n#define PX_STEPS ' + (opts.parallax.steps || 10) + '\n';
     f = pre + f;
 
     if (opts.box) {
@@ -203,6 +205,13 @@ export function enhance(mat, opts) {
         }`);
       f = f.replace('#include <premultiplied_alpha_fragment>', '');
     }
+    if (opts.parallax) {
+      // every map of a baked set shares one transform, so one offset shifts them all
+      f = inject(f, '#include <clipping_planes_fragment>', PARALLAX_FRAG);
+      for (const [chunk, uv] of [['map_fragment', 'vMapUv'], ['normal_fragment_maps', 'vNormalMapUv'], ['roughnessmap_fragment', 'vRoughnessMapUv'], ['metalnessmap_fragment', 'vMetalnessMapUv'], ['aomap_fragment', 'vAoMapUv']]) {
+        f = f.replace('#include <' + chunk + '>', THREE.ShaderChunk[chunk].split(uv).join('(' + uv + ' + pxOff)'));
+      }
+    }
     sh.vertexShader = v;
     sh.fragmentShader = f;
   };
@@ -215,6 +224,37 @@ export function enhance(mat, opts) {
   mat.needsUpdate = true;
   return mat;
 }
+
+// Parallax occlusion: march the view ray into the relief stored in the ORM map's alpha. The
+// facades and streets use world-projected UVs (see worldUV), so the tangent frame is the world
+// axes picked by the dominant normal, exactly as the UVs were.
+const PARALLAX_FRAG = /* glsl */`
+  vec2 pxOff = vec2(0.0);
+  {
+    vec3 an = abs(vWNrm);
+    vec3 T = vec3(1.0, 0.0, 0.0), Bt = vec3(0.0, 1.0, 0.0);
+    if (an.y >= an.x && an.y >= an.z) Bt = vec3(0.0, 0.0, 1.0);
+    else if (an.x >= an.z) T = vec3(0.0, 0.0, 1.0);
+    vec3 V = normalize(cameraPosition - vWPos);
+    float dist = length(cameraPosition - vWPos);
+    float fade = 1.0 - smoothstep(9.0, 22.0, dist);
+    if (fade > 0.0) {
+      float ndv = max(abs(dot(normalize(vWNrm), V)), 0.18);
+      vec2 duv = -vec2(dot(V, T), dot(V, Bt)) / ndv * pxDepth * pxRepeat;
+      vec2 base = vRoughnessMapUv, gx = dFdx(base), gy = dFdy(base);
+      float layer = 1.0 / float(PX_STEPS), depth = 0.0;
+      float h = textureGrad(roughnessMap, base, gx, gy).a, prevH = h, prevD = 0.0;
+      for (int i = 0; i < PX_STEPS; i++) {
+        if (depth >= 1.0 - h) break;
+        prevH = h; prevD = depth;
+        depth += layer;
+        h = textureGrad(roughnessMap, base + duv * depth, gx, gy).a;
+      }
+      float after = (1.0 - h) - depth, before = (1.0 - prevH) - prevD;
+      float w = clamp(after / (after - before - 1e-5), 0.0, 1.0);
+      pxOff = duv * mix(depth, prevD, w) * fade;
+    }
+  }`;
 
 export const SHARED_PROBE_MATS = new Set();
 
