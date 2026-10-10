@@ -201,42 +201,146 @@ export function stipple(size) {
 }
 
 // A cluster of leaves on a transparent card, for alpha-tested tree crowns.
+// Leaf sprigs for the tree cards: a 2x2 atlas of twigs, each with a run of stalked leaves (pointed
+// ovals with a midrib and side veins), coloured leaf by leaf. Alpha-tested, so the mipmaps are
+// built here with the alpha rescaled per level to keep the same coverage: distant crowns stay
+// as dense as near ones instead of dissolving.
 export function leafCluster(size, autumn) {
   const c = document.createElement('canvas');
   c.width = c.height = size;
   const g = c.getContext('2d');
   const r = mulberry(autumn ? 202 : 201);
-  const greens = autumn ? ['#7a5a22', '#9a6e2a', '#6a5a28', '#8a7a34', '#5a4a1e'] : ['#3d5226', '#4a6230', '#56702f', '#34481f', '#61793a'];
-  // Twigs
-  g.strokeStyle = '#3a2e22';
-  g.lineWidth = size / 160;
-  for (let i = 0; i < 7; i++) {
-    g.beginPath();
-    g.moveTo(size / 2, size / 2);
-    g.lineTo(size * (0.1 + r() * 0.8), size * (0.1 + r() * 0.8));
-    g.stroke();
-  }
-  for (let i = 0; i < 260; i++) {
-    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * size * 0.44;
-    const x = size / 2 + Math.cos(a) * d, y = size / 2 + Math.sin(a) * d;
-    const l = size * (0.03 + r() * 0.025);
+  const C = size / 2;
+  // [hue, saturation, lightness] ranges per leaf: mostly mid greens, some young yellow-green
+  // and a few deep shade leaves (autumn: ochres and rust with a few late greens)
+  const pal = autumn
+    ? [[[32, 48], [55, 70], [30, 42]], [[18, 28], [50, 62], [24, 32]], [[48, 62], [45, 58], [34, 44]], [[70, 85], [32, 42], [26, 34]]]
+    : [[[84, 100], [36, 50], [22, 32]], [[70, 82], [44, 56], [32, 42]], [[96, 112], [28, 38], [14, 21]], [[88, 96], [30, 40], [26, 34]]];
+  const weights = autumn ? [0.45, 0.25, 0.2, 0.1] : [0.5, 0.2, 0.2, 0.1];
+  const pick = () => { let v = r(), i = 0; while (i < weights.length - 1 && v > weights[i]) { v -= weights[i]; i++; } return pal[i]; };
+  const hsl = (h, s, l, a = 1) => `hsla(${h.toFixed(1)},${s.toFixed(1)}%,${l.toFixed(1)}%,${a})`;
+  const rr = (a) => a[0] + r() * (a[1] - a[0]);
+  function leaf(x, y, ang, L) {
+    const W = L * (0.48 + r() * 0.14), asym = 0.9 + r() * 0.2;
+    const [hr, sr, lr] = pick();
+    const h = rr(hr), sat = rr(sr), l = rr(lr);
     g.save();
     g.translate(x, y);
-    g.rotate(r() * Math.PI * 2);
-    g.fillStyle = greens[Math.floor(r() * greens.length)];
+    g.rotate(ang);
     g.beginPath();
-    g.ellipse(0, 0, l, l * 0.45, 0, 0, Math.PI * 2);
+    g.moveTo(0, 0);
+    g.bezierCurveTo(L * 0.18, -W * 0.62 * asym, L * 0.68, -W * 0.6 * asym, L, 0);
+    g.bezierCurveTo(L * 0.68, W * 0.6 / asym, L * 0.18, W * 0.62 / asym, 0, 0);
+    // lit from one side of the midrib, darker at the stalk
+    const grad = g.createLinearGradient(0, -W * 0.5, L * 0.3, W * 0.5);
+    grad.addColorStop(0, hsl(h - 2, sat, l + 5));
+    grad.addColorStop(0.5, hsl(h, sat, l));
+    grad.addColorStop(1, hsl(h + 3, sat - 4, l - 6));
+    g.fillStyle = grad;
     g.fill();
-    g.fillStyle = 'rgba(255,255,220,0.12)';
-    g.beginPath();
-    g.ellipse(-l * 0.2, -l * 0.1, l * 0.5, l * 0.18, 0, 0, Math.PI * 2);
+    const tip = g.createLinearGradient(0, 0, L, 0);
+    tip.addColorStop(0, 'rgba(20,24,8,0.28)');
+    tip.addColorStop(0.35, 'rgba(20,24,8,0)');
+    tip.addColorStop(1, 'rgba(255,250,200,0.1)');
+    g.fillStyle = tip;
     g.fill();
+    g.strokeStyle = hsl(h + 6, sat - 6, l - 9, 0.55);
+    g.lineWidth = Math.max(1, L / 70);
+    g.stroke();
+    g.clip();
+    // midrib and side veins
+    g.strokeStyle = hsl(h - 8, sat - 10, l + 16, 0.55);
+    g.lineWidth = Math.max(1, L / 45);
+    g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(L * 0.5, W * 0.04, L * 0.93, 0); g.stroke();
+    g.lineWidth = Math.max(0.6, L / 110);
+    g.strokeStyle = hsl(h - 8, sat - 10, l + 12, 0.3);
+    for (let k = 1; k <= 4; k++) {
+      const u = L * (0.14 + k * 0.17);
+      for (const sd of [-1, 1]) { g.beginPath(); g.moveTo(u, 0); g.quadraticCurveTo(u + L * 0.08, sd * W * 0.2, u + L * 0.16, sd * W * 0.36 * (1 - k * 0.12)); g.stroke(); }
+    }
     g.restore();
   }
-  const t = new THREE.CanvasTexture(c);
+  for (let cell = 0; cell < 4; cell++) {
+    const ox = (cell % 2) * C, oy = Math.floor(cell / 2) * C;
+    // twig: from the bottom middle of the cell, bending to one side
+    const bend = (r() - 0.5) * C * 0.35;
+    const x0 = ox + C * 0.5, y0 = oy + C * 0.97, x1 = ox + C * 0.5 + bend * 0.6, y1 = oy + C * 0.16;
+    const cx = ox + C * 0.5 + bend, cy = oy + C * 0.55;
+    const at = (t) => [(1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1, (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1];
+    const along = (t) => { const a = at(Math.max(0, t - 0.01)), b = at(Math.min(1, t + 0.01)); return Math.atan2(b[1] - a[1], b[0] - a[0]); };
+    g.strokeStyle = autumn ? '#4a3a24' : '#45422a';
+    g.lineCap = 'round';
+    g.lineWidth = C / 70;
+    g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(cx, cy, x1, y1); g.stroke();
+    const n = 7 + Math.floor(r() * 5);
+    for (let i = 0; i < n; i++) {
+      const t = 0.12 + 0.8 * i / (n - 1) + (r() - 0.5) * 0.04;
+      const [px, py] = at(t);
+      const dir = along(t), side = i % 2 ? 1 : -1;
+      const L = C * (0.2 + r() * 0.07) * (1 - t * 0.25);
+      // the stalk, then the blade angled towards the tip
+      const sa = dir + side * (0.75 + r() * 0.35);
+      const sl = L * 0.16;
+      const qx = px + Math.cos(sa) * sl, qy = py + Math.sin(sa) * sl;
+      g.lineWidth = C / 200;
+      g.beginPath(); g.moveTo(px, py); g.lineTo(qx, qy); g.stroke();
+      leaf(qx, qy, dir + side * (0.5 + r() * 0.45), L);
+    }
+    leaf(x1, y1, along(1) + (r() - 0.5) * 0.3, C * 0.22);
+  }
+  const levels = coverageMips(g.getImageData(0, 0, size, size));
+  const t = new THREE.Texture(levels[0]);
+  t.mipmaps = levels;
+  t.generateMipmaps = false;
+  t.minFilter = THREE.LinearMipmapLinearFilter;
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  t.needsUpdate = true;
   return t;
+}
+
+// Mip chain for an alpha-tested image (threshold 0.5): colour averaged over the opaque texels
+// only (so edges don't darken), alpha scaled per level until it covers what level 0 covers.
+function coverageMips(img) {
+  const covered = (a, s) => { let n = 0; for (let i = 3; i < a.length; i += 4) if (a[i] * s >= 127.5) n++; return n / (a.length / 4); };
+  const d0 = img.data;
+  // fully transparent texels take the mean leaf colour, so filtering never pulls in black
+  let mr = 0, mg = 0, mb = 0, mn = 0;
+  for (let i = 0; i < d0.length; i += 4) if (d0[i + 3] > 200) { mr += d0[i]; mg += d0[i + 1]; mb += d0[i + 2]; mn++; }
+  mn = Math.max(1, mn); mr /= mn; mg /= mn; mb /= mn;
+  for (let i = 0; i < d0.length; i += 4) if (d0[i + 3] < 8) { d0[i] = mr; d0[i + 1] = mg; d0[i + 2] = mb; }
+  const target = covered(d0, 1);
+  const levels = [img];
+  let w = img.width, h = img.height, src = new Float32Array(d0);
+  while (w > 1 || h > 1) {
+    const nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);
+    const dst = new Float32Array(nw * nh * 4);
+    for (let y = 0; y < nh; y++) {
+      for (let x = 0; x < nw; x++) {
+        let r = 0, g = 0, b = 0, a = 0;
+        for (let k = 0; k < 4; k++) {
+          const sx = Math.min(w - 1, x * 2 + (k & 1)), sy = Math.min(h - 1, y * 2 + (k >> 1));
+          const i = (sy * w + sx) * 4, wa = src[i + 3] + 1;
+          r += src[i] * wa; g += src[i + 1] * wa; b += src[i + 2] * wa; a += src[i + 3];
+          dst[(y * nw + x) * 4 + 3] += wa;
+        }
+        const o = (y * nw + x) * 4, ws = dst[o + 3];
+        dst[o] = r / ws; dst[o + 1] = g / ws; dst[o + 2] = b / ws; dst[o + 3] = a / 4;
+      }
+    }
+    const alpha = new Uint8ClampedArray(nw * nh * 4);
+    for (let i = 3; i < alpha.length; i += 4) alpha[i] = dst[i];
+    let lo = 1, hi = 4;
+    for (let k = 0; k < 14; k++) { const m = (lo + hi) / 2; if (covered(alpha, m) < target) lo = m; else hi = m; }
+    const out = new ImageData(nw, nh);
+    for (let i = 0; i < out.data.length; i += 4) {
+      out.data[i] = dst[i]; out.data[i + 1] = dst[i + 1]; out.data[i + 2] = dst[i + 2];
+      out.data[i + 3] = Math.min(255, dst[i + 3] * hi);
+    }
+    levels.push(out);
+    src = dst; w = nw; h = nh;
+  }
+  return levels;
 }
 
 // Striped awning canvas: one 0.6 m repeat across u (two stripes with sewn seams), a fine weave and

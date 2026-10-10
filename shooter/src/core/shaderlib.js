@@ -8,6 +8,8 @@
 //             with a dust film from a grime map
 //   interior  fake rooms behind opaque window glass (interior mapping) with sun patches
 //   paint     car paint: road dirt on the sills, dust on the roof and bonnet
+//   foliage   leaf cards and branches: wind sway, crown-shaped normals, light through the leaves
+//   gi        (every world material) the baked bounce light and sky visibility from bounce.js
 import * as THREE from 'three';
 
 // Uniforms shared by every patched material (updated in one place).
@@ -22,7 +24,106 @@ export const SHARED = {
   // cloud shadows: xy drift offset, z scale, w strength (0 = off)
   cloudShadow: { value: new THREE.Vector4(0, 0, 0.27, 0) },
   probePos: null, boxMin: null, boxMax: null, // linked to the renderer's probe uniforms
+  time: { value: 0 }, // seconds, for the wind
+  // Baked lighting volume (bounce.js). giOn stays 0 until the bake has filled the textures.
+  giOn: { value: 0 },
+  giTex0: { value: null }, giTex1: { value: null }, giTex2: { value: null },
+  giMin: { value: new THREE.Vector3() }, giInvExt: { value: new THREE.Vector3(1, 1, 1) },
+  giOff: { value: new THREE.Vector3() }, // push along the normal, in metres per axis (half a probe step)
+  giBounce: { value: 1 },
 };
+
+const GI_UNIFORMS = ['giOn', 'giTex0', 'giTex1', 'giTex2', 'giMin', 'giInvExt', 'giOff', 'giBounce'];
+const GI_PARS = 'uniform float giOn, giBounce;\nuniform highp sampler3D giTex0, giTex1, giTex2;\nuniform vec3 giMin, giInvExt, giOff;\n';
+
+// Baked light, applied just before three resolves the indirect terms. Sky light (the IBL and the
+// hemisphere) is scaled by how much sky the point sees in the normal's direction, and sunlight
+// bounced off the surroundings is added on top. The lookup is pushed half a probe step along the
+// surface normal, so a wall reads the probes in front of it and not the room behind it.
+// GI_POS / GI_NRM: world position and normal; GI_SPEC: how far reflections are occluded too.
+const GI_FRAG = /* glsl */`
+  if (giOn > 0.5) {
+    vec3 giN = inverseTransformDirection(geometryNormal, viewMatrix);
+    vec3 giG = normalize(GI_NRM) * GI_FACE;
+    vec3 giUVW = (GI_POS + giG * giOff - giMin) * giInvExt;
+    vec4 giA = texture(giTex0, giUVW);
+    vec3 giB = texture(giTex1, giUVW).xyz;
+    vec3 giC = texture(giTex2, giUVW).xyz;
+    float giVis = clamp(giA.a + 2.0 * dot(giC, giN), 0.0, 1.0);
+    vec3 giBounceE = PI * giA.rgb * max(0.0, 1.0 + 2.0 * dot(giB, giN));
+    iblIrradiance *= giVis;
+    irradiance = irradiance * giVis + giBounceE * giBounce;
+    radiance *= mix(1.0, giVis, GI_SPEC);
+    #ifdef USE_CLEARCOAT
+      clearcoatRadiance *= mix(1.0, giVis, GI_SPEC);
+    #endif
+  }`;
+
+function linkGI(sh) { for (const k of GI_UNIFORMS) sh.uniforms[k] = SHARED[k]; }
+
+// Wind: a slow sway that grows with height above ~1.5 m (trunks stay put, crowns move), in
+// gusts that roll across the square, plus a quick flutter for the leaves. Batched geometry
+// keeps no per-vertex weights, so everything comes from the world position.
+export const WIND_FN = /* glsl */`
+uniform float uTime;
+vec3 windSway(vec3 p, float flutter) {
+  float h = max(p.y - 1.5, 0.0);
+  float bend = h * h * 0.0017;
+  float ph = dot(p.xz, vec2(0.13, 0.08));
+  float gust = sin(uTime * 0.83 + ph) * 0.65 + sin(uTime * 2.07 + ph * 2.3) * 0.25 + 0.4;
+  vec3 off = vec3(0.86, 0.0, 0.5) * gust * bend;
+  float k = min(h, 4.0) * 0.004 * flutter;
+  float f = sin(uTime * 6.3 + dot(p, vec3(3.1, 2.3, 2.7)));
+  float g = sin(uTime * 4.7 + dot(p, vec3(2.3, 3.7, 1.9)));
+  return off + vec3(f * 0.6, g, f * -0.4) * k;
+}
+`;
+
+// The same sway for a shadow-casting depth material, so shadows move with the leaves.
+export function swayDepth(depthMat, flutter = 1) {
+  depthMat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = SHARED.time;
+    sh.vertexShader = inject(WIND_FN + sh.vertexShader, '#include <begin_vertex>',
+      'transformed += windSway((modelMatrix * vec4(transformed, 1.0)).xyz, ' + flutter.toFixed(2) + ');');
+  };
+  depthMat.customProgramCacheKey = () => 'sway' + flutter;
+  depthMat.needsUpdate = true;
+  return depthMat;
+}
+
+// Baked light for a world material that doesn't go through enhance() (plain props, cars, decals,
+// characters). Chains any onBeforeCompile already there.
+export function giPatch(mat) {
+  if (!mat || !mat.isMeshStandardMaterial || mat.userData.giPatched || mat.userData.enhance) return mat;
+  mat.userData.giPatched = true;
+  const prev = mat.onBeforeCompile, prevSrc = prev.toString();
+  const prevKey = mat.customProgramCacheKey === THREE.Material.prototype.customProgramCacheKey ? null : mat.customProgramCacheKey;
+  mat.onBeforeCompile = function (sh, r) {
+    prev.call(this, sh, r);
+    if (r && !r.capabilities.isWebGL2) return; // 3D textures need WebGL2
+    linkGI(sh);
+    let v = sh.vertexShader, f = sh.fragmentShader;
+    v = 'varying vec3 vGIPos;\nvarying vec3 vGINrm;\n' + v;
+    v = inject(v, '#include <skinning_vertex>', /* glsl */`
+      {
+        vec4 gp = vec4(transformed, 1.0);
+        vec3 gn = objectNormal;
+        #ifdef USE_INSTANCING
+          gp = instanceMatrix * gp;
+          gn = mat3(instanceMatrix) * gn;
+        #endif
+        vGIPos = (modelMatrix * gp).xyz;
+        vGINrm = normalize(mat3(modelMatrix) * gn);
+      }`);
+    f = 'varying vec3 vGIPos;\nvarying vec3 vGINrm;\n' + GI_PARS + '#define GI_POS vGIPos\n#define GI_NRM vGINrm\n#define GI_SPEC 0.6\n#define GI_FACE faceDirection\n' + f;
+    f = inject(f, '#include <lights_fragment_end>', GI_FRAG, false);
+    sh.vertexShader = v;
+    sh.fragmentShader = f;
+  };
+  mat.customProgramCacheKey = function () { return (prevKey ? prevKey.call(this) : prevSrc) + '|gi'; };
+  mat.needsUpdate = true;
+  return mat;
+}
 
 export function linkProbe(probeUniforms) {
   SHARED.probePos = probeUniforms.probePos;
@@ -54,7 +155,7 @@ function inject(src, anchor, code, after = true) {
 }
 
 // opts: { weather: {grime, moss, streaks, ground}, wrap: {amount, tint}, box: true, glass: {...},
-//         interior: {...}, paint: {...}, uv: true }
+//         interior: {...}, paint: {...}, uv: true, foliage: {flutter, trans, ao} }
 export function enhance(mat, opts) {
   mat.userData.enhance = opts;
   const key = Object.keys(opts).sort().join('+');
@@ -72,11 +173,13 @@ export function enhance(mat, opts) {
     iWin: { value: new THREE.Vector2(...(opts.interior.win || [0.65, 1.55])) }, iRoom: { value: new THREE.Vector3(...(opts.interior.room || [0.9, 1.15, 3.6])) }, iShop: { value: opts.interior.shop ? 1 : 0 } });
   if (opts.paint) Object.assign(local, { pDirt: { value: opts.paint.dirt ?? 0.6 }, pDust: { value: opts.paint.dust ?? 0.4 } });
   if (opts.parallax) Object.assign(local, { pxDepth: { value: opts.parallax.depth }, pxRepeat: { value: mat.map ? mat.map.repeat.x : 1 } });
+  if (opts.foliage) Object.assign(local, { fTrans: { value: opts.foliage.trans ?? 0 } });
   if (opts.uv || opts.glass || opts.interior) { mat.defines = Object.assign(mat.defines || {}, { USE_UV: '' }); }
   if (opts.box) SHARED_PROBE_MATS.add(mat);
   mat.userData.uniforms = local;
 
-  mat.onBeforeCompile = (sh) => {
+  mat.onBeforeCompile = (sh, renderer) => {
+    const gi = !opts.viewEnv && (!renderer || renderer.capabilities.isWebGL2);
     Object.assign(sh.uniforms, local);
     sh.uniforms.tWeather = SHARED.tWeather;
     sh.uniforms.sunDirW = SHARED.sunDirW;
@@ -87,11 +190,17 @@ export function enhance(mat, opts) {
     sh.uniforms.tCloud = SHARED.tCloud;
     sh.uniforms.cloudShadow = SHARED.cloudShadow;
     if (SHARED.probePos) { sh.uniforms.probePos = SHARED.probePos; sh.uniforms.boxMin = SHARED.boxMin; sh.uniforms.boxMax = SHARED.boxMax; }
+    if (gi) linkGI(sh);
     let v = sh.vertexShader, f = sh.fragmentShader;
     // --- vertex: world varyings (+ room space for interiors, local height for paint)
     v = WORLD_VERT_PARS + v;
     v = inject(v, '#include <beginnormal_vertex>', WORLD_VERT_NORMAL);
     v = inject(v, '#include <begin_vertex>', WORLD_VERT_POS);
+    if (opts.foliage) {
+      // sway before the world varyings are taken, so lighting and the GI lookup follow it
+      sh.uniforms.uTime = SHARED.time;
+      v = inject(WIND_FN + v, '#include <begin_vertex>', 'transformed += windSway((modelMatrix * vec4(transformed, 1.0)).xyz, ' + (opts.foliage.flutter ?? 1).toFixed(2) + ');');
+    }
     if (opts.interior) {
       v = 'varying vec3 vRoomPos;\nvarying vec3 vRoomCam;\nvarying vec3 vRoomSun;\nvarying vec3 vRoomSeed;\nuniform vec3 sunDirW;\n' + v;
       v = inject(v, '#include <begin_vertex>', /* glsl */`
@@ -122,6 +231,8 @@ export function enhance(mat, opts) {
     if (opts.interior) pre += 'uniform float iGrimeAmt, iShop;\nuniform vec2 iWin;\nuniform vec3 iRoom;\nuniform sampler2D iGrimeMap;\nvarying vec3 vRoomPos;\nvarying vec3 vRoomCam;\nvarying vec3 vRoomSun;\nvarying vec3 vRoomSeed;\n' + INTERIOR_FN;
     if (opts.paint) pre += 'uniform float pDirt, pDust;\nvarying vec3 vLocal;\nvarying vec3 vLocalN;\n';
     if (opts.parallax) pre += 'uniform float pxDepth, pxRepeat;\n#define PX_STEPS ' + (opts.parallax.steps || 10) + '\n';
+    if (opts.foliage) pre += 'uniform float fTrans;\n';
+    if (gi) pre += GI_PARS + '#define GI_POS vWPos\n#define GI_NRM vWNrm\n#define GI_SPEC ' + (opts.box ? '0.45' : '0.85') + '\n#define GI_FACE ' + (opts.foliage ? '1.0' : 'faceDirection') + '\n';
     f = pre + f;
 
     if (opts.box) {
@@ -212,10 +323,29 @@ export function enhance(mat, opts) {
         f = f.replace('#include <' + chunk + '>', THREE.ShaderChunk[chunk].split(uv).join('(' + uv + ' + pxOff)'));
       }
     }
+    if (opts.foliage) {
+      // Cards keep their crown-shaped normals on both faces, so a crown shades as one volume.
+      f = f.replace('#include <normal_fragment_begin>', THREE.ShaderChunk.normal_fragment_begin.replace('normal *= faceDirection;', ''));
+      // Vertex colour: rgb tints the leaves, alpha is how deep in the crown they sit (ambient only).
+      if (opts.foliage.ao) f = f.replace('#include <color_fragment>', 'diffuseColor.rgb *= vColor.rgb;');
+      // Light through the leaves: from behind, and a glow when looking towards the sun.
+      if (opts.foliage.trans) {
+        const chunk = THREE.ShaderChunk.lights_physical_pars_fragment.replace(
+          'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );',
+          /* glsl */`float dotNL = saturate( dot( geometryNormal, directLight.direction ) );
+          float backNL = saturate( -dot( geometryNormal, directLight.direction ) );
+          float toSun = pow( saturate( dot( -geometryViewDir, directLight.direction ) ), 4.0 );
+          reflectedLight.directDiffuse += directLight.color * BRDF_Lambert( material.diffuseColor ) * fTrans * ( backNL * 0.5 + toSun * 1.5 );`);
+        f = f.replace('#include <lights_physical_pars_fragment>', chunk);
+      }
+    }
+    if (gi) f = inject(f, '#include <lights_fragment_end>', GI_FRAG, false);
+    if (opts.foliage && opts.foliage.ao) f = inject(f, '#include <lights_fragment_end>', 'iblIrradiance *= vColor.a;\nirradiance *= vColor.a;', false);
     sh.vertexShader = v;
     sh.fragmentShader = f;
   };
-  mat.customProgramCacheKey = () => 'enh:' + key + (opts.glass && opts.glass.variant ? opts.glass.variant : '');
+  const variant = (opts.glass && opts.glass.variant ? opts.glass.variant : '') + (opts.foliage ? JSON.stringify(opts.foliage) : '');
+  mat.customProgramCacheKey = () => 'enh:' + key + variant;
   if (opts.glass) {
     mat.transparent = true;
     mat.premultipliedAlpha = true;

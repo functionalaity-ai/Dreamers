@@ -122,38 +122,197 @@ export function lampPost(B, x, z) {
   P.col(-0.09, 0, -0.09, 0.09, 4.2, 0.09, 'metal');
 }
 
+// Street tree (an old lime): a leaning trunk that forks into 4-6 limbs, each with two or three
+// branches and their twigs, all tapered tubes in bark. Leaf sprigs cluster at the tips, facing
+// out, with a fill of cards inside so the crown reads as one volume. The cards' normals follow
+// the crown's shape, and their vertex colours carry a tint (rgb) and how deep in the crown they
+// sit (alpha, shading the ambient light). About 4k triangles a tree.
 export function tree(B, x, z, autumn = false, scale = 1) {
   const P = placer(B, x, z, 0);
   const r = mulberryLocal(Math.floor(x * 13 + z * 7) + 1000);
-  const th = 3.4 * scale;
-  const trunk = new THREE.CylinderGeometry(0.11 * scale, 0.2 * scale, th, 9);
-  trunk.translate(0, th / 2, 0);
-  P.geo('bark', trunk);
-  // A few limbs leaving the trunk
-  for (let i = 0; i < 5; i++) {
-    const len = (1.1 + r() * 0.8) * scale;
-    const limb = new THREE.CylinderGeometry(0.035 * scale, 0.07 * scale, len, 6);
-    limb.translate(0, len / 2, 0);
-    limb.rotateZ(0.6 + r() * 0.5);
-    limb.rotateY(r() * Math.PI * 2);
-    limb.translate(0, th * (0.72 + r() * 0.25), 0);
-    P.geo('bark', limb);
+  const s = scale;
+  const th = 3.4 * s;
+  const V = THREE.Vector3;
+  const tips = [];
+  // a limb grows in a few straight runs, curving upwards
+  const grow = (p0, d0, len, segs, up) => {
+    const pts = [p0.clone()];
+    const d = d0.clone();
+    for (let i = 0; i < segs; i++) {
+      d.add(new V((r() - 0.5) * 0.22, up, (r() - 0.5) * 0.22)).normalize();
+      pts.push(pts[i].clone().addScaledVector(d, len / segs));
+    }
+    return pts;
+  };
+  const along = (pts, u) => {
+    const f = Math.min(pts.length - 1.001, u * (pts.length - 1)), i = Math.floor(f);
+    return { p: pts[i].clone().lerp(pts[i + 1], f - i), d: pts[i + 1].clone().sub(pts[i]).normalize() };
+  };
+  // turn d away from itself by ang, about a random axis, with a lift towards the light
+  const fork = (d, ang, lift) => {
+    const ax = new V().crossVectors(d, new V(r() - 0.5, r() - 0.5, r() - 0.5)).normalize();
+    return d.clone().applyAxisAngle(ax, ang).add(new V(0, lift, 0)).normalize();
+  };
+  const bark = (pts, r0, r1, seg) => P.geo('bark', tube(pts, r0, r1, seg), false);
+
+  const lean = new V((r() - 0.5) * 0.34 * s, 0, (r() - 0.5) * 0.34 * s);
+  const trunk = [];
+  for (let i = 0; i <= 4; i++) {
+    const t = i / 4;
+    trunk.push(new V(lean.x * t * t + (r() - 0.5) * 0.03 * s, 0.25 + (th - 0.25) * t, lean.z * t * t + (r() - 0.5) * 0.03 * s));
   }
-  // Crown: alpha-tested leaf cards scattered through an ellipsoid.
-  const cards = 34;
-  for (let i = 0; i < cards; i++) {
-    const s = (1.2 + r() * 0.7) * scale;
-    const g = new THREE.PlaneGeometry(s, s);
-    g.rotateX(r() * Math.PI); g.rotateY(r() * Math.PI); g.rotateZ(r() * Math.PI);
-    const a = r() * Math.PI * 2, u = r() * 2 - 1, d = Math.cbrt(r());
-    const rr = Math.sqrt(1 - u * u) * d;
-    g.translate(Math.cos(a) * rr * 1.9 * scale, th + 0.9 * scale + u * d * 1.35 * scale, Math.sin(a) * rr * 1.9 * scale);
-    P.geo(autumn && i % 3 === 0 ? 'leafCardsAutumn' : 'leafCards', g, false);
+  bark(trunk, 0.21 * s, 0.12 * s, 10);
+  const nLimbs = 4 + Math.floor(r() * 3);
+  for (let i = 0; i < nLimbs; i++) {
+    const f = i / (nLimbs - 1), leader = i === nLimbs - 1;
+    const az = i * 2.4 + r() * 0.7;
+    const el = leader ? 1.25 + r() * 0.2 : 0.38 + f * 0.45 + (r() - 0.5) * 0.25;
+    const d = new V(Math.cos(az) * Math.cos(el), Math.sin(el), Math.sin(az) * Math.cos(el));
+    const base = along(trunk, 0.7 + 0.28 * f).p;
+    const limb = grow(base, d, (leader ? 1.6 : 1.8 + r() * 0.6) * s, 3, 0.16);
+    bark(limb, 0.085 * s, 0.04 * s, 7);
+    tips.push({ p: limb[3], d: limb[3].clone().sub(limb[2]).normalize(), k: 1.15 });
+    const nBr = 2 + (r() < 0.5 ? 1 : 0);
+    for (let j = 0; j < nBr; j++) {
+      const a = along(limb, 0.38 + 0.52 * (j + r() * 0.6) / nBr);
+      const br = grow(a.p, fork(a.d, 0.55 + r() * 0.35, 0.25), (0.85 + r() * 0.5) * s, 2, 0.14);
+      bark(br, 0.042 * s, 0.017 * s, 5);
+      tips.push({ p: br[2], d: br[2].clone().sub(br[1]).normalize(), k: 1 });
+      for (let k = 0; k < 2; k++) {
+        const b = along(br, 0.42 + 0.4 * k + r() * 0.1);
+        const tw = grow(b.p, fork(b.d, 0.6 + r() * 0.4, 0.2), (0.35 + r() * 0.25) * s, 1, 0.1);
+        bark(tw, 0.017 * s, 0.007 * s, 4);
+        tips.push({ p: tw[1], d: tw[1].clone().sub(tw[0]).normalize(), k: 0.8 });
+      }
+    }
   }
+  // Crown: the ellipsoid round the tips (for normals and depth), then the cards.
+  const C = new V();
+  for (const t of tips) C.add(t.p);
+  C.multiplyScalar(1 / tips.length);
+  const R = new V(0.4 * s, 0.4 * s, 0.4 * s);
+  for (const t of tips) {
+    R.x = Math.max(R.x, Math.abs(t.p.x - C.x) + 0.4 * s);
+    R.y = Math.max(R.y, Math.abs(t.p.y - C.y) + 0.45 * s);
+    R.z = Math.max(R.z, Math.abs(t.p.z - C.z) + 0.4 * s);
+  }
+  const leaves = { leafCards: new CardSet(), leafCardsAutumn: new CardSet() };
+  const crown = { C, R };
+  const tint = () => { const l = 0.9 + r() * 0.2; return [l * (0.94 + r() * 0.1), l * (0.95 + r() * 0.08), l * (0.88 + r() * 0.12)]; };
+  for (const t of tips) {
+    const set = leaves[autumn && r() < 0.4 ? 'leafCardsAutumn' : 'leafCards'];
+    const centre = t.p.clone().addScaledVector(t.d, 0.12 * s), rc = 0.5 * s * t.k;
+    const n = Math.round(32 * t.k), col = tint();
+    for (let i = 0; i < n; i++) {
+      const o = randBall(r).multiplyScalar(rc);
+      if (o.dot(t.d) < -0.25 * rc) o.addScaledVector(t.d, -2 * o.dot(t.d)); // sprigs grow outwards
+      const anchor = centre.clone().addScaledVector(o, 0.75);
+      const out = o.clone().addScaledVector(t.d, 0.5 * rc).add(randBall(r).multiplyScalar(0.3 * rc)).normalize();
+      set.add(anchor, out, (0.45 + r() * 0.25) * s, r, crown, col);
+    }
+  }
+  // inner fill: bigger, darker cards through the middle of the crown
+  for (let i = 0; i < 170; i++) {
+    const o = randBall(r);
+    const p = new V(C.x + o.x * R.x * 0.72, C.y + o.y * R.y * 0.72, C.z + o.z * R.z * 0.72);
+    const out = o.clone().add(randBall(r).multiplyScalar(0.6)).normalize();
+    leaves[autumn && r() < 0.35 ? 'leafCardsAutumn' : 'leafCards'].add(p, out, (0.55 + r() * 0.25) * s, r, crown, tint());
+  }
+  for (const k in leaves) if (leaves[k].count) P.geo(k, leaves[k].build(), false);
   P.col(-0.2, 0, -0.2, 0.2, th, 0.2, 'wood');
   // Planter
   P.box(-0.8, 0, -0.8, 0.8, 0.45, 0.8, 'concrete', 'concrete');
 }
+
+// Uniform point in the unit ball.
+function randBall(r) {
+  for (;;) {
+    const v = new THREE.Vector3(r() * 2 - 1, r() * 2 - 1, r() * 2 - 1);
+    if (v.lengthSq() <= 1) return v;
+  }
+}
+
+// Tapered tube through pts, radius r0 to r1, with a frame carried along the path (no twist) and
+// UVs in metres: u round the limb, v along it.
+function tube(pts, r0, r1, seg) {
+  const n = pts.length, pos = [], nrm = [], uv = [], idx = [];
+  let t = pts[1].clone().sub(pts[0]).normalize();
+  const nv = new THREE.Vector3(Math.abs(t.y) < 0.9 ? 0 : 1, Math.abs(t.y) < 0.9 ? 1 : 0, 0).cross(t).normalize();
+  const b = new THREE.Vector3(), dir = new THREE.Vector3(), q = new THREE.Quaternion();
+  const circ = Math.PI * (r0 + r1);
+  let len = 0;
+  for (let i = 0; i < n; i++) {
+    if (i > 0) {
+      len += pts[i].distanceTo(pts[i - 1]);
+      const tn = pts[Math.min(n - 1, i + 1)].clone().sub(pts[i - 1]).normalize();
+      nv.applyQuaternion(q.setFromUnitVectors(t, tn));
+      t = tn;
+    }
+    b.crossVectors(t, nv);
+    const rad = r0 + (r1 - r0) * (i / (n - 1));
+    for (let j = 0; j <= seg; j++) {
+      const a = (j / seg) * Math.PI * 2;
+      dir.copy(nv).multiplyScalar(Math.cos(a)).addScaledVector(b, Math.sin(a));
+      pos.push(pts[i].x + dir.x * rad, pts[i].y + dir.y * rad, pts[i].z + dir.z * rad);
+      nrm.push(dir.x, dir.y, dir.z);
+      uv.push((j / seg) * circ, len);
+    }
+  }
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < seg; j++) {
+      const a = i * (seg + 1) + j, c = a + seg + 1;
+      idx.push(a, a + 1, c, c, a + 1, c + 1);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  return g;
+}
+
+// Leaf cards for one material: each a quad with its stalk end at the anchor, reaching outwards,
+// textured with one of the atlas's four sprigs.
+class CardSet {
+  constructor() { this.pos = []; this.nrm = []; this.uv = []; this.col = []; this.count = 0; }
+  add(anchor, out, size, r, crown, tint) {
+    // the card plane holds `out`; roll it at random about that line, tipped a little to the sky
+    const side = new THREE.Vector3().crossVectors(out, new THREE.Vector3(r() - 0.5, r() - 0.5, r() - 0.5)).normalize();
+    const face = new THREE.Vector3().crossVectors(side, out).add(new THREE.Vector3(0, 0.35, 0));
+    face.addScaledVector(out, -face.dot(out)).normalize();
+    side.crossVectors(out, face).normalize();
+    const cell = Math.floor(r() * 4), u0 = (cell % 2) * 0.5 + 0.004, v0 = (1 - (cell >> 1)) * 0.5 + 0.004, du = 0.492;
+    const w = size * 0.5, base = anchor.clone().addScaledVector(out, -size * 0.06);
+    const { C, R } = crown;
+    if (face.dot(anchor.clone().sub(C)) < 0) face.negate();
+    for (const [cu, cv] of CARD_QUAD) {
+      const p = base.clone().addScaledVector(side, (cu * 2 - 1) * w).addScaledVector(out, cv * size);
+      this.pos.push(p.x, p.y, p.z);
+      // normal: mostly the crown's outward direction at this point, a little of the card's own
+      const ex = (p.x - C.x) / R.x, ey = (p.y - C.y) / R.y, ez = (p.z - C.z) / R.z;
+      const nn = new THREE.Vector3(ex / R.x, ey / R.y, ez / R.z).normalize().multiplyScalar(0.68).addScaledVector(face, 0.32).normalize();
+      this.nrm.push(nn.x, nn.y, nn.z);
+      this.uv.push(u0 + cu * du, v0 + cv * du);
+      // depth in the crown: deep and low cards see little of the sky
+      const d = Math.min(1, Math.sqrt(ex * ex + ey * ey + ez * ez));
+      const ao = (0.3 + 0.7 * smooth(0.2, 1.0, d)) * (0.82 + 0.18 * Math.min(1, Math.max(0, ey * 0.5 + 0.6)));
+      this.col.push(tint[0], tint[1], tint[2], ao);
+    }
+    this.count++;
+  }
+  build() {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(this.pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(this.nrm, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(this.col, 4));
+    return g;
+  }
+}
+const CARD_QUAD = [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]];
+
+function smooth(a, b, x) { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
 
 function mulberryLocal(seed) {
   let a = seed >>> 0;
