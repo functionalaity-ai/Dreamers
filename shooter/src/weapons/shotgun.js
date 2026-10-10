@@ -1,10 +1,9 @@
 // M12 Bastion: a 12-gauge pump. A split receiver with a real ejection port, a vent rib on
 // bevelled posts, a grooved pump on action bars, a knurled magazine cap and a side saddle.
 import * as THREE from 'three';
-import { Q, V, Gun, rb, cy, makeRound } from './gunkit.js';
-import { outline, hole, slot as slotPath, rrect, side, along, turned, turnedX, railParts } from '../core/shapes.js';
+import { Q, V, Gun, rb, cy, makeRound, marking } from './gunkit.js';
+import { outline, hole, slot as slotPath, rrect, side, along, turned, turnedX, railParts, dome } from '../core/shapes.js';
 import { redDot, laserModule } from './attachments.js';
-import { textDecal } from '../core/textures.js';
 
 const BORE = 0.034;   // barrel axis
 const TUBE = -0.0005; // magazine tube axis
@@ -30,9 +29,10 @@ function receiver(g, M, fp) {
   for (const [y, z] of [[0.004, 0.052], [0.004, -0.102]]) for (const sx of [-1, 1]) g.s(S, turnedX(sx < 0 ? [[0, -0.0163], [0.0026, -0.0163], [0.0026, -0.0154], [0, -0.0153]] : [[0, 0.0153], [0.0026, 0.0154], [0.0026, 0.0163], [0, 0.0163]], 12, y, z));
   g.s(S, side(outline([[-0.012, 0.0028, 0.001], [-0.026, 0.0035, 0.002], [-0.028, -0.004, 0.002], [-0.014, -0.0035, 0.001]]), 0.0028, 0.0005, { x: -0.0164 }));
   if (fp) {
-    const marks = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.02), new THREE.MeshBasicMaterial({ map: textDecal([{ text: 'BASTION M12', size: 0.65 }, { text: '12 GA · 2¾" & 3"', size: 0.55 }], 512, 96), transparent: true, depthWrite: false, opacity: 0.85 }));
-    marks.position.set(-0.01558, 0.026, -0.03); marks.rotation.y = -Math.PI / 2;
-    g.body.add(marks);
+    // The roll mark goes on the right, behind the ejection port (the side saddle covers the left);
+    // the serial number sits on the left, behind the saddle.
+    g.body.add(marking('m12-roll', [{ text: 'M12 BASTION · 12 GA', size: 0.8, weight: 700, spacing: 4 }, { text: '2¾" & 3" SHELLS', size: 0.62, spacing: 3 }], [512, 120], 0.056, 0.0118, 0.0155, 0.0292, 0.0335, 1));
+    g.body.add(marking('m12-sn', [{ text: 'SN M12-207514', size: 0.78, spacing: 3 }], [384, 56], 0.034, 0.0045, -0.0155, 0.0262, 0.0435, -1));
   }
 }
 
@@ -81,9 +81,12 @@ function pump(g, M) {
   const P = M.polymer, S = M.steel, lo = Q.low;
   const pp = g.pivot(g.body, 0, 0, 0, 'pump');
   // grooved forend turned round the tube; the action bars run back to the receiver
-  const prof = [[0, -0.362], [0.0185, -0.362], [0.0212, -0.357]];
+  // (its moulded end faces dome slightly instead of being flat discs)
+  const prof = lo ? [[0, -0.362], [0.0185, -0.362], [0.0212, -0.357]] : [[0, -0.3636], [0.01, -0.3632], [0.0185, -0.362], [0.0212, -0.357]];
   for (let i = 0; i < (lo ? 0 : 10); i++) { const z = -0.348 + i * 0.0135; prof.push([0.0212, z - 0.0035], [0.0198, z - 0.0018], [0.0198, z + 0.0018], [0.0212, z + 0.0035]); }
-  prof.push([0.0212, -0.206], [0.019, -0.2], [0, -0.2]);
+  prof.push([0.0212, -0.206], [0.019, -0.2]);
+  if (!lo) prof.push([0.01, -0.1994]);
+  prof.push([0, lo ? -0.2 : -0.199]);
   const fg = turned(prof, lo ? 10 : 28, 0, -0.002);
   fg.scale(1, 1.08, 1);
   g.m(P, fg, pp);
@@ -96,17 +99,20 @@ function stock(g, M) {
   const cs = lo ? 2 : 12;
   const pts = [[0.068, 0.049, 0.004], [0.068, -0.006, 0.004], [0.112, -0.028, 0.01], [0.142, -0.07, 0.012], [0.1665, -0.076, 0.006], [0.172, -0.064, 0.006], [0.168, -0.042, 0.01], [0.42, -0.086, 0.01], [0.433, -0.091, 0.004], [0.434, 0.023, 0.004], [0.412, 0.03, 0.006], [0.17, 0.036, 0.04], [0.09, 0.05, 0.006]];
   const body = outline(pts);
+  let sd = null;
   if (!lo) {
     // a long recessed panel on each side, and a sling slot through the toe
     const recess = [[0.205, 0.012, 0.01], [0.398, -0.004, 0.012], [0.402, -0.06, 0.012], [0.24, -0.042, 0.016], [0.198, -0.022, 0.01]];
     body.holes.push(hole(recess));
-    g.s(P, side(outline(recess), 0.032, 0.0012, { curve: cs }));
+    g.s(P, side(outline(recess), 0.032, 0.0012, { curve: cs, pillow: dome(outline(recess), 0.0008, 0.008, { curve: cs }) }));
     body.holes.push(slotPath(0.405, -0.075, 0.026, 0.0068, -0.18));
+    // the moulded faces dome gently; the stippled grip panels ride on the dome
+    sd = dome(body, 0.0013, 0.009, { curve: cs });
   }
-  g.s(P, side(body, 0.04, lo ? 0 : 0.0052, { curve: cs, flat: lo }));
+  g.s(P, side(body, 0.04, lo ? 0 : 0.0052, { curve: cs, flat: lo, pillow: sd }));
   if (lo) { g.s(M.rubber, rb(0.042, 0.122, 0.024, 0, -0.034, 0.444, 0.005)); return; }
   // Stippled grip panels, the recoil pad with its ribs, and a sling stud
-  g.s(P, side(outline([[0.104, -0.026, 0.006], [0.134, -0.02, 0.006], [0.16, -0.062, 0.006], [0.144, -0.068, 0.006], [0.124, -0.05, 0.008]]), 0.0412, 0.0008));
+  g.s(P, side(outline([[0.104, -0.026, 0.006], [0.134, -0.02, 0.006], [0.16, -0.062, 0.006], [0.144, -0.068, 0.006], [0.124, -0.05, 0.008]]), 0.0412, 0.0008, { pillow: sd }));
   g.s(M.rubber, side(outline([[0.432, 0.0262, 0.003], [0.452, 0.0262, 0.004], [0.4545, -0.0952, 0.005], [0.432, -0.0945, 0.003]]), 0.0428, 0.0024, { curve: 8 }));
   for (let i = 0; i < 9; i++) g.s(M.rubber, rb(0.04, 0.0016, 0.0018, 0, 0.018 - i * 0.0128, 0.4552 + i * 0.0003, 0.0006));
   g.s(M.steel, cy(0.0034, 0.009, 0, -0.0835, 0.392, 12)); // sling stud

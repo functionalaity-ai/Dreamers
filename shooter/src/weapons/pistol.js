@@ -2,10 +2,9 @@
 // (chamfered top edges, cut serrations, an open ejection port); the frame from bevelled side
 // profiles (trigger guard opening, beavertail, stippled panels, accessory rail).
 import * as THREE from 'three';
-import { Q, V, Gun, rb, cz, makeRound } from './gunkit.js';
-import { outline, hole, rrect, side, along, turned, turnedX, railParts } from '../core/shapes.js';
+import { Q, V, Gun, rb, cz, makeRound, marking } from './gunkit.js';
+import { outline, hole, rrect, side, along, turned, turnedX, railParts, dome } from '../core/shapes.js';
 import { redDot, suppressor, laserModule } from './attachments.js';
-import { textDecal } from '../core/textures.js';
 
 const SY = 0.051;          // slide centre height
 const BORE_Y = SY - 0.003; // barrel axis
@@ -32,9 +31,10 @@ function slide(g, M, fp) {
   seg(0.0255, z, slideSection());
   z = 0.0255;
   for (let i = 0; i < 7; i++) { seg(z - 0.0012, z, slideSection(0.0118)); seg(z - 0.0028, z - 0.0012, slideSection()); z -= 0.0028; }
-  seg(-0.023, z, slideSection());
+  // the plain sections reach a little into the port's, so the flanks run on without a seam
+  seg(-0.0238, z, slideSection());
   seg(-0.0565, -0.023, slideSection(0.01275, true));
-  seg(-0.112, -0.0565, slideSection());
+  seg(-0.112, -0.0557, slideSection());
   z = -0.112;
   for (let i = 0; i < 5; i++) { seg(z - 0.0012, z, slideSection(0.0118)); seg(z - 0.0028, z - 0.0012, slideSection()); z -= 0.0028; }
   seg(-0.1555, z, slideSection());
@@ -48,9 +48,9 @@ function slide(g, M, fp) {
   g.m(M.tritium, cz(0.0011, 0.0011, -0.1418, -0.1414, 0, 0.0712, 8), sl);
   g.m(M.rubber, cz(0.0045, 0.0045, -0.1558, -0.1562, 0, BORE_Y, 14), sl);
   if (fp) {
-    const marks = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.012), new THREE.MeshBasicMaterial({ map: textDecal([{ text: 'WARDEN  P9  9×19', size: 0.8 }], 512, 64), transparent: true, depthWrite: false, opacity: 0.8 }));
-    marks.position.set(-0.01282, SY - 0.002, -0.08); marks.rotation.y = -Math.PI / 2;
-    sl.add(marks);
+    // engraved on the slide's left flank, between the front serrations and the port's section
+    sl.add(marking('p9-roll', [{ text: 'P9 WARDEN · 9×19', size: 0.8, weight: 700, spacing: 5 }], [512, 56], 0.047, 0.0046, -0.01325, SY - 0.0045, -0.0843, -1));
+    sl.add(marking('p9-sn', [{ text: 'WDN 118402', size: 0.78, weight: 600, spacing: 4 }], [384, 56], 0.024, 0.0031, 0.01325, SY - 0.0085, -0.0845, 1));
   }
   return sl;
 }
@@ -64,10 +64,12 @@ function frame(g, M) {
   g.s(P, side(fr, 0.024, lo ? 0 : 0.0015, { curve: cs, flat: lo }));
   // Grip with beavertail and a flared magwell; raised stippled panels on both sides
   const grip = [[-0.002, 0.016, 0.003], [0.036, 0.0245, 0.004], [0.0435, 0.0215, 0.003], [0.04, 0.012, 0.004], [0.0532, -0.08, 0.004], [0.0545, -0.0912, 0.003], [0.0115, -0.0935, 0.003], [0.0078, -0.085, 0.004], [0.0042, -0.058, 0.006], [0.0062, -0.038, 0.01], [0.0005, -0.022, 0.006], [0.0028, -0.004, 0.004]];
-  g.s(P, side(outline(grip), 0.0292, lo ? 0 : 0.0042, { curve: cs, flat: lo }));
+  // the grip's moulded faces dome gently; its stippled panels and the flare ride on the dome
+  const gd = lo ? null : dome(outline(grip), 0.0009, 0.007, { curve: cs });
+  g.s(P, side(outline(grip), 0.0292, lo ? 0 : 0.0042, { curve: cs, flat: lo, pillow: gd }));
   if (lo) return;
-  g.s(P, side(outline([[0.012, -0.012, 0.004], [0.034, -0.008, 0.004], [0.0455, -0.076, 0.005], [0.018, -0.08, 0.005], [0.0125, -0.052, 0.006]]), 0.0304, 0.0009));
-  g.s(P, side(outline([[0.0145, -0.0868, 0.002], [0.0548, -0.0842, 0.002], [0.0552, -0.0935, 0.003], [0.0118, -0.0952, 0.003]]), 0.0318, 0.0012)); // magwell flare
+  g.s(P, side(outline([[0.012, -0.012, 0.004], [0.034, -0.008, 0.004], [0.0455, -0.076, 0.005], [0.018, -0.08, 0.005], [0.0125, -0.052, 0.006]]), 0.0304, 0.0009, { pillow: gd }));
+  g.s(P, side(outline([[0.0145, -0.0868, 0.002], [0.0548, -0.0842, 0.002], [0.0552, -0.0935, 0.003], [0.0118, -0.0952, 0.003]]), 0.0318, 0.0012, { pillow: gd })); // magwell flare
   // Accessory rail under the dust cover (teeth pointing down)
   const rail = railParts(-0.142, -0.098, 0, false, 0.82).map((r) => r.rotateZ(Math.PI).translate(0, 0.0198, 0));
   g.s(P, rail);

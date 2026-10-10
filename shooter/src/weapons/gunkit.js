@@ -83,6 +83,82 @@ export function cartridgeGeo(kind) {
   return { brass, tip };
 }
 
+// --- markings ---------------------------------------------------------------------------------
+// Roll marks, selector markings and logos: canvas text with alpha on a thin plane laid right on a
+// surface, winning the depth test by polygon offset. An engraving reads as a dark cut with a faint
+// light lip along each letter's lower edge, where the cut's wall catches light from above; a print
+// is flat ink. Textures and materials are shared by every build of a gun.
+export const MARK_FONT = '"Arial Narrow", "Roboto Condensed", "Helvetica Neue", Arial, sans-serif';
+const markCache = new Map();
+
+// lines: [{ text, size (of the line height), weight, align, spacing (px) }] or draw(g, w, h)
+function markTexture(lines, w, h, style) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  const paint = (fill, dy) => {
+    g.fillStyle = fill;
+    g.save();
+    g.translate(0, dy);
+    if (typeof lines === 'function') lines(g, w, h);
+    else {
+      const lh = h / lines.length;
+      g.textBaseline = 'middle';
+      lines.forEach((l, i) => {
+        const font = (px) => (l.weight || 600) + ' ' + px + 'px ' + MARK_FONT;
+        let px = Math.round((l.size || 0.72) * lh);
+        g.font = font(px);
+        if ('letterSpacing' in g) g.letterSpacing = (l.spacing ?? 2) + 'px';
+        // shrink a line that would run off the plate
+        const tw = g.measureText(l.text).width, room = w - 14;
+        if (tw > room) { px = Math.floor(px * room / tw); g.font = font(px); }
+        g.textAlign = l.align || 'center';
+        g.fillText(l.text, l.align === 'left' ? 6 : l.align === 'right' ? w - 6 : w / 2, lh * (i + 0.5));
+      });
+    }
+    g.restore();
+  };
+  if (style === 'print') paint('rgba(222, 218, 206, 0.88)', 0);
+  else if (style === 'laser') paint('rgba(178, 180, 184, 0.86)', 0); // laser marking bleaches anodising
+  else {
+    paint('rgba(232, 228, 216, 0.5)', Math.max(1, h * 0.018)); // lit lower lip of the cut
+    paint('rgba(5, 5, 5, ' + (style === 'mould' ? 0.62 : 0.88) + ')', 0);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+// A marking w × h metres centred on (x, y, z), on a surface facing +X (side 1) or -X (side -1).
+// style: 'engrave' (default), 'laser' (light, on black anodising), 'mould' or 'print'. `dome`
+// (with the cap's flat x) lays it on a pillowed cap. key names the shared texture.
+export function marking(key, lines, px, w, h, x, y, z, side, opts = {}) {
+  const style = opts.style || 'engrave';
+  let mat = markCache.get(key + '|' + style);
+  if (!mat) {
+    mat = new THREE.MeshStandardMaterial({
+      map: markTexture(lines, px[0], px[1], style), transparent: true, depthWrite: false, roughness: style === 'print' ? 0.7 : 0.9, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, envMapIntensity: 0.5,
+    });
+    mat.name = 'gun_marking';
+    markCache.set(key + '|' + style, mat);
+  }
+  const seg = opts.dome ? 8 : 1;
+  const geo = new THREE.PlaneGeometry(w, h, seg, Math.max(1, Math.round(seg * h / w)));
+  geo.rotateY(side > 0 ? Math.PI / 2 : -Math.PI / 2);
+  geo.translate(x, y, z);
+  if (opts.dome) {
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) p.setX(i, side * (Math.abs(x) + opts.dome.at(p.getZ(i), p.getY(i)).h));
+  }
+  if (opts.rot) { geo.translate(-x, -y, -z); geo.rotateX(opts.rot); geo.translate(x, y, z); }
+  const m = new THREE.Mesh(geo, mat);
+  m.name = 'marking';
+  m.renderOrder = 1;
+  return m;
+}
+
 export function makeRound(M, kind) {
   const g = new THREE.Group();
   const c = cartridgeGeo(kind);
