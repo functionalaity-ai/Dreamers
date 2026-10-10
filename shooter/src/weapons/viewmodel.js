@@ -1,7 +1,7 @@
 // First-person weapon rig: gun + gloved hands in camera space, poses and animations.
 import * as THREE from 'three';
 import { buildGun, buildRifleMag } from './gunmodels.js';
-import { roundedBox } from '../core/geometry.js';
+import { roundedBox, worldUV } from '../core/geometry.js';
 
 const HIP = {
   kestrel: { pos: [0.13, -0.148, -0.37], rot: [0.0, 0.03, 0.0] },
@@ -9,6 +9,11 @@ const HIP = {
   warden: { pos: [0.115, -0.13, -0.43], rot: [0.02, 0.035, 0.0] },
 };
 const KICK = { kestrel: [0.018, 0.035], warden: [0.03, 0.09], bastion: [0.06, 0.16] };
+// Support hand on a bare handguard: palm against its left side, fingers rising and wrapping
+// over the top (the wrist below, so the forearm comes in from the lower left).
+const CUP = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)))
+  .premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0.15, 0, -0.32)));
+const WRIST_GRIP = new THREE.Vector3(0, -0.07, 0.03), WRIST_CUP = new THREE.Vector3(0, -0.012, 0.075);
 
 const smooth = (t) => t * t * (3 - 2 * t);
 // Keyframe track: [[u, v], ...] with smoothstep easing between keys.
@@ -87,31 +92,70 @@ export class Viewmodel {
 
   // --- construction ----------------------------------------------------------------
   buildArms() {
-    const G = this.M.gun;
+    const G = this.M.gunFP;
+    // A box running from the origin along -z, with planar UVs in metres for the fabric maps.
+    const seg = (w, h, len, r) => { const g = roundedBox(w, h, len, r, 3); g.translate(0, 0, -len / 2); return g; };
+    const uvm = (g) => { worldUV(g); return g; };
+    const finger = (len, w, curl, mat) => {
+      const root = new THREE.Group();
+      let parent = root;
+      const lens = [len * 0.44, len * 0.31, len * 0.25];
+      lens.forEach((L, k) => {
+        const joint = new THREE.Group();
+        if (k > 0) joint.position.z = -lens[k - 1] + 0.002;
+        joint.rotation.y = curl[k];
+        parent.add(joint);
+        const s = 1 - k * 0.09;
+        joint.add(new THREE.Mesh(uvm(seg(w * s, w * 0.9 * s, L + 0.006, w * 0.45 * s)), mat));
+        parent = joint;
+      });
+      return root;
+    };
+    // Built as a right hand; the left hand is its mirror image (negative x scale).
     const mkHand = (left) => {
+      const c = 1;                         // fingers curl towards -x, round the grip
       const h = new THREE.Group();
-      const palm = new THREE.Mesh(roundedBox(0.03, 0.085, 0.075, 0.012, 2), G.glove);
-      h.add(palm);
-      // Curled fingers wrapping forward of the palm
-      for (let i = 0; i < 4; i++) {
-        const f = new THREE.Mesh(roundedBox(0.026, 0.02, 0.05, 0.009, 2), G.glove);
-        f.position.set(left ? 0.024 : -0.024, 0.03 - i * 0.021, -0.02);
-        f.rotation.y = left ? -0.9 : 0.9;
+      if (left) h.scale.x = -1;
+      h.add(new THREE.Mesh(uvm(roundedBox(0.032, 0.088, 0.078, 0.014, 3)), G.glove));
+      // fingers, index on top; the shooting hand's index lies straighter, along the trigger guard
+      const specs = [[0.074, 0.021, 0.031], [0.08, 0.021, 0.01], [0.075, 0.02, -0.011], [0.062, 0.018, -0.031]];
+      specs.forEach(([len, w, y], k) => {
+        const curl = (!left && k === 0) ? [0.2, 0.4, 0.3] : left ? [0.75, 1.05, 0.8] : [0.55, 0.95, 0.75];
+        const f = finger(len, w, curl.map((v) => c * v), G.glove);
+        f.position.set(-c * 0.01, y, -0.034);
+        f.rotation.y = c * 0.15;
         h.add(f);
-      }
-      const thumb = new THREE.Mesh(roundedBox(0.022, 0.02, 0.05, 0.009, 2), G.glove);
-      thumb.position.set(left ? -0.004 : 0.004, 0.045, -0.03);
-      thumb.rotation.set(0.5, left ? 0.5 : -0.5, 0);
-      h.add(thumb);
-      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.034, 0.05, 14), G.glove);
-      cuff.position.set(0, -0.055, 0.02);
+      });
+      // thumb on the other side of the grip
+      const th = finger(0.062, 0.022, [-c * 0.25, -c * 0.35, -c * 0.2], G.glove);
+      th.position.set(c * 0.006, 0.043, -0.014);
+      th.rotation.set(0.5, -c * 0.5, 0);
+      h.add(th);
+      // hard knuckle guard over the back of the hand, and the cuff with its strap
+      const kn = new THREE.Mesh(uvm(roundedBox(0.012, 0.078, 0.03, 0.005, 2)), G.knuckle);
+      kn.position.set(c * 0.019, 0.0, -0.03);
+      h.add(kn);
+      const cuff = new THREE.Mesh(uvm(new THREE.CylinderGeometry(0.037, 0.035, 0.055, 18)), G.glove);
+      cuff.position.set(0, -0.058, 0.02);
       h.add(cuff);
+      const strap = new THREE.Mesh(uvm(roundedBox(0.01, 0.03, 0.06, 0.004, 2)), G.knuckle);
+      strap.position.set(c * 0.037, -0.06, 0.02);
+      h.add(strap);
       this.scene.add(h);
       return h;
     };
     const mkFore = () => {
-      const g = new THREE.CylinderGeometry(0.036, 0.044, 1, 16);
+      const g = new THREE.CylinderGeometry(0.034, 0.043, 1, 20, 6);
+      const p = g.attributes.position;
+      for (let k = 0; k < p.count; k++) {
+        const y = p.getY(k) + 0.5;
+        const bulge = 1 + Math.sin(y * Math.PI) * 0.12 + Math.sin(Math.atan2(p.getZ(k), p.getX(k)) * 3 + y * 9) * 0.02;
+        p.setX(k, p.getX(k) * bulge); p.setZ(k, p.getZ(k) * bulge);
+      }
+      g.computeVertexNormals();
       g.translate(0, 0.5, 0);
+      const uv = g.attributes.uv;
+      for (let k = 0; k < uv.count; k++) { uv.setX(k, uv.getX(k) * 0.26); uv.setY(k, uv.getY(k) * 0.6); }
       const m = new THREE.Mesh(g, G.sleeve);
       this.scene.add(m);
       return m;
@@ -170,7 +214,7 @@ export class Viewmodel {
   setWeapon(ws) {
     if (this.gun) { this.rig.remove(this.gun.root); this.gun.root.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
     this.ws = ws;
-    this.gun = buildGun(ws.id, ws.stats.att, this.M.gun, { fp: true });
+    this.gun = buildGun(ws.id, ws.stats.att, this.M.gunFP, { fp: true });
     this.rig.add(this.gun.root);
     this.gun.root.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
     this.hip = HIP[ws.id];
@@ -432,7 +476,7 @@ export class Viewmodel {
     let mesh;
     if (this.ws.id === 'kestrel') mesh = buildRifleMag(this.M.gun, this.ws.stats.mag > 30, false).group;
     else mesh = g.mag.group.clone();
-    mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
+    mesh.traverse((o) => { if (o.isMesh) { o.castShadow = true; if (o.material.userData && o.material.userData.base) o.material = o.material.userData.base; } });
     const world = new THREE.Vector3();
     const q = new THREE.Quaternion();
     g.mag.group.updateWorldMatrix(true, false);
@@ -477,14 +521,18 @@ export class Viewmodel {
     const foreW = root.localToWorld(fore);
     this.handL.position.copy(foreW);
     const vertical = g.foreGrip === 'vertical' && blend < 0.2;
-    const qL = qGun.clone().multiply(new THREE.Quaternion().setFromEuler(vertical ? new THREE.Euler(-0.2, 0, 0) : new THREE.Euler(-1.2, 0.2, -0.5)));
+    // On a vertical grip the support hand mirrors the shooting hand. On a bare handguard it cups
+    // it from below: palm up, fingers wrapping up the far side, thumb along the near side.
+    const qL = qGun.clone().multiply(vertical ? new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.2, 0, -0.12)) : CUP);
+    if (!vertical && blend < 0.5) this.handL.position.add(new THREE.Vector3(-0.034, -0.008, 0.0).multiplyScalar(1 - blend * 2).applyQuaternion(qGun));
+    this.handL.userData.wrist = vertical ? WRIST_GRIP : WRIST_CUP;
     this.handL.quaternion.copy(qL);
     this.aimFore(this.foreR, this.handR, new THREE.Vector3(0.28, -0.46, 0.12), qR);
     this.aimFore(this.foreL, this.handL, new THREE.Vector3(-0.16, -0.5, -0.12), qL);
   }
 
   aimFore(fore, hand, elbow, q) {
-    const wrist = new THREE.Vector3(0, -0.07, 0.03).applyQuaternion(q).add(hand.position);
+    const wrist = (hand.userData.wrist || WRIST_GRIP).clone().applyQuaternion(q).add(hand.position);
     const dir = new THREE.Vector3().subVectors(elbow, wrist);
     const len = dir.length();
     fore.position.copy(wrist);

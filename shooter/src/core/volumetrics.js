@@ -8,6 +8,7 @@
 //   composite→ full-res: colour * T + S, upsampled with depth weights so edges stay sharp
 import * as THREE from 'three';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { CLOUD_SHADE, SHARED } from './shaderlib.js';
 
 // Tileable 3D value-noise fbm for the fog's density variation.
 function noise3D(size = 64) {
@@ -62,6 +63,7 @@ vec3 viewPosAt(vec2 uv, float d) { vec4 c = invProj * vec4(uv * 2.0 - 1.0, d * 2
 const MARCH_FRAG = /* glsl */`
 precision highp sampler3D;
 ${DEPTH_PARS}
+${CLOUD_SHADE}
 uniform sampler2D tShadow;
 uniform sampler3D tNoise;
 uniform mat4 shadowMatrix, camWorld;
@@ -80,7 +82,7 @@ float sunVis(vec3 p) {
   vec4 sc = shadowMatrix * vec4(p, 1.0);
   vec3 s = sc.xyz / sc.w;
   if (s.x < 0.0 || s.y < 0.0 || s.x > 1.0 || s.y > 1.0 || s.z > 1.0) return 1.0;
-  return step(s.z - 0.0012, unpackRGBAToDepth(texture2D(tShadow, s.xy)));
+  return step(s.z - 0.0012, unpackRGBAToDepth(texture2D(tShadow, s.xy))) * cloudShade(s.xy);
 }
 
 float indoor(vec3 p) {
@@ -142,7 +144,7 @@ void main() {
   float R = sky ? (rd.y > 0.0 ? 4000.0 : 600.0) : max(0.0, L - Lm);
   if (R > 0.0) {
     vec3 p0 = camPos + rd * Lm;
-    float od = heightOD(p0.y, rd.y, min(R, 4000.0)) * (sky ? 0.32 : 0.8);
+    float od = heightOD(p0.y, rd.y, min(R, 4000.0)) * (sky ? 0.16 : 0.8);
     float Tr = exp(-od);
     S += T * (sunColor * ph * 0.85 + ambColor) * (1.0 - Tr);
     T *= Tr;
@@ -230,10 +232,10 @@ void main() {
   float d = texture2D(tDepth, vUv).x;
   float sky = step(0.9999999, d);
   vec2 q = (vUv - sunUV) * vec2(aspect, 1.0);
-  float fall = pow(max(0.0, 1.0 - length(q) / 1.0), 2.0);
+  float fall = pow(max(0.0, 1.0 - length(q) / 1.5), 1.6);
   vec3 c = texture2D(tColor, vUv).rgb;
   float lum = min(dot(c, vec3(0.3, 0.5, 0.2)), 4.0);
-  gl_FragColor = vec4(vec3(sky * fall * (0.4 + lum * 0.6)), 1.0);
+  gl_FragColor = vec4(vec3(sky * fall * smoothstep(0.15, 1.6, lum) * (0.5 + 0.5 * min(lum, 3.0))), 1.0);
 }`;
 
 const SHAFT_BLUR_FRAG = /* glsl */`
@@ -242,13 +244,13 @@ uniform vec2 sunUV;
 uniform float stepScale;
 varying vec2 vUv;
 void main() {
-  vec2 dir = (sunUV - vUv) * stepScale / 16.0;
+  vec2 dir = (sunUV - vUv) * stepScale / 24.0;
   vec2 uv = vUv;
   float acc = 0.0, w = 1.0, ws = 0.0;
-  for (int i = 0; i < 16; i++) {
+  for (int i = 0; i < 24; i++) {
     acc += texture2D(tIn, uv).r * w;
     ws += w;
-    w *= 0.94;
+    w *= 0.968;
     uv += dir;
   }
   gl_FragColor = vec4(vec3(acc / ws), 1.0);
@@ -273,7 +275,7 @@ export class Volumetrics {
     this.hasHistory = false;
     this.indoor = [];
     this.params = {
-      density: 0.0068, heightFalloff: 0.07, groundMist: 0.005, maxDist: 120, gForward: 0.5, sunBoost: 2.7,
+      density: 0.006, heightFalloff: 0.07, groundMist: 0.004, maxDist: 120, gForward: 0.45, sunBoost: 1.6,
       ambColor: new THREE.Color(0.3, 0.36, 0.46).multiplyScalar(0.28),
       wind: new THREE.Vector3(0.0035, 0.0006, 0.0016),
     };
@@ -285,6 +287,7 @@ export class Volumetrics {
       camPos: { value: new THREE.Vector3() }, sunDir: { value: new THREE.Vector3() }, sunColor: { value: new THREE.Color() }, ambColor: { value: new THREE.Color() },
       wind: { value: new THREE.Vector3() }, hasShadow: { value: 0 }, density: { value: 0 }, heightFalloff: { value: 0 }, groundMist: { value: 0 },
       maxDist: { value: 0 }, time: { value: 0 }, frame: { value: 0 }, gForward: { value: 0.6 }, sunBoost: { value: 1 },
+      tCloud: SHARED.tCloud, cloudShadow: SHARED.cloudShadow,
       indoorMin: { value: [0, 1, 2, 3].map(() => new THREE.Vector3()) }, indoorMax: { value: [0, 1, 2, 3].map(() => new THREE.Vector3()) }, indoorCount: { value: 0 },
     }), { STEPS: this.steps });
     this.resolve = mat(RESOLVE_FRAG, Object.assign(common(), {
@@ -295,7 +298,7 @@ export class Volumetrics {
     this.composite = mat(COMPOSITE_FRAG, Object.assign(common(), { tColor: { value: null }, tFog: { value: null }, tShafts: { value: null }, shaftColor: { value: new THREE.Color() }, lowSize: { value: new THREE.Vector2() } }));
     this.shaftMask = mat(SHAFT_MASK_FRAG, Object.assign(common(), { tColor: { value: null }, sunUV: { value: new THREE.Vector2() }, aspect: { value: 1 } }));
     this.shaftBlur = mat(SHAFT_BLUR_FRAG, { tIn: { value: null }, sunUV: { value: new THREE.Vector2() }, stepScale: { value: 1 } });
-    this.shaftStrength = 0.45;
+    this.shaftStrength = 1.35;
     this.quad = new FullScreenQuad(this.march);
     const rt = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
     this.rtMarch = rt(); this.rtA = rt(); this.rtB = rt(); this.rtHist = [rt(), rt()];

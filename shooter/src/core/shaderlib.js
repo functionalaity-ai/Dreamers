@@ -17,6 +17,10 @@ export const SHARED = {
   sunColorW: { value: new THREE.Color(1, 1, 1) },
   ambW: { value: new THREE.Color(0.3, 0.32, 0.36) },
   probeOn: { value: 0 },
+  vmRot: { value: new THREE.Matrix3() },
+  tCloud: { value: null },
+  // cloud shadows: xy drift offset, z scale, w strength (0 = off)
+  cloudShadow: { value: new THREE.Vector4(0, 0, 0.27, 0) },
   probePos: null, boxMin: null, boxMax: null, // linked to the renderer's probe uniforms
 };
 
@@ -78,6 +82,9 @@ export function enhance(mat, opts) {
     sh.uniforms.sunColorW = SHARED.sunColorW;
     sh.uniforms.ambW = SHARED.ambW;
     sh.uniforms.probeOn = SHARED.probeOn;
+    sh.uniforms.vmRot = SHARED.vmRot;
+    sh.uniforms.tCloud = SHARED.tCloud;
+    sh.uniforms.cloudShadow = SHARED.cloudShadow;
     if (SHARED.probePos) { sh.uniforms.probePos = SHARED.probePos; sh.uniforms.boxMin = SHARED.boxMin; sh.uniforms.boxMax = SHARED.boxMax; }
     let v = sh.vertexShader, f = sh.fragmentShader;
     // --- vertex: world varyings (+ room space for interiors, local height for paint)
@@ -127,6 +134,18 @@ export function enhance(mat, opts) {
           if (tb > 0.0) reflectVec = normalize(vWPos + rd * tb - probePos);
         }`).replace('vec4 envMapColor = textureCubeUV( envMap, reflectVec, roughness );\n\t\t\treturn envMapColor.rgb * envMapIntensity;', 'vec4 envMapColor = textureCubeUV( envMap, reflectVec, roughness );\n\t\t\treturn envMapColor.rgb * envMapIntensity * gSpecBoost;');
       f = f.replace('#include <envmap_physical_pars_fragment>', chunk);
+    }
+
+    // Cloud shadows: the sun's shadow camera looks straight down the sun's rays, so a cloud
+    // pattern laid out in shadow-map space falls exactly where real cloud shadows would.
+    f = f.replace('#include <shadowmap_pars_fragment>', CLOUD_SHADE + THREE.ShaderChunk.shadowmap_pars_fragment.replace('return shadow;', 'return shadow * cloudShade( shadowCoord.xy );'));
+
+    if (opts.viewEnv) {
+      // First-person weapon: its scene's camera never turns, so rotate the sky lookups instead.
+      const chunk = THREE.ShaderChunk.envmap_physical_pars_fragment
+        .replace('vec3 worldNormal = inverseTransformDirection( normal, viewMatrix );', 'vec3 worldNormal = vmRot * inverseTransformDirection( normal, viewMatrix );')
+        .replace('reflectVec = inverseTransformDirection( reflectVec, viewMatrix );', 'reflectVec = vmRot * inverseTransformDirection( reflectVec, viewMatrix );');
+      f = 'uniform mat3 vmRot;\n' + f.replace('#include <envmap_physical_pars_fragment>', chunk);
     }
 
     if (opts.wrap) {
@@ -196,6 +215,17 @@ export function enhance(mat, opts) {
 }
 
 export const SHARED_PROBE_MATS = new Set();
+
+export const CLOUD_SHADE = /* glsl */`
+uniform sampler2D tCloud;
+uniform vec4 cloudShadow;
+float cloudShade(vec2 sc) {
+  if (cloudShadow.w <= 0.0) return 1.0;
+  vec2 p = sc * vec2(cloudShadow.z, cloudShadow.z * 0.82) + cloudShadow.xy;
+  float n = texture2D(tCloud, p).r * 0.5 + texture2D(tCloud, p * 2.7 + 0.17).g * 0.4 + 0.05;
+  return 1.0 - smoothstep(0.47, 0.66, n) * cloudShadow.w;
+}
+`;
 
 // --- weathering -------------------------------------------------------------------------------
 const WEATHER_FRAG = /* glsl */`

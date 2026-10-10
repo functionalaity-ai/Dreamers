@@ -183,6 +183,7 @@ export class TexBaker {
     this.run(m, rt);
     m.dispose();
     rt.texture.name = spec.name || 'raw';
+    rt.texture.userData.rt = rt;
     return rt.texture;
   }
 }

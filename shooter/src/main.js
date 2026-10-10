@@ -13,6 +13,7 @@ import { buildGun, bakeGun } from './weapons/gunmodels.js';
 import { PRESETS, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
 import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
 import { SUN_DIR } from './core/renderer.js';
+import { cloudTexture } from './core/sky.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -48,6 +49,7 @@ class App {
     SHARED.sunColorW.value.copy(this.R.sun.color).multiplyScalar(this.R.sun.intensity);
     SHARED.ambW.value.setRGB(0.55, 0.62, 0.75);
     this.mats = await new Materials(preset, this.R.r).build((t) => step(t * 0.7, 'textures'));
+    this.R.setClouds(cloudTexture(this.mats.baker));
     step(0.72, 'streets and buildings'); await frame();
     this.audio = new Audio();
     this.audio.setVolume(this.settings.volume);

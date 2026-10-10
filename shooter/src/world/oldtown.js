@@ -53,8 +53,10 @@ export function buildOldTown(physics, materials, scene) {
   stuccoBlock(B, kit, { x0: -20, x1: -8, z0: 22, z1: 42, floors: 2, mat: 'plasterWhite', faces: ['n'], shops: true, signs: ['ПОЧТА · POST'], seed: 33 });
   stuccoBlock(B, kit, { x0: -8, x1: 10, z0: 33.5, z1: 42, floors: 2, mat: 'plasterOchre', faces: [], seed: 34 });
   stuccoBlock(B, kit, { x0: 10, x1: 24, z0: 22, z1: 42, floors: 3, mat: 'plasterOchre', faces: ['n', 'e'], shops: true, signs: ['КНИГИ · BOOKS', 'МЯСО · BUTCHER'], seed: 35 });
-  stuccoBlock(B, kit, { x0: 30, x1: 38, z0: 22, z1: 42, floors: 4, mat: 'plasterRose', faces: ['n', 'w'], shops: true, signs: ['ТАБАК'], seed: 36 });
-  stuccoBlock(B, kit, { x0: 38, x1: 52, z0: 22, z1: 42, floors: 4, mat: 'plasterCream', faces: ['n'], shops: true, signs: ['ВИНО · WINE', 'ТКАНИ · FABRIC'], seed: 37 });
+  stuccoBlock(B, kit, { x0: 30, x1: 37.6, z0: 22, z1: 42, floors: 4, mat: 'plasterRose', faces: ['n', 'w'], shops: true, signs: ['ТАБАК'], seed: 36 });
+  // A second panel block, backlit by the low sun (its x0 keeps the panel joints in step).
+  sovietBlock(B, kit, { x0: 37.6, x1: 53.6, z0: 22, z1: 36, face: 'n', floors: 5, entrances: [2], balconies: [0, 4], seed: 12 });
+  B.solid(37.6, 0, 36, 53.6, 2.6, 42, 'panelPlinth', 'concrete');
   // Ends of the square.
   stuccoBlock(B, kit, { x0: -60, x1: -52, z0: -22, z1: 22, floors: 4, mat: 'plasterOchre', faces: ['e'], shops: true, signs: ['УНИВЕРМАГ', 'ФОТО'], seed: 41 });
   stuccoBlock(B, kit, { x0: 52, x1: 60, z0: -22, z1: 22, floors: 4, mat: 'plasterRose', faces: ['w'], shops: true, signs: ['РЕСТОРАН', 'ЧАЙ · TEA'], seed: 42 });

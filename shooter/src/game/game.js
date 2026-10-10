@@ -10,6 +10,7 @@ import { Player } from '../characters/player.js';
 import { Bot } from '../characters/bot.js';
 import { MATCH, DIFFICULTY, MATERIALS, THROWABLES, FACTIONS } from '../config.js';
 import { textDecal } from '../core/textures.js';
+import { SUN_DIR } from '../core/renderer.js';
 
 const ROSTER = {
   msg: [
@@ -50,7 +51,7 @@ export class Game {
     this.physics = ph;
     this.map = buildOldTown(ph, this.mats, this.scene);
     // Invisible map boundary
-    ph.add(-53, 0, -46, 53, 40, -42); ph.add(-53, 0, 42, 53, 40, 46);
+    ph.add(-53, 0, -46, 53, 40, -42, 'concrete', { boundary: true }); ph.add(-53, 0, 42, 53, 40, 46, 'concrete', { boundary: true });
     for (const l of this.map.lights) {
       const pl = new THREE.PointLight(0xffd29a, 7, 11, 2);
       pl.position.copy(l);
@@ -330,6 +331,11 @@ export class Game {
     const indoor = this.isIndoor(this.player.body.p) ? 1 : 0;
     this.indoorF += (indoor - this.indoorF) * Math.min(1, dt * 3);
     this.R.setIndoor(this.indoorF);
+    // Is the sun reaching the weapon? One ray from the eye towards the sun.
+    const sunHit = this.physics.raycast(this.camera.position, SUN_DIR, 160, (b) => !b.flags.boundary);
+    const sunTarget = sunHit ? 0 : this.R.cloudShadeAt(this.camera.position);
+    this.sunF = this.sunF === undefined ? sunTarget : this.sunF + (sunTarget - this.sunF) * Math.min(1, dt * 5);
+    this.R.setViewSun(this.sunF);
     this.audio.setListener(this.camera);
   }
 

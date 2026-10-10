@@ -456,3 +456,98 @@ export function windscreenGrime(B, size, seed) {
       }`,
   });
 }
+
+// Ripstop combat-shirt fabric: a fine plain weave with the reinforcing grid every 6 mm,
+// soft creases and a little wear.
+export function ripstop(B, size, color, seed) {
+  return B.bake({
+    name: 'ripstop', size, tile: 0.18, seed, normalStrength: 0.7, cavity: 0.7,
+    uniforms: { uColor: { value: col(color) } },
+    fields: /* glsl */`
+      vec4 fields(vec2 uv) {
+        float wx = sin(uv.x * 6.2831853 * 120.0), wy = sin(uv.y * 6.2831853 * 120.0);
+        float weave = (step(0.5, fract(uv.x * 60.0)) == step(0.5, fract(uv.y * 60.0)) ? wx : wy) * 0.5 + 0.5;
+        vec2 g = abs(fract(uv * 30.0) - 0.5);
+        float grid = 1.0 - smoothstep(0.03, 0.08, min(g.x, g.y));
+        float crease = fbm(uv, vec2(2.0, 5.0), 4);
+        float h = weave * 0.12 + grid * 0.15 + crease * 0.9;
+        return vec4(h, grid, weave, crease);
+      }`,
+    shade: /* glsl */`
+      uniform vec3 uColor;
+      void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
+        vec3 c = uColor * (0.88 + 0.16 * F.z) * (1.0 + F.y * 0.08);
+        c *= 0.92 + 0.16 * (fbm(uv, 3.0, 4) + 0.5);
+        c = mix(c, c * 1.18 + 0.02, smoothstep(0.15, 0.4, fbm(uv + 4.0, 6.0, 4)) * 0.4);
+        alb = c * (1.0 - cav * 0.3);
+        rough = 0.92; metal = 0.0;
+      }`,
+  });
+}
+
+// Tactical glove: stretch-fabric back with a fine knit, synthetic suede patches and seams.
+export function gloveFabric(B, size, color, seed) {
+  return B.bake({
+    name: 'glove', size, tile: 0.12, seed, normalStrength: 0.9, cavity: 0.8,
+    uniforms: { uColor: { value: col(color) } },
+    fields: /* glsl */`
+      vec4 fields(vec2 uv) {
+        float knit = sin(uv.x * 6.2831853 * 90.0 + sin(uv.y * 6.2831853 * 45.0) * 1.5) * 0.5 + 0.5;
+        vec4 v = voronoi(uv, vec2(1.0, 2.0), 0.4);
+        float seam = 1.0 - smoothstep(0.0, 0.02, v.y);
+        float suede = step(0.6, v.z);
+        float stitch = seam * step(0.5, fract((uv.x + uv.y) * 90.0));
+        float h = mix(knit * 0.15, fbm(uv, 80.0, 3) * 0.25, suede) - seam * 0.5 + stitch * 0.15;
+        return vec4(h, seam, suede, stitch);
+      }`,
+    shade: /* glsl */`
+      uniform vec3 uColor;
+      void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
+        vec3 c = mix(uColor, uColor * vec3(0.9, 0.86, 0.8), F.z);
+        c *= 0.9 + 0.2 * (fbm(uv, 20.0, 3) + 0.5);
+        c = mix(c, c * 1.35 + 0.02, smoothstep(0.1, 0.35, fbm(uv + 2.0, 4.0, 4)) * 0.35);
+        c = mix(c, lin(vec3(0.55, 0.5, 0.42)), F.w * 0.5);
+        alb = c * (1.0 - cav * 0.35);
+        rough = mix(0.75, 0.95, F.z); metal = 0.0;
+      }`,
+  });
+}
+
+// Weapon finish: anodised or cerakoted metal with fine random scratches, rubbed patches where
+// hands and kit wear it bright, faint smudges and dust.
+export function gunFinish(B, size, seed) {
+  return B.bake({
+    name: 'gunFinish', size, tile: 0.16, seed, normalStrength: 0.6, cavity: 0.5,
+    fields: /* glsl */`
+      float scratches(vec2 uv, float n, float ang, float w) {
+        vec2 d = vec2(cos(ang), sin(ang));
+        vec2 q = vec2(dot(uv, d), dot(uv, vec2(-d.y, d.x))) * n;
+        vec2 id = floor(q);
+        float h = hash12(sd(vec2(id.y, 3.0)));
+        float lineY = fract(q.y) - 0.5 - (h - 0.5) * 0.6;
+        float len = step(0.6, hash12(sd(vec2(floor(q.x * 0.25 + h * 7.0), id.y))));
+        return (1.0 - smoothstep(0.0, w, abs(lineY))) * len;
+      }
+      vec4 fields(vec2 uv) {
+        float s = 0.0;
+        for (int k = 0; k < 5; k++) {
+          float a = hash12(sd(vec2(float(k), 9.0))) * 3.14159;
+          s = max(s, scratches(uv, 40.0 + float(k) * 13.0, a, 0.035) * (0.5 + 0.5 * hash12(sd(vec2(float(k), 2.0)))));
+        }
+        // keep the scratch field tileable by fading it with a periodic mask
+        s *= smoothstep(-0.1, 0.15, fbm(uv, 3.0, 4));
+        float rub = smoothstep(0.08, 0.3, fbm(uv + 1.7, 2.0, 5));
+        float smudge = smoothstep(0.1, 0.35, fbm(uv + 5.1, 5.0, 4));
+        float h = fbm(uv, 120.0, 2) * 0.08 - s * 0.12;
+        return vec4(h, s, rub, smudge);
+      }`,
+    shade: /* glsl */`
+      void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
+        // a multiplier around 1: brighter where scratched or rubbed
+        float v = 0.92 + 0.12 * (fbm(uv, 30.0, 3) + 0.5) + F.y * 0.9 + F.z * 0.25;
+        alb = vec3(v) * (1.0 - F.w * 0.08);
+        rough = clamp(0.62 + 0.14 * fbm(uv, 25.0, 3) - F.y * 0.35 - F.z * 0.12 + F.w * 0.2, 0.15, 1.0);
+        metal = clamp(0.5 + F.y * 0.5 + F.z * 0.2, 0.0, 1.0);
+      }`,
+  });
+}

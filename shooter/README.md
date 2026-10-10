@@ -38,7 +38,7 @@ Click **Deploy** to start. The game captures your mouse for aiming. Press **Esc*
 
 ## What's in the slice
 
-**Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, a five-storey Soviet panel block, rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
+**Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, two five-storey Soviet panel blocks (one sunlit, one backlit by the low sun), rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
 - **Hotel Meridian** has three floors and a roof, connected by U-shaped stairs, with furnished rooms.
 - **The Pharmacy** has two floors and roof access, with a shop counter and shelving downstairs and a flat upstairs.
 
@@ -70,9 +70,11 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 **Look and sound:**
 - **Light and atmosphere:**
   - A low golden-hour sun with soft shadows, and warm bounce light from the sunlit facades into the shade.
+  - A sky of drifting cumulus over the Preetham atmosphere. The clouds are self-shadowed with silver linings towards the sun, and they hide the sun disc when they pass in front of it.
+  - Cloud shadows drift across the town. They are laid out in the sun's shadow-map space, so they line up with the clouds, and the god rays and the first-person weapon dim with them.
   - Raymarched volumetric light: height haze lit through the sun's shadow map, so god rays fall between buildings and through windows into rooms. It's smoothed over time and blurred without crossing edges, so it stays clean rather than grainy.
   - Screen-space sun shafts that streak through leaves and past rooflines when you face the sun.
-  - Dust motes that only show up where sunlight reaches them.
+  - Dust motes that only show up where sunlight reaches them, ash flakes drifting out of focus near the camera, and a flock of pigeons circling the square.
 - **Surfaces** are baked on the GPU at load time: colour, normal, and AO/roughness maps at up to 2048² on Ultra.
   - Lime stucco with sand grain, hairline cracks and spalled patches.
   - Cast concrete with aggregate and bug holes.
@@ -94,7 +96,8 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
   - Tyres with tread and moulded sidewall lettering, alloy wheels with brake discs and calipers.
   - A full interior seen through the glass, a dusty windscreen with two clean wiper arcs, and licence plates.
   - Burnt-out versions sit on their rusted rims.
-- **Grade:** an ACES filmic curve, a warm split tone, a vignette and dithering, then SMAA. Also ambient occlusion (GTAO) and bloom.
+- **First-person weapon:** lit by the real sun and sky as you turn. It darkens when a building or cloud blocks the sun. The arms have a ripstop sleeve and a fabric-and-suede glove with jointed fingers and a knuckle guard.
+- **Grade:** an ACES filmic curve, a warm golden split tone, warm-tinted bloom, a vignette, fine film grain and dithering, then SMAA. Also ambient occlusion (GTAO).
 - **Presets:**
 
   | Preset | Volumetric light | Textures | Extras |

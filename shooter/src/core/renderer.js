@@ -15,14 +15,15 @@ import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { Sky } from 'three/addons/objects/Sky.js';
+import { makeSky } from './sky.js';
+import { SHARED } from './shaderlib.js';
 import { Volumetrics, DustMotes } from './volumetrics.js';
+import { Ash, Flock } from './ambient.js';
 import { makeGradeMaterial } from './grade.js';
 
 // A low late-afternoon sun from the south-south-west, raking the north side of the square.
 export const SUN_DIR = new THREE.Vector3(-0.42, 0.37, 0.86).normalize();
 const SUN_COLOR = 0xffc98f;
-const SKY = { turbidity: 6.5, rayleigh: 2.1, mieCoefficient: 0.0075, mieDirectionalG: 0.88 };
 
 export class Renderer {
   constructor(canvas) {
@@ -47,6 +48,8 @@ export class Renderer {
     this.setupSky();
     this.vol = new Volumetrics(r, this.scene, this.camera, this.sun);
     this.dust = new DustMotes(this.scene, this.sun, 5000);
+    this.ash = new Ash(this.scene);
+    this.flock = new Flock(this.scene);
     this.grade = makeGradeMaterial();
     this.quad = new FullScreenQuad(this.grade);
     // The box-projected reflection probe (filled in by captureProbe once the town is built).
@@ -58,29 +61,18 @@ export class Renderer {
   }
 
   setupSky() {
-    const makeSky = () => {
-      const sky = new Sky();
-      sky.scale.setScalar(4000);
-      const u = sky.material.uniforms;
-      for (const k in SKY) u[k].value = SKY[k];
-      u.sunPosition.value.copy(SUN_DIR).multiplyScalar(4000);
-      return sky;
-    };
-    this.sky = makeSky();
+    this.sky = makeSky(SUN_DIR);
     this.scene.add(this.sky);
 
     // Image-based lighting from the same sky, with a warm ground bounce below the horizon.
-    const pm = new THREE.PMREMGenerator(this.r);
-    const envScene = new THREE.Scene();
-    envScene.add(makeSky());
+    this.envScene = new THREE.Scene();
+    this.envSky = makeSky(SUN_DIR);
+    this.envScene.add(this.envSky);
     const ground = new THREE.Mesh(new THREE.CircleGeometry(3000, 16), new THREE.MeshBasicMaterial({ color: 0x3d3128 }));
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -10;
-    envScene.add(ground);
-    this.env = pm.fromScene(envScene, 0.02).texture;
-    pm.dispose();
-    this.scene.environment = this.env;
-    this.vScene.environment = this.env;
+    this.envScene.add(ground);
+    this.buildEnv();
 
     // Fallback distance fog, used where the volumetric pass doesn't run (the scope's view, reflections).
     this.fogDensity = 0.0042;
@@ -113,10 +105,58 @@ export class Renderer {
     this.vScene.add(this.vCamera);
   }
 
-  // Indoors the weapon should not be sunlit.
-  setIndoor(f) {
-    this.vSun.intensity = 2.8 * (1 - f * 0.85);
-    this.vHemi.intensity = 0.7 * (1 - f * 0.45);
+  buildEnv() {
+    const pm = new THREE.PMREMGenerator(this.r);
+    const old = this.env;
+    this.env = pm.fromScene(this.envScene, 0.02).texture;
+    pm.dispose();
+    this.scene.environment = this.env;
+    this.vScene.environment = this.env;
+    if (old) old.dispose();
+  }
+
+  // Clouds need the GPU baker, which exists once the materials are being built.
+  setClouds(tex) {
+    for (const s of [this.sky, this.envSky]) { s.material.uniforms.tCloud.value = tex; s.material.uniforms.cloudOn.value = 1; }
+    this.buildEnv();
+    SHARED.tCloud.value = tex;
+    SHARED.cloudShadow.value.w = 0.5;
+    // a CPU copy so the first-person weapon can tell when a cloud covers the sun
+    const rt = tex.userData.rt;
+    if (rt) {
+      this.cloudCPU = { w: rt.width, h: rt.height, data: new Uint8Array(rt.width * rt.height * 4) };
+      this.r.readRenderTargetPixels(rt, 0, 0, rt.width, rt.height, this.cloudCPU.data);
+    }
+  }
+
+  // Cloud shadow at a world position (1 = clear sun), mirroring the shader's cloudShade().
+  cloudShadeAt(p) {
+    const C = this.cloudCPU, cs = SHARED.cloudShadow.value;
+    if (!C || cs.w <= 0) return 1;
+    const v = p.clone().applyMatrix4(this.sun.shadow.matrix);
+    const fetch = (u, w, ch) => {
+      const x = ((Math.floor((u * C.w)) % C.w) + C.w) % C.w, y = ((Math.floor((w * C.h)) % C.h) + C.h) % C.h;
+      return C.data[(y * C.w + x) * 4 + ch] / 255;
+    };
+    const px = v.x * cs.z + cs.x, py = v.y * cs.z * 0.82 + cs.y;
+    const n = fetch(px, py, 0) * 0.5 + fetch(px * 2.7 + 0.17, py * 2.7 + 0.17, 1) * 0.4 + 0.05;
+    const t = Math.min(1, Math.max(0, (n - 0.47) / 0.19));
+    return 1 - t * t * (3 - 2 * t) * cs.w;
+  }
+
+  // The weapon is drawn in its own scene: point its lights the way the real sun and sky lie
+  // relative to the camera, and dim the sun when you stand in shadow or indoors.
+  setIndoor(f) { this.indoorF = f; }
+  setViewSun(v) { this.viewSun = v; }
+  syncViewLights() {
+    const cam = this.camera;
+    const qi = cam.quaternion.clone().invert();
+    this.vSun.position.copy(SUN_DIR).applyQuaternion(qi);
+    this.vHemi.position.set(0, 1, 0).applyQuaternion(qi);
+    const f = this.indoorF || 0, sv = this.viewSun === undefined ? 1 : this.viewSun;
+    this.vSun.intensity = 3.4 * (1 - f * 0.9) * (0.08 + 0.92 * sv);
+    this.vHemi.intensity = 1.05 * (1 - f * 0.45);
+    SHARED.vmRot.value.setFromMatrix4(cam.matrixWorld);
   }
 
   applyPreset(preset) {
@@ -162,7 +202,8 @@ export class Renderer {
       this.gtao = g;
     }
     this.vol.setSize(w, h);
-    this.bloom = P.bloom ? new UnrealBloomPass(new THREE.Vector2(w, h), 0.2, 0.5, 1.1) : null;
+    this.bloom = P.bloom ? new UnrealBloomPass(new THREE.Vector2(w, h), 0.3, 0.62, 1.0) : null;
+    if (this.bloom) this.bloom.bloomTintColors.forEach((t, i) => t.set(1.0, 0.86 - i * 0.02, 0.66 - i * 0.03));
     this.aa = null;
     if (P.aa === 'smaa') this.aa = new SMAAPass(w, h);
     else if (P.aa === 'fxaa') {
@@ -190,6 +231,8 @@ export class Renderer {
     const vis = hide.map((o) => o.visible);
     hide.forEach((o) => { o.visible = false; });
     this.dust.points.visible = false;
+    this.ash.points.visible = false;
+    for (const m of this.flock.meshes) m.visible = false;
     const cubeRT = new THREE.WebGLCubeRenderTarget(512, { type: THREE.HalfFloatType, generateMipmaps: false });
     const cam = new THREE.CubeCamera(0.1, 600, cubeRT);
     cam.position.copy(position);
@@ -202,6 +245,8 @@ export class Renderer {
     cubeRT.dispose();
     hide.forEach((o, i) => { o.visible = vis[i]; });
     this.dust.points.visible = true;
+    this.ash.points.visible = true;
+    for (const m of this.flock.meshes) m.visible = true;
     const u = this.probe.uniforms;
     u.probePos.value.copy(position);
     u.boxMin.value.copy(box.min);
@@ -223,6 +268,12 @@ export class Renderer {
       return;
     }
     this.dust.update(dt, this.camera, this.size.y);
+    this.ash.update(dt, this.camera, this.size.y);
+    this.flock.update(dt);
+    this.sky.material.uniforms.uTime.value += dt;
+    SHARED.cloudShadow.value.x += 0.0016 * dt;
+    SHARED.cloudShadow.value.y += 0.0006 * dt;
+    this.syncViewLights();
     // World: the volumetric pass replaces the distance fog.
     this.scene.fog.density = 0;
     r.setRenderTarget(this.sceneRT);
@@ -242,6 +293,7 @@ export class Renderer {
     if (this.bloom) this.bloom.render(r, null, cur, dt, false);
     // Grade, then anti-alias to the screen.
     this.grade.uniforms.tDiffuse.value = cur.texture;
+    this.grade.uniforms.time.value += dt;
     this.quad.material = this.grade;
     r.setRenderTarget(this.aa ? this.rtLDR : null);
     this.quad.render(r);

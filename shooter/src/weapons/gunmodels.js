@@ -112,8 +112,7 @@ function redDot(g, M, y, z, small) {
   grp.add(new THREE.Mesh(rb(0.022, 0.012, 0.05, 0, 0.006, 0, 0.002), M.anodized));
   // Riser stops just under the tube so nothing intrudes into the sight picture.
   grp.add(new THREE.Mesh(rb(0.014, H - 0.0165 - 0.012, 0.03, 0, 0.012 + (H - 0.0165 - 0.012) / 2, 0, 0.0015), M.anodized));
-  const tubeMat = M.anodized.clone(); tubeMat.side = THREE.DoubleSide;
-  const ringMat = M.rubber.clone(); ringMat.side = THREE.DoubleSide;
+  const tubeMat = M.anodizedDS, ringMat = M.rubberDS;
   grp.add(new THREE.Mesh(cz(0.0165, 0.0165, -0.033, 0.033, 0, H, 28, true), tubeMat));
   grp.add(new THREE.Mesh(cz(0.0185, 0.0185, -0.036, -0.026, 0, H, 28, true), ringMat));
   grp.add(new THREE.Mesh(cz(0.0185, 0.0185, 0.026, 0.036, 0, H, 28, true), ringMat));
