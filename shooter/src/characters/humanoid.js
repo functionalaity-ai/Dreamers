@@ -87,7 +87,7 @@ function buildBody(faction, seed) {
   const R = REST;
   const at = (bone, dx = 0, dy = 0, dz = 0) => [R[bone].x + dx, R[bone].y + dy, R[bone].z + dz];
   // Head and face
-  const head = new THREE.SphereGeometry(0.1, 18, 14);
+  const head = new THREE.SphereGeometry(0.1, 14, 10);
   head.scale(0.9, 1.12, 1.0);
   P.add(head, B.head, 'skin', skin, at(B.head, 0, 0.075, -0.005));
   P.add(new THREE.BoxGeometry(0.026, 0.045, 0.03), B.head, 'skin', skin, at(B.head, 0, 0.065, -0.1));
@@ -106,7 +106,7 @@ function buildBody(faction, seed) {
     P.add(beard, B.head, 'fabric', [0.2, 0.15, 0.11], at(B.head, 0, 0.068, -0.012));
   }
   // Helmet with rails, NVG shroud and a headset
-  const helmet = new THREE.SphereGeometry(0.124, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.5);
+  const helmet = new THREE.SphereGeometry(0.124, 16, 7, 0, Math.PI * 2, 0, Math.PI * 0.5);
   helmet.scale(1.0, 0.92, 1.1);
   const hreg = kit.helmet === 'camo' ? 'camo' : 'fabric';
   const hcol = kit.helmet === 'camo' ? W : [0.24, 0.25, 0.24];
@@ -152,10 +152,11 @@ function buildBody(faction, seed) {
   // Legs
   for (const side of ['L', 'R']) {
     const th = B['thigh' + side], sh = B['shin' + side], ft = B['foot' + side];
-    P.add(new THREE.SphereGeometry(0.098, 12, 8), th, 'camo', W, at(th, 0, -0.02, 0));
-    P.add(cyl(0.098, 0.075, 0.43, 12), th, 'camo', W, at(th, 0, -0.215, 0));
-    P.add(new THREE.SphereGeometry(0.074, 10, 8), sh, 'camo', W, at(sh, 0, 0, 0));
-    P.add(cyl(0.072, 0.056, 0.42, 12), sh, 'camo', W, at(sh, 0, -0.21, 0));
+    P.add(new THREE.SphereGeometry(0.106, 10, 7), th, 'camo', W, at(th, 0, -0.02, 0));
+    P.add(cyl(0.106, 0.08, 0.43, 10), th, 'camo', W, at(th, 0, -0.215, 0));
+    P.add(rb(0.07, 0.11, 0.05, 0.015), th, 'camo', [0.92, 0.92, 0.92], at(th, (side === 'L' ? -1 : 1) * 0.09, -0.22, 0.0));
+    P.add(new THREE.SphereGeometry(0.078, 10, 7), sh, 'camo', W, at(sh, 0, 0, 0));
+    P.add(cyl(0.078, 0.058, 0.42, 10), sh, 'camo', W, at(sh, 0, -0.21, 0));
     P.add(rb(0.1, 0.12, 0.05, 0.02), sh, 'fabric', kit.dark, at(sh, 0, -0.02, -0.06));
     P.add(rb(0.11, 0.12, 0.28, 0.03), ft, 'rubber', kit.boots, at(ft, 0, -0.0, -0.05));
     P.add(rb(0.115, 0.025, 0.29, 0.008), ft, 'rubber', [0.08, 0.07, 0.06], at(ft, 0, -0.062, -0.05));

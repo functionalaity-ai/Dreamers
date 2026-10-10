@@ -8,11 +8,15 @@ import { textDecal } from '../core/textures.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
-function rb(w, h, d, x, y, z, r = 0.002) { const g = roundedBox(w, h, d, r, 2); g.translate(x, y, z); return g; }
+// LOW is true while building a third-person model: fewer segments, no fine detail.
+let LOW = false;
+const seg = (n) => (LOW ? Math.max(6, Math.round(n / 2)) : n);
+
+function rb(w, h, d, x, y, z, r = 0.002) { const g = LOW ? new THREE.BoxGeometry(w, h, d) : roundedBox(w, h, d, r, 2); g.translate(x, y, z); return g; }
 function bx(w, h, d, x, y, z) { const g = new THREE.BoxGeometry(w, h, d); g.translate(x, y, z); return g; }
-function cz(r0, r1, z0, z1, x = 0, y = 0, seg = 20, open = false) { const g = tubeZ(r0, r1, z0, z1, seg, open); g.translate(x, y, 0); return g; }
-function cx(r, len, x, y, z, seg = 12) { const g = new THREE.CylinderGeometry(r, r, len, seg); g.rotateZ(Math.PI / 2); g.translate(x, y, z); return g; }
-function cy(r, len, x, y, z, seg = 12) { const g = new THREE.CylinderGeometry(r, r, len, seg); g.translate(x, y, z); return g; }
+function cz(r0, r1, z0, z1, x = 0, y = 0, n = 20, open = false) { const g = tubeZ(r0, r1, z0, z1, seg(n), open); g.translate(x, y, 0); return g; }
+function cx(r, len, x, y, z, n = 12) { const g = new THREE.CylinderGeometry(r, r, len, seg(n)); g.rotateZ(Math.PI / 2); g.translate(x, y, z); return g; }
+function cy(r, len, x, y, z, n = 12) { const g = new THREE.CylinderGeometry(r, r, len, seg(n)); g.translate(x, y, z); return g; }
 
 class Gun {
   constructor(id, M) {
@@ -63,6 +67,7 @@ class Gun {
 // --- shared bits -------------------------------------------------------------
 function picatinny(g, mat, z0, z1, y, w = 0.021) {
   g.s(mat, rb(w, 0.006, Math.abs(z1 - z0), 0, y, (z0 + z1) / 2, 0.0012));
+  if (LOW) return;
   for (let z = Math.min(z0, z1) + 0.004; z < Math.max(z0, z1) - 0.003; z += 0.01) g.s(mat, bx(w + 0.002, 0.004, 0.005, 0, y + 0.004, z));
 }
 
@@ -161,7 +166,7 @@ function suppressor(g, M, mz, y, r = 0.019, len = 0.17) {
   grp.add(new THREE.Mesh(cz(r, r, -0.02, -len + 0.012, 0, 0, 28), M.cerakote));
   grp.add(new THREE.Mesh(cz(r, r * 0.82, -len + 0.012, -len, 0, 0, 28), M.cerakote));
   grp.add(new THREE.Mesh(cz(0.0045, 0.0045, -len - 0.0005, -len + 0.002, 0, 0, 14), M.rubber));
-  for (let i = 0; i < 3; i++) grp.add(new THREE.Mesh(cz(r + 0.0006, r + 0.0006, -0.04 - i * 0.04, -0.043 - i * 0.04, 0, 0, 28), M.steel));
+  for (let i = 0; i < (LOW ? 0 : 3); i++) grp.add(new THREE.Mesh(cz(r + 0.0006, r + 0.0006, -0.04 - i * 0.04, -0.043 - i * 0.04, 0, 0, 28), M.steel));
   return len;
 }
 
@@ -222,10 +227,12 @@ function buildKestrel(M, att, opts) {
   g.s(A, rb(0.03, 0.006, 0.076, 0, -0.064, -0.091, 0.002));         // flared lip
   g.s(A, rb(0.012, 0.004, 0.08, 0, -0.058, -0.014, 0.0015));        // trigger guard
   g.s(A, rb(0.012, 0.03, 0.006, 0, -0.044, -0.052, 0.0015));
-  g.s(S, cx(0.0028, 0.026, 0, -0.008, 0.07, 10));                  // takedown pins
-  g.s(S, cx(0.0028, 0.026, 0, -0.01, -0.11, 10));
-  g.s(S, cx(0.004, 0.003, 0.0125, -0.025, -0.05, 12));              // mag release
-  g.s(A, rb(0.003, 0.012, 0.016, -0.0125, -0.006, -0.04, 0.001));   // bolt catch paddle
+  if (!LOW) {
+    g.s(S, cx(0.0028, 0.026, 0, -0.008, 0.07, 10));                  // takedown pins
+    g.s(S, cx(0.0028, 0.026, 0, -0.01, -0.11, 10));
+    g.s(S, cx(0.004, 0.003, 0.0125, -0.025, -0.05, 12));              // mag release
+    g.s(A, rb(0.003, 0.012, 0.016, -0.0125, -0.006, -0.04, 0.001));   // bolt catch paddle
+  }
   // Pistol grip
   g.s(P, profile([[0.024, -0.024], [0.058, -0.022], [0.082, -0.128], [0.078, -0.138], [0.045, -0.142], [0.034, -0.13], [0.036, -0.1], [0.028, -0.07], [0.03, -0.05]], 0.028, 0.004));
   // Trigger (pivots)
@@ -248,7 +255,7 @@ function buildKestrel(M, att, opts) {
   hg.rotateX(Math.PI / 2); hg.rotateZ(Math.PI / 8); hg.translate(0, 0.016, -0.365);
   g.s(A, hg);
   picatinny(g, A, -0.176, -0.548, 0.043);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < (LOW ? 0 : 6); i++) {
     const z = -0.22 - i * 0.052;
     for (const a of [Math.PI / 4, -Math.PI / 4, Math.PI / 2 + Math.PI / 4 + Math.PI / 2, Math.PI, 0, -Math.PI / 2]) {
       if (a === -Math.PI / 2 && i % 2) continue;
@@ -331,7 +338,7 @@ export function buildRifleMag(M, ext, fp) {
   const base = rb(0.026, 0.008, 0.07, 0, bottom - 0.002, -0.12, 0.003);
   grp.add(new THREE.Mesh(base, M.polymer));
   // Ribs on the lower body
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < (LOW ? 0 : 4); i++) {
     const y = -0.13 - i * 0.018;
     const t = (y + 0.08) / (bottom + 0.08);
     const zc = -0.106 - Math.max(0, t) * 0.012;
@@ -379,7 +386,7 @@ function buildWarden(M, att, opts) {
   const slideLen = 0.186, sy = 0.051;
   g.m(S, profile([[0.03, sy - 0.015], [0.03, sy + 0.012], [0.025, sy + 0.015], [-0.148, sy + 0.015], [-0.156, sy + 0.009], [-0.156, sy - 0.015]], 0.0255, 0.0015), slide);
   // Rear serrations
-  for (let i = 0; i < 7; i++) for (const sx of [-1, 1]) g.m(M.rubber, bx(0.0008, 0.022, 0.0016, sx * 0.0128, sy - 0.002, 0.026 - i * 0.0032), slide);
+  if (!LOW) for (let i = 0; i < 7; i++) for (const sx of [-1, 1]) g.m(M.rubber, bx(0.0008, 0.022, 0.0016, sx * 0.0128, sy - 0.002, 0.026 - i * 0.0032), slide);
   // Ejection port and the barrel hood visible inside it
   g.m(M.rubber, bx(0.013, 0.0012, 0.03, 0.0035, sy + 0.0152, -0.038), slide);
   const hood = g.m(M.nickel, rb(0.011, 0.004, 0.028, 0.0035, sy + 0.012, -0.038, 0.001));
@@ -462,7 +469,7 @@ function buildBastion(M, att, opts) {
   // Barrel with vent rib and bead
   g.s(S, cz(0.0118, 0.0118, -0.13, -0.6, 0, 0.034, 22));
   g.s(S, bx(0.008, 0.003, 0.46, 0, 0.0475, -0.365));
-  for (let z = -0.15; z > -0.59; z -= 0.035) g.s(S, bx(0.004, 0.004, 0.006, 0, 0.0435, z));
+  if (!LOW) for (let z = -0.15; z > -0.59; z -= 0.035) g.s(S, bx(0.004, 0.004, 0.006, 0, 0.0435, z));
   // Front sight: a short post on the rib topped with a brass bead, plus a mid-rib bead.
   g.s(S, rb(0.004, 0.012, 0.006, 0, 0.055, -0.592, 0.001));
   g.s(M.brass, new THREE.SphereGeometry(0.0024, 10, 8).translate(0, 0.0625, -0.592));
@@ -481,7 +488,7 @@ function buildBastion(M, att, opts) {
   // Pump forend (moves)
   const pump = g.pivot(g.body, 0, 0, 0, 'pump');
   g.m(P, cz(0.021, 0.021, -0.2, -0.36, 0, -0.002, 22), pump);
-  for (let i = 0; i < 9; i++) g.m(P, cz(0.0222, 0.0222, -0.215 - i * 0.016, -0.222 - i * 0.016, 0, -0.002, 22), pump);
+  for (let i = 0; i < (LOW ? 0 : 9); i++) g.m(P, cz(0.0222, 0.0222, -0.215 - i * 0.016, -0.222 - i * 0.016, 0, -0.002, 22), pump);
   g.parts.pump = pump;
   // Stock with pistol-grip wrist
   g.s(P, profile([[0.068, 0.05], [0.068, -0.006], [0.12, -0.03], [0.15, -0.075], [0.172, -0.072], [0.17, -0.04], [0.42, -0.085], [0.432, -0.09], [0.432, 0.022], [0.41, 0.028], [0.17, 0.034], [0.09, 0.05]], 0.04, 0.005));
@@ -527,7 +534,9 @@ const BUILDERS = { kestrel: buildKestrel, warden: buildWarden, bastion: buildBas
 
 // opts: { fp: first-person detail (markings, rounds), shadows }
 export function buildGun(id, att, M, opts = {}) {
-  const g = BUILDERS[id](M, att || {}, opts);
+  LOW = !opts.fp;
+  let g;
+  try { g = BUILDERS[id](M, att || {}, opts); } finally { LOW = false; }
   g.finish(opts.shadows);
   g.att = Object.assign({}, att);
   return g;

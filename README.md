@@ -1,4 +1,17 @@
-# Golden Hour Valley
+# Dreamers
+
+This repository holds two browser games. Neither needs a build step.
+
+| Game | What it is | Where |
+| --- | --- | --- |
+| **Golden Hour Valley** | A cosy pixel-art farming game | repository root (this page) |
+| **Iron Meridian** | A first-person tactical shooter in Three.js: 4 v 4 team deathmatch against bots in Old Town | [`shooter/`](shooter/README.md) |
+
+To play Iron Meridian, run `npx --yes http-server -c-1 -p 8090 shooter` and open http://localhost:8090. See [`shooter/README.md`](shooter/README.md) for its controls and features.
+
+---
+
+## Golden Hour Valley
 
 A cosy pixel-art farming game set in a valley where the sun has been setting for a hundred years.
 
@@ -6,7 +19,7 @@ Grandma Juniper has left you her farm. The village's **Great Lantern**, which ho
 
 It runs in any modern browser, on desktop or phone. It uses no build step and no image files: all the art is drawn in code and all the sound is synthesised.
 
-## Play
+### Play
 
 Open `index.html` in a browser, or serve the folder:
 
@@ -16,7 +29,7 @@ npm start          # http://localhost:8080
 
 Progress saves in the browser automatically each night, when you quit to the title screen, and when you switch tabs.
 
-### Controls
+#### Controls
 
 | Action | Keyboard / mouse | Touch |
 | --- | --- | --- |
@@ -28,7 +41,7 @@ Progress saves in the browser automatically each night, when you quit to the tit
 | Menu (save, sound, quit) | Esc | ☰ |
 | Toggle music | M | Menu |
 
-### How it plays
+#### How it plays
 
 - **Days** run from 6 AM to 2 AM, about 10 real minutes. Go to bed at the farmhouse door. If you stay up past 2 AM you pass out and lose 10% of your gold (capped at 500g).
 - **Farming:** till farm grass with the hoe, plant seeds, and water them every day. A crop only grows on nights after it was watered. **Sunshowers** water everything for you.
@@ -39,7 +52,7 @@ Progress saves in the browser automatically each night, when you quit to the tit
 - **Foraging:** golden poppies grow wild everywhere, and glowcaps grow in the meadow south of the river.
 - **The goal:** offer 20 Sunwheat, 12 Amber Carrots, 15 Duskberries, 5 Honey Melons, 3 Ember Pumpkins and 6 Glowcaps at the Great Lantern. Lighting it pays 1,000g and blesses your fields so crops sometimes grow an extra day overnight. After that you can keep farming as long as you like.
 
-## Project layout
+### Project layout
 
 ```
 index.html        page, HUD and menu markup
@@ -60,7 +73,7 @@ tests/            headless tests for the game core
 
 The game core (`src/game.js`) never touches the DOM. It emits events such as `toast`, `sfx`, `dialog` and `dayEnd`, and the UI and renderer listen for them. That separation is what lets the rules be tested headlessly.
 
-## Tests
+### Tests
 
 ```sh
 npm test

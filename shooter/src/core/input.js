@@ -5,7 +5,8 @@ export class Input {
     this.keys = new Set();
     this.justPressed = new Set();
     this.mouse = { dx: 0, dy: 0, left: false, right: false, leftPressed: false, wheel: 0 };
-    this.locked = false;
+    this.locked = false;   // real pointer lock
+    this.free = false;     // fallback: read raw mouse movement without a lock
     this.enabled = false;
     this.onUnlock = null;
     window.addEventListener('keydown', (e) => {
@@ -17,7 +18,7 @@ export class Input {
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
     window.addEventListener('blur', () => { this.keys.clear(); this.mouse.left = this.mouse.right = false; });
     document.addEventListener('mousemove', (e) => {
-      if (!this.locked) return;
+      if (!this.locked && !this.free) return;
       // Ignore the occasional huge spike some browsers report when locking.
       if (Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
       this.mouse.dx += e.movementX;

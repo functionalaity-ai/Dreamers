@@ -65,7 +65,7 @@ class App {
     this.mode = 'menu';
     this.menus.show('menu');
     document.addEventListener('keydown', (e) => {
-      if (e.code === 'Escape' && this.mode === 'playing' && !this.input.locked) this.pause();
+      if (e.code === 'Escape' && this.mode === 'playing') { this.pause(); this.input.unlock(); }
     });
     window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
     this.last = performance.now();
@@ -115,8 +115,9 @@ class App {
 
   // Some embedded frames refuse pointer lock; fall back to raw mouse movement.
   checkLock() {
+    this.input.free = false;
     setTimeout(() => {
-      if (this.mode === 'playing' && !this.input.locked) this.input.locked = true;
+      if (this.mode === 'playing' && !this.input.locked) this.input.free = true;
     }, 400);
   }
 
@@ -124,6 +125,7 @@ class App {
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
     this.input.enabled = false;
+    this.input.free = false;
     this.input.reset();
     this.menus.show('pause');
   }
