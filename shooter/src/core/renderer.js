@@ -34,9 +34,13 @@ export class Renderer {
     r.toneMappingExposure = 0.85;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
+    // The sun's shadow map is redrawn when render() asks for it, not on every render call
+    // (the scope's picture-in-picture would otherwise draw it twice a frame).
+    r.shadowMap.autoUpdate = false;
     r.info.autoReset = false;
     this.r = r;
     this.canvas = canvas;
+    this.renderScale = 1;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(90, 1, 0.05, 900);
     this.vScene = new THREE.Scene();
@@ -161,8 +165,8 @@ export class Renderer {
 
   applyPreset(preset) {
     this.preset = preset;
-    const pr = Math.min(window.devicePixelRatio || 1, preset.pixelRatio);
-    this.r.setPixelRatio(pr);
+    if (!preset.adaptive) this.renderScale = 1;
+    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio) * this.renderScale);
     this.r.shadowMap.type = preset.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.sun.shadow.mapSize.set(preset.shadowSize, preset.shadowSize);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
@@ -173,6 +177,14 @@ export class Renderer {
     const win = this.scene.getObjectByName('windows');
     if (win) win.traverse((o) => { if (o.isInstancedMesh) o.castShadow = preset.windowShadows !== false && !o.material.transparent && o.userData.cast !== false; });
     this.scene.traverse((o) => { if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { m.needsUpdate = true; }); } });
+    this.resize();
+  }
+
+  // Dynamic resolution (Mobile preset): trade sharpness for frame rate.
+  setRenderScale(s) {
+    if (Math.abs(s - this.renderScale) < 0.01) return;
+    this.renderScale = s;
+    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.preset.pixelRatio) * s);
     this.resize();
   }
 
@@ -274,6 +286,8 @@ export class Renderer {
     SHARED.cloudShadow.value.x += 0.0016 * dt;
     SHARED.cloudShadow.value.y += 0.0006 * dt;
     this.syncViewLights();
+    this.frameNo = (this.frameNo || 0) + 1;
+    if (this.frameNo % ((this.preset && this.preset.shadowEvery) || 1) === 0) r.shadowMap.needsUpdate = true;
     // World: the volumetric pass replaces the distance fog.
     this.scene.fog.density = 0;
     r.setRenderTarget(this.sceneRT);

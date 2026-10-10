@@ -197,13 +197,134 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sb tr.dead td:first-child { opacity: 0.55; }
 
 @media (max-width: 760px) {
+  #vitals { width: 200px; }
+  #weapon { min-width: 0; }
+  #compass { display: none; }
+}
+/* Narrow and tall windows stack the menus; short ones (phones held sideways) keep two columns. */
+@media (max-width: 760px) and (min-height: 521px) {
   #menu { grid-template-columns: 1fr; padding: 4vh 16px; overflow: auto; }
   .menu-right { justify-content: flex-start; }
   .screen.gs { grid-template-columns: 1fr; grid-template-rows: auto auto auto; overflow: auto; }
   .gs-left, .gs-right { grid-column: 1; }
-  #vitals { width: 200px; }
-  #weapon { min-width: 0; }
-  #compass { display: none; }
   .form { grid-template-columns: 1fr; }
 }
+@media (max-height: 520px) {
+  .brand.big { font-size: clamp(30px, 9vh, 46px); }
+  #menu { grid-template-columns: minmax(0, 1fr) minmax(220px, 300px); gap: 16px; overflow: auto;
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(18px + env(safe-area-inset-right, 0px)) 10px calc(18px + env(safe-area-inset-left, 0px)); }
+  .menu-left { gap: 8px; justify-content: flex-start; }
+  .op { font-size: 12px; letter-spacing: 0.24em; }
+  .menu-nav { gap: 5px; margin-top: 2px; max-width: 340px; }
+  .mbtn { padding: 7px 12px; font-size: 16px; }
+  .mbtn small { font-size: 11px; }
+  .diff { font-size: 12px; gap: 8px; }
+  .seg button { padding: 5px 9px; }
+  .menu-right { justify-content: center; gap: 8px; }
+  .panel { padding: 10px 12px; }
+  .panel h2, .panel h3 { margin-bottom: 8px; font-size: 15px; }
+  .brief p { font-size: 13px; line-height: 1.3; }
+  .lo-sum .w { grid-template-columns: 62px 1fr; margin-bottom: 6px; }
+  .lo-sum .w b { font-size: 15px; }
+  .lo-sum .w em { font-size: 12px; }
+  .screen:is(#loadouts, #settings, #controls, #gunsmith) {
+    padding: calc(10px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px)) 12px calc(16px + env(safe-area-inset-left, 0px)); }
+  .shead { margin-bottom: 10px; gap: 12px; }
+  .shead h2 { font-size: 22px; }
+  .shead .hint { font-size: 12px; }
+  .lo-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .lo-card .mbtn { font-size: 13px; padding: 6px 10px; }
+  .screen.gs { grid-template-columns: minmax(170px, 230px) 1fr minmax(180px, 240px); gap: 0 10px; }
+  .slot { padding: 7px 9px; }
+  .opt { font-size: 14px; padding: 5px 7px; }
+  .opt small { font-size: 11px; }
+  .spec { font-size: 13px; margin-bottom: 8px; }
+  .spec b { font-size: 12px; }
+  .stat { margin: 5px 0; }
+  .stat .top { font-size: 12px; }
+  .form { gap: 8px 14px; }
+  .form label { font-size: 13px; }
+  .form div { display: flex; align-items: center; }
+  .form input[type=range] { flex: 1; min-width: 0; }
+  .keys { font-size: 14px; gap: 6px 14px; }
+  .screen.dim { overflow: auto; padding: 10px; }
+  .panel.center { gap: 7px; min-width: 260px; }
+  .panel.center h2 { font-size: 20px; margin-bottom: 4px; }
+  #over .panel { max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); overflow: auto; }
+  #scoreboard { padding: 10px 14px; }
+  .sb th { padding: 2px 7px; font-size: 10px; }
+  .sb td { padding: 2px 7px; font-size: 12px; line-height: 1.25; }
+  .sb td:first-child { font-size: 13px; }
+  .sb tr.team td { padding-top: 5px; font-size: 11px; }
+}
+
+/* Touch: thumb controls over the game, a compact HUD around them, no page gestures. */
+html.touch, html.touch body { -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none; }
+.touch #view { touch-action: none; }
+.touch :is(button, .mbtn, .chip, .opt, select, input) { touch-action: manipulation; }
+.touch .screen { overscroll-behavior: contain; }
+.screen.gs { touch-action: none; }
+.gs-left, .gs-right, .gs .shead { touch-action: pan-y; }
+#touch { position: fixed; inset: 0; z-index: 12; touch-action: none; }
+#touch .stick { position: absolute; inset: 0; pointer-events: none; }
+#touch .base { position: absolute; left: 0; top: 0; width: 112px; height: 112px; border-radius: 50%; border: 1.5px solid rgba(233, 230, 220, 0.32); background: radial-gradient(circle, rgba(233, 230, 220, 0.06), rgba(12, 14, 16, 0.24) 70%); opacity: 0.5; transition: opacity 0.15s; }
+#touch .knob { position: absolute; left: 0; top: 0; width: 50px; height: 50px; border-radius: 50%; background: rgba(233, 230, 220, 0.3); border: 1.5px solid rgba(233, 230, 220, 0.6); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3); opacity: 0.55; }
+#touch.steering .base, #touch.steering .knob { opacity: 1; }
+#touch.board-on > :not(.board) { opacity: 0.3; }
+#touch.sprinting .knob { background: rgba(217, 181, 106, 0.6); border-color: var(--accent); }
+#touch .tb { position: absolute; width: var(--s, 52px); height: var(--s, 52px); right: calc(var(--r) + env(safe-area-inset-right, 0px)); bottom: calc(var(--b) + env(safe-area-inset-bottom, 0px)); transform: translate(50%, 50%);
+  border-radius: 50%; display: grid; place-items: center; background: rgba(12, 14, 16, 0.34); border: 1.5px solid rgba(233, 230, 220, 0.42); color: rgba(240, 237, 228, 0.92); box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25); }
+#touch .tb svg { width: 48%; height: 48%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+#touch .tb span { font: 600 11px/1 var(--font); letter-spacing: 0.12em; pointer-events: none; }
+#touch .tb.down { background: rgba(217, 181, 106, 0.45); border-color: var(--accent); }
+#touch .tb.on { background: rgba(217, 181, 106, 0.3); border-color: var(--accent); color: #fff3d6; }
+#touch .fire { --s: 84px; --r: 112px; --b: 116px; background: rgba(120, 32, 24, 0.34); border-color: rgba(255, 196, 176, 0.55); }
+#touch .fire svg { width: 40%; height: 40%; }
+#touch .ads { --s: 60px; --r: 212px; --b: 84px; }
+#touch .frag { --s: 48px; --r: 208px; --b: 174px; }
+#touch .reload { --s: 50px; --r: 146px; --b: 216px; }
+#touch .jump { --s: 56px; --r: 52px; --b: 204px; }
+#touch .crouch { --s: 54px; --r: 40px; --b: 64px; }
+#touch .swap { --s: 46px; --r: 290px; --b: 136px; }
+#touch .fire2 { --s: 56px; --b: 206px; right: auto; left: calc(58px + env(safe-area-inset-left, 0px)); transform: translate(-50%, 50%); }
+#touch :is(.mode, .board, .pause) { --s: 40px; bottom: auto; top: calc(30px + env(safe-area-inset-top, 0px)); transform: translate(50%, -50%); }
+#touch .pause { --r: 30px; }
+#touch .board { --r: 78px; }
+#touch .mode { --r: 126px; }
+.touch #topbar { top: calc(8px + env(safe-area-inset-top, 0px)); }
+.touch #topbar .score { padding: 2px 10px; gap: 7px; }
+.touch #topbar .score b { font-size: 19px; }
+.touch #topbar .tag { font-size: 12px; }
+.touch #topbar .clock { padding: 2px 12px; }
+.touch #topbar .clock span { font-size: 16px; }
+.touch #topbar .clock small { font-size: 9px; }
+.touch #compass { width: 240px; margin-left: -120px; top: calc(56px + env(safe-area-inset-top, 0px)); }
+.touch #vitals { top: calc(10px + env(safe-area-inset-top, 0px)); bottom: auto; left: calc(12px + env(safe-area-inset-left, 0px)); width: 172px; padding: 6px 9px; gap: 4px; }
+.touch #vitals .row { grid-template-columns: 28px 1fr 40px; gap: 6px; }
+.touch #vitals .lbl { font-size: 10px; }
+.touch #vitals b { font-size: 13px; }
+.touch #vitals .stam b { font-size: 10px; }
+.touch #comms { left: calc(100px + env(safe-area-inset-left, 0px)); top: calc(84px + env(safe-area-inset-top, 0px)); bottom: auto; font-size: 13px; max-width: 34vw; }
+.touch #killfeed { top: calc(56px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); font-size: 12px; gap: 3px; }
+.touch .kf { padding: 2px 8px; }
+.touch .kf .w { font-size: 11px; }
+.touch .kf:nth-child(n+4) { display: none; } /* three lines, clear of the jump button */
+.touch #weapon { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); min-width: 0; padding: 4px 12px 5px; text-align: center; background: rgba(14, 17, 20, 0.5); }
+.touch #weapon .wname { font-size: 13px; }
+.touch #weapon .wsub { font-size: 10px; }
+.touch #weapon .ammo b { font-size: 28px; }
+.touch #weapon .plus { font-size: 12px; }
+.touch #weapon .res { font-size: 13px; margin-left: 5px; }
+.touch #weapon .gear { font-size: 10px; margin-top: 1px; }
+.touch .key { display: none; }
+.touch #death { top: 24%; padding: 10px 20px; }
+.touch #death .dtitle { font-size: 20px; }
+.touch #scoreboard { max-height: calc(100% - 110px); overflow: hidden; }
+#rotate { position: fixed; inset: 0; z-index: 60; display: none; place-items: center; text-align: center; padding: 24px; background: radial-gradient(ellipse at 50% 45%, #1b1a17, #08090a 72%); }
+#rotate > div { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#rotate svg { width: 72px; height: 72px; fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; animation: rot-turn 2.6s ease-in-out infinite; }
+#rotate b { font-size: 24px; letter-spacing: 0.08em; text-transform: uppercase; }
+#rotate span { color: var(--muted); font-size: 16px; }
+@keyframes rot-turn { 0%, 25% { transform: rotate(0deg); } 55%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) { .touch #rotate { display: grid; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

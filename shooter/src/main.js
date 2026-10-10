@@ -14,6 +14,7 @@ import { PRESETS, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
 import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
 import { SUN_DIR } from './core/renderer.js';
 import { cloudTexture } from './core/sky.js';
+import { TouchControls, isTouchDevice } from './core/touch.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -28,13 +29,23 @@ const TIPS = [
   'Shots far away arrive late: sound travels at 343 metres per second.',
   'Inside buildings you are harder to spot. Crouch or go prone to stay hidden longer.',
   'Shallow-angle hits on stone and metal can ricochet.',
-  'Double-tap Shift while sprinting for a short tactical sprint.',
 ];
+const SPRINT_TIP = {
+  keys: 'Double-tap Shift while sprinting for a short tactical sprint.',
+  touch: 'Push the thumbstick to the rim twice in quick succession for a short tactical sprint.',
+};
 
 class App {
   async boot() {
-    $('load-tip').textContent = TIPS[Math.floor(Math.random() * TIPS.length)];
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, store.get(SETTINGS_KEY, {}));
+    // Phones and tablets get thumb controls instead of pointer lock (also switched on by a first touch).
+    this.touchMode = false;
+    if (isTouchDevice()) this.enableTouch();
+    window.addEventListener('touchstart', () => this.enableTouch(), { once: true, passive: true });
+    const tips = TIPS.concat(this.touchMode ? SPRINT_TIP.touch : SPRINT_TIP.keys);
+    $('load-tip').textContent = tips[Math.floor(Math.random() * tips.length)];
+    const saved = store.get(SETTINGS_KEY, {});
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+    if (!saved.preset && this.touchMode) this.settings.preset = 'mobile';
     if (!PRESETS[this.settings.preset]) this.settings.preset = 'high';
     if (typeof this.settings.loadout !== 'number') this.settings.loadout = 0;
     this.loadouts = store.get(LOADOUTS_KEY, null) || JSON.parse(JSON.stringify(DEFAULT_LOADOUTS));
@@ -63,13 +74,16 @@ class App {
     this.game.hud = this.hud;
     this.hud.matchOver = (w) => this.matchOver(w);
     this.studio = new Studio(this.R, this.mats);
-    this.studio.bind(canvas);
+    this.studio.bind($('gunsmith'));
     this.input = new Input(canvas);
     this.input.onUnlock = () => { if (this.mode === 'playing') this.pause(); };
+    this.touch = new TouchControls(this.input, { onPause: () => this.pause() });
     this.menus = new Menus(this);
     this.buildLineup();
     this.game.vm.setScopeRes(preset.scopeRes);
-    window.addEventListener('resize', () => this.R.resize());
+    // Rebuilding the render targets is heavy; wait for a rotation or window drag to settle.
+    let resizeT = 0;
+    window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => this.R.resize(), 120); });
     step(1, 'ready'); await frame();
     $('loading').hidden = true;
     this.mode = 'menu';
@@ -77,10 +91,39 @@ class App {
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Escape' && this.mode === 'playing') { this.pause(); this.input.unlock(); }
     });
-    window.addEventListener('pointerdown', () => this.audio.unlock(), { once: false });
+    window.addEventListener('pointerdown', (e) => { this.lastPointer = e.pointerType; this.audio.unlock(); });
+    window.addEventListener('touchend', () => this.audio.unlock(), { passive: true });
+    // Leaving the app, or turning a phone upright, pauses the match.
+    document.addEventListener('visibilitychange', () => { if (document.hidden && this.mode === 'playing') { this.pause(); this.input.unlock(); } });
+    const portrait = window.matchMedia('(orientation: portrait)');
+    const onTurn = () => { if (portrait.matches && this.touchPlay && this.mode === 'playing') this.pause(); };
+    if (portrait.addEventListener) portrait.addEventListener('change', onTurn); else portrait.addListener(onTurn);
     this.last = performance.now();
     window.__app = this;
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  enableTouch() {
+    if (this.touchMode) return;
+    this.touchMode = true;
+    document.documentElement.classList.add('touch');
+    const hint = document.querySelector('#gunsmith .hint');
+    if (hint) hint.textContent = 'Drag to rotate · pinch to zoom';
+    const rot = document.createElement('div');
+    rot.id = 'rotate';
+    rot.innerHTML = '<div><svg viewBox="0 0 48 48" aria-hidden="true"><rect x="15" y="6" width="18" height="36" rx="3"/><path d="M21.5 37h5"/></svg>' +
+      '<b>Turn your phone sideways</b><span>Iron Meridian plays in landscape.</span></div>';
+    document.body.appendChild(rot);
+  }
+
+  // Phones: go fullscreen and hold landscape where the browser allows it (it needs the tap that deployed).
+  goFullscreen() {
+    const el = document.documentElement;
+    if (document.fullscreenElement || !el.requestFullscreen) return;
+    try {
+      const p = el.requestFullscreen({ navigationUI: 'hide' });
+      if (p && p.then) p.then(() => { const o = window.screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => {}); }).catch(() => {});
+    } catch (e) { /* not allowed in this frame */ }
   }
 
   // One reflection probe over the main streets; glass, paint and metal are box-projected into it.
@@ -129,6 +172,14 @@ class App {
     this.mode = 'playing';
     this.input.enabled = true;
     this.input.reset();
+    this.capture();
+  }
+
+  // Mouse aiming captures the pointer; thumbs don't need it. A touchscreen laptop deployed with
+  // the mouse still gets pointer lock.
+  capture() {
+    this.touchPlay = this.touchMode && this.lastPointer !== 'mouse';
+    if (this.touchPlay) { this.goFullscreen(); return; }
     this.input.lock();
     this.checkLock();
   }
@@ -155,8 +206,7 @@ class App {
     this.mode = 'playing';
     this.input.enabled = true;
     this.input.reset();
-    this.input.lock();
-    this.checkLock();
+    this.capture();
   }
 
   toMenu() {
@@ -181,14 +231,18 @@ class App {
   }
 
   loop(t) {
-    const dt = Math.min(0.05, Math.max(0.0001, (t - this.last) / 1000));
+    const raw = (t - this.last) / 1000;
+    const dt = Math.min(0.05, Math.max(0.0001, raw));
     this.last = t;
+    this.adapt(raw);
     const g = this.game, R = this.R;
     if (this.mode === 'test') { requestAnimationFrame((tt) => this.loop(tt)); return; } // driven externally by automated tests
+    this.touch.setVisible(this.touchPlay && this.mode === 'playing');
     if (this.mode === 'gunsmith') {
       this.studio.render();
     } else {
       if (this.mode === 'playing' || this.mode === 'over') {
+        if (this.mode === 'playing') this.touch.update(g.player.alive);
         g.update(dt, this.input, this.settings);
         this.hud.update(dt, this.input);
       } else if (this.mode === 'menu' || this.mode === 'paused') {
@@ -200,6 +254,19 @@ class App {
     }
     this.input.endFrame();
     requestAnimationFrame((tt) => this.loop(tt));
+  }
+
+  // Mobile preset: lower the render resolution while frames run slow, raise it again with headroom.
+  adapt(raw) {
+    if (!PRESETS[this.settings.preset].adaptive || this.mode !== 'playing') { this.adaptT = 0; return; }
+    const f = Math.min(0.1, Math.max(0, raw)); // a shader-compile hitch counts as one slow frame
+    this.frameAvg = this.frameAvg ? this.frameAvg * 0.95 + f * 0.05 : f;
+    this.adaptT = (this.adaptT || 0) + f;
+    if (this.adaptT < 2.5) return;
+    this.adaptT = 0;
+    const s = this.R.renderScale;
+    if (this.frameAvg > 1 / 26 && s > 0.56) this.R.setRenderScale(Math.max(0.55, s * 0.85));
+    else if (this.frameAvg < 1 / 50 && s < 1) this.R.setRenderScale(Math.min(1, s * 1.12));
   }
 
   menuCamera(dt) {

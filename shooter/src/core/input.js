@@ -5,6 +5,7 @@ export class Input {
     this.keys = new Set();
     this.justPressed = new Set();
     this.mouse = { dx: 0, dy: 0, left: false, right: false, leftPressed: false, wheel: 0 };
+    this.stick = null;     // analog movement { x, y } from the touch thumbstick, when in use
     this.locked = false;   // real pointer lock
     this.free = false;     // fallback: read raw mouse movement without a lock
     this.enabled = false;
@@ -61,5 +62,5 @@ export class Input {
     this.mouse.wheel = 0;
   }
 
-  reset() { this.keys.clear(); this.justPressed.clear(); this.mouse.left = this.mouse.right = false; this.endFrame(); }
+  reset() { this.keys.clear(); this.justPressed.clear(); this.mouse.left = this.mouse.right = false; this.stick = null; this.endFrame(); }
 }

@@ -36,6 +36,25 @@ Click **Deploy** to start. The game captures your mouse for aiming. Press **Esc*
 | Tab (hold) | Scoreboard |
 | Esc | Pause |
 
+### On a phone or tablet
+
+Hold the phone sideways. Touch controls appear when you deploy, and nothing captures the pointer.
+
+| Control | Action |
+| --- | --- |
+| Left thumb, anywhere on the left | Move. The stick is analog. Push it to the rim to sprint, or twice quickly for a tactical sprint. |
+| Right thumb, anywhere on the right | Look |
+| Fire (the big red button) | Fire. Keep your thumb on it and drag to aim while you shoot. |
+| Small fire button (left) | Fire while your right thumb looks |
+| Sights | Aim down sights (tap on, tap off) |
+| Jump | Jump, vault and mantle ledges |
+| Crouch | Tap: crouch, or slide while sprinting. Hold: prone. |
+| Reload | Tap: reload. Hold: mag check. |
+| Frag, Swap, Mode | Throw a frag, switch weapon, change fire mode |
+| ☰ and II (top right) | Scoreboard and pause |
+
+Phones start on the **Mobile** graphics preset, and the menus and HUD shrink to fit. In the gunsmith, drag to turn the gun and pinch to zoom. The match pauses when you switch apps or turn the phone upright. On Android, deploying also goes fullscreen and locks landscape where the browser allows it. iPhone Safari doesn't allow that for web pages.
+
 ## What's in the slice
 
 **Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, two five-storey Soviet panel blocks (one sunlit, one backlit by the low sun), rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
@@ -49,7 +68,7 @@ Click **Deploy** to start. The game captures your mouse for aiming. Press **Esc*
 
 Every gun has ejected brass and its own reload animations: tactical, empty, pistol, and shell-by-shell for the shotgun. The first-person gun is rendered in its own pass, so it never clips through walls.
 
-**Gunsmith.** A lit turntable you can drag to rotate and scroll to zoom, with live stat bars that show the change from each part. There are 9 attachments across 5 slots:
+**Gunsmith.** A lit turntable you can drag to rotate and scroll (or pinch) to zoom, with live stat bars that show the change from each part. There are 9 attachments across 5 slots:
 
 | Slot | Attachments |
 | --- | --- |
@@ -102,6 +121,7 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 
   | Preset | Volumetric light | Textures | Extras |
   | --- | --- | --- | --- |
+  | Mobile | 16 steps at 40% resolution | 512² | One pixel per screen point, FXAA, no window shadows, AO or bloom. Shadows are redrawn every other frame, and the resolution drops to as low as 55% when frames run slow. |
   | Medium | 24 steps | 512² | No window shadows, AO or bloom |
   | High | 40 steps | 1024² | AO and bloom |
   | Ultra | 64 steps | 2048² | AO, bloom and 4096² shadows |
@@ -115,9 +135,10 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 index.html               page, HUD and menu markup, import map
 css/style.css            UI styling
 src/config.js            weapons, attachments, materials, hit zones, difficulty, presets, loadouts
-src/main.js              boot, screen flow, pointer lock, main loop
+src/main.js              boot, screen flow, pointer lock or touch mode, main loop, dynamic resolution
 src/core/                renderer and post chain, volumetric light, colour grade, GPU texture baker and surface
-                         recipes, material shader patches, materials, geometry helpers, physics, audio, input
+                         recipes, material shader patches, materials, geometry helpers, physics, audio, input,
+                         touch controls
 src/world/               Old Town layout, facades and windows, Soviet panel block, vehicles, building generator,
                          props, navigation graph, effects
 src/weapons/             gun models, weapon state, ballistics, first-person viewmodel and animations
@@ -134,5 +155,6 @@ vendor/three/            Three.js r160 and the add-ons used
 - Animations are procedural rather than motion-captured.
 - This is still rasterised WebGL, not Unreal: the "ray-traced" reflections come from a box-projected reflection probe, and the bounce light is approximated. There's no Lumen, Nanite or hardware ray tracing.
 - The richer facades and cars are heavy, around 0.8 million triangles a frame. Use Medium on integrated graphics.
+- Phones get the same town, so they need a recent, fast GPU. The touch controls and phone layout were tested in an emulated phone in a desktop browser, not on real handsets, so frame rates on real phones haven't been measured.
 
 The later milestones in the prompt (more maps, more weapons, more game modes, a progression system and multiplayer) are not built yet.

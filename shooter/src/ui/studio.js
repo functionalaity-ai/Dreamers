@@ -56,15 +56,32 @@ export class Studio {
     this.drag = null;
   }
 
+  // `el` is the gunsmith screen: drags that start on its open middle (not on a panel) turn the
+  // gun, the wheel or a two-finger pinch zooms.
   bind(el) {
-    el.addEventListener('pointerdown', (e) => { if (!this.active) return; this.drag = { x: e.clientX, y: e.clientY, ry: this.rotY, rx: this.rotX }; });
+    const pts = new Map();
+    let pinch = 0;
+    const spread = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; };
+    const zoomBy = (k) => { this.zoom = Math.max(0.45, Math.min(1.6, this.zoom * k)); };
+    el.addEventListener('pointerdown', (e) => {
+      if (!this.active || e.target !== el) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pts.size === 1) this.drag = { x: e.clientX, y: e.clientY, ry: this.rotY, rx: this.rotX };
+      else { this.drag = null; pinch = spread(); }
+    });
     window.addEventListener('pointermove', (e) => {
+      const p = pts.get(e.pointerId);
+      if (!p) return;
+      p.x = e.clientX; p.y = e.clientY;
+      if (pinch && pts.size >= 2) { const d = spread(); zoomBy(pinch / d); pinch = d; return; }
       if (!this.drag) return;
       this.rotY = this.drag.ry + (e.clientX - this.drag.x) * 0.008;
       this.rotX = Math.max(-0.6, Math.min(0.8, this.drag.rx + (e.clientY - this.drag.y) * 0.006));
     });
-    window.addEventListener('pointerup', () => { this.drag = null; });
-    el.addEventListener('wheel', (e) => { if (this.active) this.zoom = Math.max(0.45, Math.min(1.6, this.zoom * (e.deltaY > 0 ? 1.08 : 0.92))); }, { passive: true });
+    const up = (e) => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; if (!pts.size) this.drag = null; };
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    el.addEventListener('wheel', (e) => { if (this.active && e.target === el) zoomBy(e.deltaY > 0 ? 1.08 : 0.92); }, { passive: true });
   }
 
   show(id, att) {

@@ -148,7 +148,7 @@ export class Menus {
       <select id="set-preset">${Object.keys(PRESETS).map((k) => `<option value="${k}" ${s.preset === k ? 'selected' : ''}>${PRESETS[k].name}</option>`).join('')}</select>
       <label for="set-fov">Field of view</label>
       <div><input id="set-fov" type="range" min="60" max="120" step="1" value="${s.fov}"><span class="val" id="v-fov">${s.fov}°</span></div>
-      <label for="set-sens">Mouse sensitivity</label>
+      <label for="set-sens">${app.touchMode ? 'Look sensitivity' : 'Mouse sensitivity'}</label>
       <div><input id="set-sens" type="range" min="0.2" max="3" step="0.05" value="${s.sens}"><span class="val" id="v-sens">${s.sens.toFixed(2)}</span></div>
       <label for="set-ads">Aiming sensitivity</label>
       <div><input id="set-ads" type="range" min="0.3" max="1.5" step="0.05" value="${s.adsSens}"><span class="val" id="v-ads">${s.adsSens.toFixed(2)}</span></div>
@@ -172,7 +172,13 @@ export class Menus {
   }
 
   renderControls() {
-    const rows = [
+    const rows = this.app.touchMode ? [
+      ['Left thumb', 'Move: push to the rim to sprint, twice quickly for a tactical sprint'], ['Right thumb', 'Look'],
+      ['Fire', 'Fire: keep your thumb on it and drag to aim while shooting'], ['Small fire (left)', 'Fire while your right thumb looks'],
+      ['Sights', 'Aim down sights (tap on, tap off)'], ['Jump', 'Jump · vault and mantle ledges'],
+      ['Crouch', 'Tap: crouch, or slide while sprinting · hold: prone'], ['Reload', 'Tap: reload · hold: mag check'],
+      ['Frag', 'Throw frag'], ['Swap', 'Switch weapon'], ['Mode', 'Fire mode'], ['☰', 'Scoreboard'], ['II', 'Pause'],
+    ] : [
       ['W A S D', 'Move'], ['Mouse', 'Look'], ['Left click', 'Fire'], ['Right click (hold)', 'Aim down sights'],
       ['Shift (hold)', 'Sprint — double-tap for tactical sprint'], ['C / Ctrl', 'Crouch — while sprinting: slide'], ['Z', 'Prone'],
       ['Q / E (hold)', 'Lean left / right'], ['Space', 'Jump · vault and mantle ledges'], ['R', 'Reload (tactical keeps one in the chamber)'],

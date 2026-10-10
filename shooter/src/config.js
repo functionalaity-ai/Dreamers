@@ -112,6 +112,9 @@ export const PLAYER = {
 };
 
 export const PRESETS = {
+  // Phones and tablets: native-size pixels, light haze, no AO or bloom, shadows redrawn every other
+  // frame, and the resolution drops (down to 55%) whenever frames run slow.
+  mobile: { name: 'Mobile', pixelRatio: 1, shadowSize: 2048, softShadows: false, ao: false, bloom: false, aa: 'fxaa', anisotropy: 2, scopeRes: 256, textureSize: 512, volumetric: { steps: 16, scale: 0.4 }, dust: 600, windowShadows: false, shadowEvery: 2, adaptive: true },
   medium: { name: 'Medium', pixelRatio: 1, shadowSize: 2048, softShadows: false, ao: false, bloom: false, aa: 'fxaa', anisotropy: 4, scopeRes: 384, textureSize: 512, volumetric: { steps: 24, scale: 0.5 }, dust: 1500, windowShadows: false },
   high: { name: 'High', pixelRatio: 1.5, shadowSize: 4096, softShadows: true, ao: true, aoRes: 0.5, bloom: true, aa: 'smaa', anisotropy: 8, scopeRes: 512, textureSize: 1024, volumetric: { steps: 40, scale: 0.5 }, dust: 3000 },
   ultra: { name: 'Ultra', pixelRatio: 2, shadowSize: 4096, softShadows: true, ao: true, aoRes: 1, bloom: true, aa: 'smaa', anisotropy: 16, scopeRes: 1024, textureSize: 2048, volumetric: { steps: 64, scale: 0.5 }, dust: 5000 },

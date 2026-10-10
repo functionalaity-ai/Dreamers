@@ -39,6 +39,7 @@ export class Player {
     this.sprintBlock = 0;
     this.pts = makePoints();
     this.lastShift = -9;
+    this.sprintT = -9;
   }
 
   get ws() { return this.weapons[this.cur]; }
@@ -184,19 +185,23 @@ export class Player {
       if (k >= 1) { this.mantle = null; b.grounded = true; }
       return;
     }
-    const fwd = (input.down('KeyW') ? 1 : 0) - (input.down('KeyS') ? 1 : 0);
-    const str = (input.down('KeyD') ? 1 : 0) - (input.down('KeyA') ? 1 : 0);
+    let fwd = (input.down('KeyW') ? 1 : 0) - (input.down('KeyS') ? 1 : 0);
+    let str = (input.down('KeyD') ? 1 : 0) - (input.down('KeyA') ? 1 : 0);
+    // The touch thumbstick is analog: a light push walks slowly.
+    if (input.stick) { fwd = input.stick.y; str = input.stick.x; }
     const sx = -Math.sin(this.yaw), sz = -Math.cos(this.yaw);
     const rx = Math.cos(this.yaw), rz = -Math.sin(this.yaw);
     const wish = _v.set(sx * fwd + rx * str, 0, sz * fwd + rz * str);
     if (wish.lengthSq() > 1) wish.normalize();
-    // Sprint (double tap Shift while sprinting for a short tactical sprint)
+    // Sprint (double tap Shift while sprinting for a short tactical sprint). The second tap
+    // lands just after the first one's sprint ended, so look back a moment for it.
     if (input.pressed('ShiftLeft')) {
-      if (this.sprint && this.stamina > 25 && g.time - this.lastShift < 0.45) this.tac = 3;
+      if (g.time - this.sprintT < 0.3 && this.stamina > 25 && g.time - this.lastShift < 0.45) this.tac = 3;
       this.lastShift = g.time;
     }
     const canSprint = fwd > 0 && this.stance === 'stand' && this.stamina > 1 && this.sprintBlock <= 0 && !input.mouse.right;
     this.sprint = input.down('ShiftLeft') && canSprint;
+    if (this.sprint) this.sprintT = g.time;
     if (!this.sprint) this.tac = 0;
     if (this.tac > 0) { this.tac -= dt; this.stamina -= PLAYER.tacDrain * dt; if (this.stamina <= 0) this.tac = 0; }
     else if (this.sprint) this.stamina -= PLAYER.sprintDrain * dt;
