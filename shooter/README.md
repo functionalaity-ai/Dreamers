@@ -62,6 +62,11 @@ Phones start on the **Mobile** graphics preset, and the menus and HUD shrink to 
 - **The Pharmacy** has two floors and roof access, with a shop counter and shelving downstairs and a flat upstairs.
 
 **Guns, modelled part by part.** Every part is a bevelled extrusion of its real outline, with slots, ports and windows cut right through, so edges catch the light and nothing reads as a flat box. On High and Ultra the first-person gun and hands also shadow themselves.
+- **Finish up close:**
+  - The bevels roll smoothly from face to wall, and the polymer parts (stocks, grips, magazines, the pistol frame) are gently domed like real mouldings.
+  - Sharp edges wear through the finish: anodising to bright aluminium, Cerakote to dark anodising and then metal, parkerised steel to bright steel. The wear is found from the surface's curvature, so it sits on real edges and stays put as the gun sways.
+  - Specular anti-aliasing keeps rail teeth and small bevels from sparkling.
+  - Engraved roll marks, serial numbers and selector markings (SAFE / SEMI / AUTO on both sides) sit on the actual surfaces.
 - **KR-5 Kestrel** (5.56 assault rifle, 780 rpm), in Flat Dark Earth by default:
   - A split upper receiver with a real ejection port, a cycling bolt and a hinged dust cover, the forward assist and brass deflector.
   - A lower with a hollow, flared magwell, the mag-release fence, bolt catch, pins, and a trigger guard with its opening cut through.
@@ -89,11 +94,15 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 
 **Characters and AI:**
 - **Characters** are skinned humanoids built in code. Torso, arms and legs are lofted and bend smoothly across their joints. Each wears faction kit: a wrap-around plate carrier with MOLLE rows, straps, magazine, admin, radio and grenade pouches, a battle belt, a high-cut helmet with rails, an NVG shroud and a headset with a boom mic, eye protection, gloves shaped round the grip and handguard, knee pads, cargo pockets, a drop-leg holster and boots. Two-bone arm IK puts their hands on their guns, they react to hits, and they fall when they die.
+  - **They shoulder their rifles:** the torso blades towards the support side, the butt seats in the shoulder pocket, and the head comes down onto the stock with the eye on the sight line. Out of reach, the support hand rides back along the rail or pump.
+  - **Faces are sculpted:** brow ridge, eye sockets with eyes, nose, cheekbones, lips, jaw and chin. Operators vary between clean-shaven, stubble, beards and balaclavas, and between eye protection worn, pushed up on the helmet or left off.
+  - **Uniforms crease:** cloth bunches at the elbows, knees and waist, with stitched seams down the sleeves and legs.
 - **Bots** detect you by sight, with a detection meter, and by sound. They share sightings by radio callouts, claim cover on a navigation graph, peek from cover, flank along routes that keep them out of sight, throw and dodge grenades, and fall back when they're hurt. There are three difficulty levels: Recruit, Regular and Veteran.
 
 **Look and sound:**
 - **Light and atmosphere:**
-  - A low golden-hour sun with soft shadows, and warm bounce light from the sunlit facades into the shade.
+  - A low golden-hour sun with soft shadows.
+  - Bounce light, baked at load: a volume of light probes 2 m apart, one layer per storey, traced against the town. The shade picks up the colour of the sunlit walls and streets around it, alleys and rooms darken by how little sky they see, and the indoor lamps bounce off the walls.
   - A sky of drifting cumulus over the Preetham atmosphere. The clouds are self-shadowed with silver linings towards the sun, and they hide the sun disc when they pass in front of it.
   - Cloud shadows drift across the town. They are laid out in the sun's shadow-map space, so they line up with the clouds, and the god rays and the first-person weapon dim with them.
   - Raymarched volumetric light: height haze lit through the sun's shadow map, so god rays fall between buildings and through windows into rooms. It's smoothed over time and blurred without crossing edges, so it stays clean rather than grainy.
@@ -108,6 +117,8 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 - **Weathering, in world space:** grime and splash-back at street level, rain streaks down the walls, moss on the lower floors and ledges, puddles that reflect the street, and a soft "subsurface" wrap of light on stone and stucco.
 - **Stonework:** carved limestone over the stucco. That means modillion cornices with dentils, string courses, rusticated plinths and quoins, and pedimented window surrounds with keystones and sills on corbels. Doors get banded frames with voussoirs and steps, and the roofs are gabled clay tile with eaves, gutters and chimneys. Stucco peels back to the brick beneath it. On High and Ultra, cobbles, brick and plaster are parallax-mapped, so the relief holds up at an angle.
 - **Street dressing:** wall lanterns, geranium window boxes, drainpipes, sagging cables across the streets, and posters, tags, street signs and house numbers. Shopfronts have striped canvas awnings with scalloped valances on folding arms.
+- **Streets:** granite kerbstones over cobbled gutters, cast-iron ACQUA, GAS and TELEFONI covers with raised lettering, drain grates, tar patches, trench cuts, tyre wear and oil, soot under the burnt-out cars, broken glass, drifts of leaves and litter, with cans, bottles and paper on the pavements.
+- **Trees:** tapered trunks that branch into limbs and twigs, with leaf sprigs clustered at the tips. Light glows through the leaves, and the crowns and their shadows sway in the wind.
 - **The monument:** a bronze officer on a walking horse, sabre raised, lofted so it reads as a casting. It has a verdigris patina and stands on a moulded pedestal in a basin with four water jets.
 - **Windows:**
   - Real recessed reveals with multi-pane timber or brushed-aluminium frames. The aluminium has anisotropic highlights.
@@ -133,6 +144,10 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
   | Medium | 24 steps | 512² | No window shadows, AO or bloom |
   | High | 40 steps | 1024² | AO and bloom |
   | Ultra | 64 steps | 2048² | AO, bloom and 4096² shadows |
+
+  **Supersampling** (Settings) draws above your screen's resolution and scales down: 150% or 200%. Ultra at 200% on a 4K screen renders every frame at 7680 × 4320 (8K), capped there. The settings screen shows the resolution actually drawn. It needs a very strong graphics card, and the Mobile preset ignores it.
+- **Effects:** muzzle flashes with a star-shaped core, flame petals and a glow, and smoke curling from the barrel after a burst. Impacts throw dust in the colour of the surface hit, lit by the sun or the shade, plus chips, sparks off metal, glass shards and splinters. Grenades go off in a fireball with a fire-lit smoke column, a dust ring, sparks and debris, and leave a scorch.
+- **HUD:** gun silhouettes in the kill feed, the weapon panel and the death screen, rendered from the real models with their attachments.
 - **Loading screen:** letterboxed key art rendered at load with the game's own operators and guns: three MSG operators pushing up a burning street at dusk. It has a wet-street mirror, bokeh depth of field, bloom and a teal-and-amber grade. A red progress line runs along its foot, with a ring and percentage beside the tip, embers drift over it, and the muzzle flash strobes in bursts.
 - **Audio** is synthesised with Web Audio: layered gunshots, outdoor slapback and indoor reverb, distant shots arriving at the speed of sound with their high end muffled, 3D positional sound, foley and footsteps on different surfaces.
 
@@ -145,16 +160,16 @@ index.html               page, HUD and menu markup, import map
 css/style.css            UI styling
 src/config.js            weapons, attachments, materials, hit zones, difficulty, presets, loadouts
 src/main.js              boot, screen flow, pointer lock or touch mode, main loop, dynamic resolution
-src/core/                renderer and post chain, volumetric light, colour grade, GPU texture baker and surface
-                         recipes, material shader patches, materials, geometry helpers, physics, audio, input,
-                         touch controls
+src/core/                renderer and post chain, volumetric light, baked bounce light, colour grade, GPU texture
+                         baker and surface recipes, material shader patches, materials, geometry helpers, physics,
+                         audio, input, touch controls
 src/world/               Old Town layout, facades and windows, carved stonework and roofs, street dressing and
-                         awnings, the monument, Soviet panel block, vehicles, building generator, props,
-                         navigation graph, effects
-src/weapons/             gun models, weapon state, ballistics, first-person viewmodel and animations
+                         awnings, road detail, the monument, Soviet panel block, vehicles, building generator,
+                         props and trees, navigation graph, effects
+src/weapons/             gun models, edge wear, weapon state, ballistics, first-person viewmodel and animations
 src/characters/          operator body, skeleton and animation, hitboxes, bot AI, player controller
 src/game/game.js         match rules, spawning, damage, grenades, noise and callouts
-src/ui/                  HUD, menus, gunsmith turntable, loading-screen key art
+src/ui/                  HUD and gun silhouettes, menus, gunsmith turntable, loading-screen key art
 vendor/three/            Three.js r160 and the add-ons used
 ```
 
@@ -163,7 +178,8 @@ vendor/three/            Three.js r160 and the add-ons used
 - No multiplayer. The slice is single-player against bots.
 - In first person you see only your arms and gun, not your full body.
 - Animations are procedural rather than motion-captured.
-- This is still rasterised WebGL, not Unreal: the "ray-traced" reflections come from a box-projected reflection probe, and the bounce light is approximated. There's no Lumen, Nanite or hardware ray tracing.
+- This is still rasterised WebGL, not Unreal: the "ray-traced" reflections come from a box-projected reflection probe, and the bounce light is a probe volume baked once at load (tree canopies and awnings don't block it). There's no Lumen, Nanite or hardware ray tracing.
+- Smoke seen against the sky looks washed out, because the haze is laid over the effects.
 - The carved facades, cars and characters are heavy, around 2.8 million triangles a frame. Use Medium on integrated graphics.
 - Phones get the same town, so they need a recent, fast GPU. The touch controls and phone layout were tested in an emulated phone in a desktop browser, not on real handsets, so frame rates on real phones haven't been measured.
 
