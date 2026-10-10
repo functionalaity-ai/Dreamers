@@ -31,10 +31,11 @@ function slide(g, M, fp) {
   seg(0.0255, z, slideSection());
   z = 0.0255;
   for (let i = 0; i < 7; i++) { seg(z - 0.0012, z, slideSection(0.0118)); seg(z - 0.0028, z - 0.0012, slideSection()); z -= 0.0028; }
-  // the plain sections reach a little into the port's, so the flanks run on without a seam
-  seg(-0.0238, z, slideSection());
+  // the plain sections reach into the port's further than both bevels, so each bevel hides in the
+  // other section and the flanks run on without a seam
+  seg(-0.0245, z, slideSection());
   seg(-0.0565, -0.023, slideSection(0.01275, true));
-  seg(-0.112, -0.0557, slideSection());
+  seg(-0.112, -0.055, slideSection());
   z = -0.112;
   for (let i = 0; i < 5; i++) { seg(z - 0.0012, z, slideSection(0.0118)); seg(z - 0.0028, z - 0.0012, slideSection()); z -= 0.0028; }
   seg(-0.1555, z, slideSection());
