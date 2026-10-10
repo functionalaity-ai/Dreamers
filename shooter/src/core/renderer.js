@@ -221,15 +221,15 @@ export class Renderer {
   }
 
   installShadowCache() {
-    const r = this.r, sm = r.shadowMap, sun = this.sun;
+    const r = this.r, sm = r.shadowMap;
     const render = sm.render.bind(sm), clear = r.clear.bind(r);
     // inside the sun's shadow pass, "clear" becomes "copy the cached town shadow in"
     r.clear = (color = true, depth = true, stencil = true) => {
-      if (this.shadowFill && r.getRenderTarget() === sun.shadow.map) { this.shadowFill(); return; }
+      if (this.shadowFill && r.getRenderTarget() === this.sun.shadow.map) { this.shadowFill(); return; }
       clear(color, depth, stencil);
     };
     sm.render = (lights, scene, camera) => {
-      const map = sun.shadow.map, cache = this.shadowCache;
+      const sun = this.sun, map = sun && sun.shadow.map, cache = this.shadowCache;
       if (!this.statics || lights.length !== 1 || lights[0] !== sun || !map || !cache || this.shadowCacheMap !== map) return render(lights, scene, camera);
       if (!this.shadowCacheOK) {
         // draw the town alone, keep it
