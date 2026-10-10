@@ -5,24 +5,25 @@ import { segSphere, segCapsule } from '../weapons/ballistics.js';
 const _c0 = new THREE.Vector3(), _c1 = new THREE.Vector3();
 
 // pts: { head, neck, chest, hips, kneeL, kneeR, footL, footR, shL, shR, elL, elR, haL, haR, hipL, hipR }
-export function bodyHitTest(pts, a, d, len) {
+// k scales every zone (bots use a slightly larger body than they show; see bot.js).
+export function bodyHitTest(pts, a, d, len, k = 1) {
   // Broad phase: one fat capsule around the whole body.
   _c0.copy(pts.footL).add(pts.footR).multiplyScalar(0.5);
   _c1.copy(pts.head).y += 0.12;
-  if (segCapsule(a, d, len, _c0, _c1, 0.55) < 0) return null;
+  if (segCapsule(a, d, len, _c0, _c1, 0.55 * k) < 0) return null;
   let best = null;
   const test = (t, zone) => { if (t >= 0 && (!best || t < best.t)) best = { t, zone }; };
-  test(segSphere(a, d, len, pts.head, 0.125), 'head');
-  test(segCapsule(a, d, len, pts.chest, pts.neck, 0.19), 'chest');
-  test(segCapsule(a, d, len, pts.hips, pts.chest, 0.17), 'stomach');
-  test(segCapsule(a, d, len, pts.hipL, pts.kneeL, 0.095), 'leg');
-  test(segCapsule(a, d, len, pts.hipR, pts.kneeR, 0.095), 'leg');
-  test(segCapsule(a, d, len, pts.kneeL, pts.footL, 0.075), 'leg');
-  test(segCapsule(a, d, len, pts.kneeR, pts.footR, 0.075), 'leg');
-  test(segCapsule(a, d, len, pts.shL, pts.elL, 0.065), 'arm');
-  test(segCapsule(a, d, len, pts.shR, pts.elR, 0.065), 'arm');
-  test(segCapsule(a, d, len, pts.elL, pts.haL, 0.055), 'arm');
-  test(segCapsule(a, d, len, pts.elR, pts.haR, 0.055), 'arm');
+  test(segSphere(a, d, len, pts.head, 0.125 * k), 'head');
+  test(segCapsule(a, d, len, pts.chest, pts.neck, 0.19 * k), 'chest');
+  test(segCapsule(a, d, len, pts.hips, pts.chest, 0.17 * k), 'stomach');
+  test(segCapsule(a, d, len, pts.hipL, pts.kneeL, 0.095 * k), 'leg');
+  test(segCapsule(a, d, len, pts.hipR, pts.kneeR, 0.095 * k), 'leg');
+  test(segCapsule(a, d, len, pts.kneeL, pts.footL, 0.075 * k), 'leg');
+  test(segCapsule(a, d, len, pts.kneeR, pts.footR, 0.075 * k), 'leg');
+  test(segCapsule(a, d, len, pts.shL, pts.elL, 0.065 * k), 'arm');
+  test(segCapsule(a, d, len, pts.shR, pts.elR, 0.065 * k), 'arm');
+  test(segCapsule(a, d, len, pts.elL, pts.haL, 0.055 * k), 'arm');
+  test(segCapsule(a, d, len, pts.elR, pts.haR, 0.055 * k), 'arm');
   // A head hit through the chest capsule is still a head hit if it reached the sphere first.
   return best;
 }

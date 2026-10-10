@@ -101,7 +101,7 @@ export class Bot {
     const t = dx * d.x + dz * d.z;
     if (t < -1 || t > len + 1) return null;
     pointsFromHumanoid(this.h, this.pts);
-    return bodyHitTest(this.pts, a, d, len);
+    return bodyHitTest(this.pts, a, d, len, 1.2); // 20% more forgiving than the body you see
   }
 
   takeDamage(dmg, info) {

@@ -447,5 +447,13 @@ export class Renderer {
     r.setRenderTarget(this.aa ? this.rtLDR : null);
     this.quad.render(r);
     if (this.aa) this.aa.render(r, null, this.rtLDR);
+    // Last, straight to the screen: the red-dot reticle (layer 2), ungraded and unbloomed.
+    const vl = this.vCamera.layers.mask;
+    this.vCamera.layers.set(2);
+    r.setRenderTarget(null);
+    r.autoClear = false;
+    r.render(this.vScene, this.vCamera);
+    r.autoClear = true;
+    this.vCamera.layers.mask = vl;
   }
 }

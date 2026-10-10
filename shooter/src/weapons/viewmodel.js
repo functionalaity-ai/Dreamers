@@ -247,9 +247,18 @@ export class Viewmodel {
     // Red-dot reticle
     if (this.reticle) { this.reticle.parent && this.reticle.parent.remove(this.reticle); this.reticle = null; }
     if (sight.kind === 'dot') {
-      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 0.4, 0.25), transparent: true, depthTest: false, depthWrite: false });
-      this.reticle = new THREE.Mesh(new THREE.CircleGeometry(0.0009, 16), mat);
-      this.reticle.renderOrder = 10;
+      // A crisp red dot in a thin dark ring, drawn after the bloom and grade (layer 2, see
+      // Renderer.render) so it stays a sharp dot and holds up against muzzle flash and bright sky.
+      const dot = (geo, color, order) => {
+        const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+        m.renderOrder = order;
+        m.layers.set(2);
+        return m;
+      };
+      this.reticle = new THREE.Group();
+      this.reticle.add(dot(new THREE.RingGeometry(0.00062, 0.00098, 24), new THREE.Color(0, 0, 0), 10), dot(new THREE.CircleGeometry(0.00064, 20), new THREE.Color(1, 0.02, 0.01), 11));
+      this.reticle.children[0].material.userData.peak = 0.55;
+      this.reticle.children[1].material.userData.peak = 1;
       this.reticle.position.set(0, sight.y, sight.reticleZ);
       (sight.onSlide ? this.gun.parts.slide : this.gun.body).add(this.reticle);
     }
@@ -305,7 +314,8 @@ export class Viewmodel {
     this.flashSeen = false;
     this.flash.visible = !sup || Math.random() < 0.25;
     this.flash.rotation.z = Math.random() * Math.PI * 2;
-    this.flash.scale.setScalar((sup ? 0.3 : 0.8 + Math.random() * 0.45) * (this.ws.pump ? 1.35 : 1));
+    // aimed down sights the flash is smaller and dimmer, so it doesn't swallow the sight picture
+    this.flash.scale.setScalar((sup ? 0.3 : 0.8 + Math.random() * 0.45) * (this.ws.pump ? 1.35 : 1) * (1 - 0.5 * this.adsT));
     const core = Math.floor(Math.random() * 4);
     this.flashCores.forEach((m, i) => { m.visible = i === core; });
     const spin = Math.random() * Math.PI * 2;
@@ -444,7 +454,7 @@ export class Viewmodel {
     if (this.ejectPending && this.boltT > cyc * 0.45) { this.ejectPending = false; this.ejectBrass(c, ws.id === 'warden' ? '9mm' : '556'); }
     // Flash: shown for at least one frame, gone within a few; then wisps from the hot barrel
     this.flashT += dt;
-    this.flashMat.uniforms.fade.value = this.flashSeen ? Math.max(0.3, 1 - this.flashT / 0.05) : 1;
+    this.flashMat.uniforms.fade.value = (this.flashSeen ? Math.max(0.3, 1 - this.flashT / 0.05) : 1) * (1 - 0.45 * this.adsT);
     if (this.flashT > 0.045 && this.flashSeen) this.flash.visible = false;
     this.flashSeen = true;
     this.smokeHeat = Math.max(0, this.smokeHeat - dt * 0.8);
@@ -452,11 +462,11 @@ export class Viewmodel {
       this.wispT -= dt;
       if (this.wispT <= 0) {
         this.wispT = 0.05 + Math.random() * 0.04;
-        this.fx.muzzleWisp(this.muzzleOnScreen(c.camera, new THREE.Vector3()), this.boreWorld(c.camera, new THREE.Vector3()), Math.min(1, this.smokeHeat / 4));
+        this.fx.muzzleWisp(this.muzzleOnScreen(c.camera, new THREE.Vector3()), this.boreWorld(c.camera, new THREE.Vector3()), Math.min(1, this.smokeHeat / 4) * (1 - 0.6 * this.adsT));
       }
     }
     // Reticle and scope
-    if (this.reticle) this.reticle.material.opacity = Math.max(0, (a - 0.55) / 0.45);
+    if (this.reticle) { const o = Math.max(0, (a - 0.55) / 0.45); for (const m of this.reticle.children) m.material.opacity = o * m.material.userData.peak; }
     if (this.ocular) {
       const on = a > 0.35;
       this.ocular.material = on ? this.pipMat : this.ocularMat;
