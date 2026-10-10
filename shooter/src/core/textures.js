@@ -144,12 +144,73 @@ export function roofTiles(size) {
   }, { normal: 3 });
 }
 
+// Cloth relief for the camo quadrant, which dresses the shirt, sleeves and trousers. Their lofts
+// run lu round the body or limb and lv down it (lv 0 at the quadrant's top, after the texture's
+// flip). Elbows and knees bend near lv 0.6 (on the torso that is the waist, between the belt at
+// lv 0.73 and the carrier's hem), so the cloth bunches in a band there, crowding the crook of the
+// elbow (lu 0.73) and the back of the knee (lu 0.25); elsewhere it drapes in light diagonal
+// folds. Seams run down both sides (the lofts wrap at lu 0.01 / 0.97; the far side is lu 0.49)
+// and round the shoulders and cuffs. Returns (lu, lv) → [height, darkening].
+function clothFolds(seed) {
+  const r = mulberry(seed);
+  const g = (d, s) => Math.exp(-(d * d) / (2 * s * s));
+  const wrap = (d) => d - Math.round(d);
+  const hat = (d, s) => g(d, s) - 0.45 * g(d, s * 2.4);   // a ridge with soft valleys beside it
+  const bunch = [];
+  for (let lv = 0.55 + r() * 0.01; lv < 0.668; lv += 0.025 + r() * 0.02) {
+    bunch.push({ lv, amp: 0.8 + r() * 0.6, crook: 0.07 + r() * 0.12, back: 0.06 + r() * 0.12, rest: r() * 0.3, ph: r(), ph2: r(), wav: 0.003 + r() * 0.007, sig: 0.0075 + r() * 0.005 });
+  }
+  // a few short folds radiating from the crook, across the band
+  for (let i = 0; i < 4; i++) bunch.push({ ray: true, lu: 0.73 + (r() - 0.5) * 0.1, lv: 0.6 + (r() - 0.5) * 0.05, ang: (i % 2 ? 1 : -1) * (0.5 + r() * 0.5), len: 0.03 + r() * 0.03, amp: 0.6 + r() * 0.3, sig: 0.007 });
+  const drape = [];
+  for (let i = 0; i < 18; i++) {
+    const ang = (r() < 0.5 ? 1 : -1) * (0.4 + r() * 0.7);
+    let lv = 0.03 + r() * 0.94;
+    if (lv > 0.53 && lv < 0.69) lv += lv < 0.61 ? -0.12 : 0.12;   // leave the joints to the bunching
+    drape.push({ lu: r(), lv, cx: Math.cos(ang), cy: Math.sin(ang), len: 0.06 + r() * 0.12, amp: 0.3 + r() * 0.3, sig: 0.01 + r() * 0.008 });
+  }
+  const seams = (d, along, k) => {
+    // a sewn seam: the join (a dark groove), a welt to one side with its row of stitches
+    const stitch = (along / 0.0125) % 1 < 0.55 ? 1 : 0;
+    return [(-0.55 * g(d, 0.0035) + 0.32 * g(d - 0.008, 0.004) + 0.22 * stitch * g(d - 0.008, 0.0018)) * k, 0.15 * k * g(d, 0.004)];
+  };
+  return (lu, lv) => {
+    let h = 0;
+    for (const f of bunch) {
+      if (f.ray) {
+        const du = wrap(lu - f.lu), dv = lv - f.lv;
+        const t = du * Math.cos(f.ang) + dv * Math.sin(f.ang), n = -du * Math.sin(f.ang) + dv * Math.cos(f.ang);
+        h += f.amp * g(t, f.len * 0.5) * hat(n, f.sig);
+        continue;
+      }
+      if (Math.abs(lv - f.lv) > 0.04) continue;
+      const c = f.lv + f.wav * Math.sin((lu + f.ph) * Math.PI * 2) + f.wav * 0.6 * Math.sin((lu + f.ph2) * Math.PI * 6);
+      const span = Math.min(1, g(wrap(lu - 0.73), f.crook) + 0.85 * g(wrap(lu - 0.25), f.back) + f.rest);
+      h += f.amp * span * hat(lv - c, f.sig);
+    }
+    for (const f of drape) {
+      const du = wrap(lu - f.lu), dv = lv - f.lv;
+      const t = du * f.cx + dv * f.cy;
+      if (Math.abs(t) > f.len * 1.8) continue;
+      h += f.amp * g(t, f.len * 0.5) * hat(-du * f.cy + dv * f.cx, f.sig);
+    }
+    let dark = Math.max(0, -h) * 0.5 - Math.max(0, h) * 0.08;
+    for (const [d, along, k] of [[Math.min(Math.abs(lu - 0.01), Math.abs(lu - 0.9704)), lv, 1], [Math.abs(lu - 0.4902), lv, 1], [Math.abs(lv - 0.12), lu, 0.7], [Math.abs(lv - 0.945), lu, 0.7]]) {
+      if (d > 0.03) continue;
+      const [sh, sd] = seams(d, along, k);
+      h += sh; dark += sd;
+    }
+    return [h, dark];
+  };
+}
+
 // Camouflage atlas for characters: 4 quadrants (camo, fabric, skin, rubber).
 export function characterAtlas(size, scheme) {
   const half = size / 2;
   const nz = makeNoises(scheme === 'volk' ? 88 : 81, 4, 4);
   const nz2 = makeNoises(scheme === 'volk' ? 89 : 82, 8, 3);
   const weave = makeNoises(83, 128, 1);
+  const folds = clothFolds(scheme === 'volk' ? 17 : 13);
   const pal = scheme === 'volk'
     ? [[78, 82, 86], [104, 108, 110], [58, 60, 64], [132, 134, 132]]
     : [[150, 132, 100], [118, 108, 78], [96, 84, 62], [174, 158, 124], [84, 92, 64]];
@@ -163,8 +224,9 @@ export function characterAtlas(size, scheme) {
       let c;
       if (scheme === 'volk') c = a > 0.6 ? pal[2] : a > 0.48 ? pal[0] : b > 0.55 ? pal[3] : pal[1];
       else c = a > 0.62 ? pal[2] : a > 0.5 ? pal[1] : b > 0.6 ? pal[4] : b < 0.38 ? pal[3] : pal[0];
-      const s = 0.9 + w * 0.12;
-      return [c[0] * s, c[1] * s, c[2] * s, wv * 0.3 + w * 0.2, 0.9];
+      const [fh, dark] = folds(lu, lv);
+      const s = (0.9 + w * 0.12) * (1 - Math.min(0.4, dark));
+      return [c[0] * s, c[1] * s, c[2] * s, wv * 0.07 + w * 0.16 + fh * 0.8, 0.9 + Math.min(0.08, dark * 0.2)];
     }
     if (qx === 1 && qy === 0) {
       const s = 200 + w * 40 + wv * 12;

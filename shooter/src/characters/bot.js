@@ -24,7 +24,8 @@ export class Bot {
     const gun = buildGun(o.primary, this.weapon.stats.att, game.mats.gun, { shadows: true });
     this.gunMesh = bakeGun(gun);
     this.anchors = gun.anchors;
-    this.h.setGun(this.gunMesh, gun.anchors);
+    this.gunInfo = { id: gun.id, sight: gun.sight };   // what the hold needs (stock, sight height)
+    this.h.setGun(this.gunMesh, gun.anchors, this.gunInfo);
     this.h.holdPistol = false;
     this.body = { p: new THREE.Vector3(), v: new THREE.Vector3(), r: 0.32, h: 1.78, step: 0.42, grounded: true };
     this.yaw = 0;
@@ -88,7 +89,7 @@ export class Bot {
     const s = this.weapon.stats;
     this.weapon.mag = s.mag; this.weapon.chambered = true; this.weapon.reserve = s.reserve; this.weapon.needsPump = false; this.weapon.boltLocked = false;
     this.h.reset();
-    this.h.setGun(this.gunMesh, this.anchors);
+    this.h.setGun(this.gunMesh, this.anchors, this.gunInfo);
     this.h.group.visible = true;
     this.spawnT = this.game.time;
   }

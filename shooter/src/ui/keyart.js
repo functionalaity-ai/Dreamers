@@ -316,7 +316,7 @@ function chunk(rand, size) {
 function operator(mats, seed, gunId, att, pos, yaw, pose) {
   const h = new Humanoid(mats.char.msg, 'msg', seed);
   const gun = buildGun(gunId, att, mats.gun, { fp: true, shadows: true });
-  h.setGun(bakeGun(gun), gun.anchors);
+  h.setGun(bakeGun(gun), gun.anchors, gun);
   h.group.position.set(pos[0], 0, pos[2]);
   h.group.rotation.y = yaw;
   h.lean = pose.lean || 0;
@@ -334,7 +334,6 @@ function operator(mats, seed, gunId, att, pos, yaw, pose) {
     h.group.updateMatrixWorld(true);
     h.poseGun(pose.aimPitch || 0, pose);
   }
-  if (pose.cheek) { h.b.neck.rotation.x -= pose.cheek * 0.6; h.b.head.rotation.x -= pose.cheek * 0.4; h.b.head.rotation.z -= pose.cheek * 0.25; h.group.updateMatrixWorld(true); }
   h.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   return { h, gun };
 }
@@ -431,7 +430,7 @@ export async function renderKeyArt(R, mats, w, h) {
 
   // The three operators
   const hero = operator(mats, 211, 'kestrel', { optic: 'reddot', muzzle: 'compensator', underbarrel: 'agrip', finish: 'fde' },
-    [0.62, 0, 4.6], Math.PI / 2 + 0.35, { speed: 0, aimPitch: 0.05, recoil: 0.55, lean: 0.05, raise: 0.075, cheek: 0.32, stance: 1, bend: 0.22 });
+    [0.62, 0, 4.6], Math.PI / 2 + 0.35, { speed: 0, aimPitch: -0.035, recoil: 0.55, lean: 0.05, stance: 1, bend: 0.22 });
   const runner = operator(mats, 340, 'kestrel', { optic: 'scope4x', muzzle: 'suppressor', finish: 'black' },
     [-1.4, 0, -1.0], -2.84, { speed: 5.4, sprint: true, phase: 1.05 });
   const kneel = operator(mats, 477, 'bastion', { optic: 'reddot' },
