@@ -36,7 +36,9 @@ export function makePoints() {
 // Fill points from a Humanoid's bones.
 export function pointsFromHumanoid(h, p) {
   const b = h.b;
-  b.head.getWorldPosition(p.head); p.head.y += 0.075;
+  // the skull's centre, following the head as it tilts onto a stock
+  b.head.updateWorldMatrix(true, false);
+  b.head.localToWorld(p.head.set(0, 0.078, -0.008));
   b.neck.getWorldPosition(p.neck);
   b.chest.getWorldPosition(p.chest); p.chest.y += 0.02;
   b.hips.getWorldPosition(p.hips);

@@ -195,7 +195,7 @@ class App {
     spots.forEach((s, i) => {
       const h = new Humanoid(this.mats.char.msg, 'msg', 101 + i * 37);
       const gun = buildGun(i === 2 ? 'bastion' : 'kestrel', i === 1 ? { optic: 'scope4x', muzzle: 'suppressor' } : { optic: 'reddot' }, this.mats.gun, { shadows: true });
-      h.setGun(bakeGun(gun), gun.anchors);
+      h.setGun(bakeGun(gun), gun.anchors, gun);
       h.group.position.set(s[0], 0, s[1]);
       h.group.rotation.y = s[2];
       this.R.scene.add(h.group);

@@ -18,6 +18,9 @@ const KIT = {
 };
 const SKIN = [[0.86, 0.68, 0.56], [0.72, 0.53, 0.4], [0.55, 0.38, 0.27], [0.92, 0.76, 0.64], [0.42, 0.29, 0.21]];
 
+// The right eye in the head bone's frame (the hold puts it on the sight line).
+export const EYE = [0.034, 0.088, -0.09];
+
 const smooth = (y, y0, y1) => { const t = Math.min(1, Math.max(0, (y - y0) / (y1 - y0))); return t * t * (3 - 2 * t); };
 const shade = (c, k) => c.map((v) => v * k);
 
@@ -353,18 +356,19 @@ export function buildBody(faction, seed, B, R, rnd) {
   for (const [sd, sx] of [['L', -1], ['R', 1]]) {
     const arm = B['arm' + sd], fore = B['fore' + sd], hand = B['hand' + sd];
     const S = R[arm], X = S.x;
+    const E = R[fore].y - S.y, H = R[hand].y - S.y; // elbow and palm, below the shoulder
     const rings = [
-      [0.065, 0.02, 0.02, 0.005], [0.052, 0.045, 0.047, 0.007], [0.022, 0.06, 0.063, 0.007], [-0.03, 0.06, 0.06, 0.004],
-      [-0.11, 0.053, 0.055, 0], [-0.2, 0.049, 0.051, 0], [-0.27, 0.046, 0.048, 0], [-0.31, 0.046, 0.049, 0],
-      [-0.38, 0.047, 0.048, 0], [-0.46, 0.041, 0.039, 0], [-0.52, 0.036, 0.034, 0],
+      [0.065, 0.02, 0.02, 0.005], [0.052, 0.045, 0.047, 0.007], [0.022, 0.06, 0.063, 0.007], [-0.032, 0.06, 0.06, 0.004],
+      [-0.118, 0.053, 0.055, 0], [-0.214, 0.049, 0.051, 0], [E + 0.021, 0.046, 0.048, 0], [E - 0.022, 0.046, 0.049, 0],
+      [E - 0.1, 0.047, 0.048, 0], [H + 0.1, 0.041, 0.039, 0], [H + 0.033, 0.036, 0.034, 0],
     ].map(([y, rx, rz, cx]) => [S.y + y, rx, rz, X + sx * cx, 0]);
     P.add(loft(rings, 12, 2, true), arm, 'camo', W, null, (x, y) => {
-      const t = smooth(y, S.y - 0.34, S.y - 0.24);
+      const t = smooth(y, S.y + E - 0.055, S.y + E + 0.052);
       const c = smooth(y, S.y, S.y + 0.07) * 0.3;
       return [[B.chest, c], [arm, t * (1 - c)], [fore, (1 - t) * (1 - c)]];
     });
-    P.add(rb(0.006, 0.05, 0.07, 0.002), arm, 'fabric', kit.patch, [X + sx * 0.057, S.y - 0.09, 0]);
-    P.add(loft([[S.y - 0.5, 0.041, 0.039], [S.y - 0.548, 0.041, 0.039], [S.y - 0.562, 0.034, 0.033]].map((r) => [r[0], r[1], r[2], X, 0]), 12), fore, 'rubber', kit.dark);
+    P.add(rb(0.006, 0.05, 0.07, 0.002), arm, 'fabric', kit.patch, [X + sx * 0.057, S.y - 0.096, 0]);
+    P.add(loft([[S.y + H + 0.05, 0.041, 0.039], [S.y + H + 0.002, 0.041, 0.039], [S.y + H - 0.012, 0.034, 0.033]].map((r) => [r[0], r[1], r[2], X, 0]), 12), fore, 'rubber', kit.dark);
     hand_(P, hand, at(hand), sx, kit);
   }
 
