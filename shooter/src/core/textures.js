@@ -342,6 +342,121 @@ export function spriteTexture(kind) {
   return t;
 }
 
+// GPU-baked effect sheets (linear, clamped). The flash and fire cells hold intensity in rgb and
+// coverage in alpha; the effect shaders turn intensity into colour through a heat ramp.
+
+// Smoke: four billowing fbm puffs (2 x 2) with warped, lobed edges; rgb is self-shadowing (the
+// dense heart darker than the thin rim), alpha the density.
+export function smokeSheet(baker) {
+  return baker.raw({
+    name: 'smokeSheet', size: 512, seed: 13, clamp: true,
+    raw: /* glsl */`
+      vec4 raw(vec2 uv) {
+        vec2 cell = floor(uv * 2.0), p = fract(uv * 2.0);
+        vec2 o = cell * vec2(0.37, 0.61) + cell.yx * 0.23;
+        vec2 w = vec2(fbm(p + o, 3.0, 4), fbm(p + o + 5.2, 3.0, 4)) * 0.25;
+        float r = length(p - 0.5 + w) * 2.0;
+        float n = fbm(p + o + w * 1.5, 5.0, 5) + 0.5;
+        float d = smoothstep(1.0, 0.15, r + (0.5 - n) * 0.75);
+        float a = smoothstep(0.08, 0.7, d) * smoothstep(0.98, 0.84, length(p - 0.5) * 2.0);
+        float lit = 0.6 + 0.4 * smoothstep(0.9, 0.2, d) + 0.12 * fbm(p + o + 9.0, 12.0, 3);
+        return vec4(vec3(lit), a);
+      }`,
+  });
+}
+
+// Muzzle flash and fire, one 1024 sheet: four ragged stars (top left, 2 x 2), four flame tongues
+// running along u from root to tip (top right, stacked), a soft glow and an ember (bottom left),
+// and four fireball puffs (bottom right, 2 x 2).
+export const FLASH_CELLS = {
+  star: [0, 0.5, 0.25, 0.25, 2], petal: [0.5, 0.5, 0.5, 0.125, 0], glow: [0, 0.25, 0.25, 0.25, 0],
+  ember: [0.25, 0.375, 0.125, 0.125, 0], fire: [0.5, 0, 0.25, 0.25, 2],
+};
+export function flashSheet(baker) {
+  return baker.raw({
+    name: 'flashSheet', size: 1024, seed: 29, clamp: true,
+    raw: /* glsl */`
+      vec4 star(vec2 p, float v) {
+        vec2 q = (p - 0.5) * 2.0;
+        float r = length(q), a = atan(q.y, q.x);
+        float n = fbm(p + v * 0.31, 6.0, 4) + 0.5;
+        float prong = 0.0;
+        for (int i = 0; i < 7; i++) {
+          float fi = float(i);
+          if (fi > 3.0 + floor(v * 0.5) + mod(v, 2.0)) break;
+          float ang = fi * 6.2831853 / (4.0 + floor(v * 0.5) + mod(v, 2.0)) + (hash12(vec2(fi, v)) - 0.5) * 0.7 + v;
+          float len = 0.62 + 0.36 * hash12(vec2(fi, v + 7.0));
+          float wid = 0.24 + 0.2 * hash12(vec2(fi, v + 3.0));
+          float da = abs(mod(a - ang + 3.14159265, 6.2831853) - 3.14159265);
+          float w = wid * max(0.0, 1.0 - r / len) * (0.65 + 0.7 * n);
+          prong = max(prong, smoothstep(w, w * 0.2, da) * smoothstep(len, len * 0.5, r));
+        }
+        // a white-hot heart inside a ragged ball of flame, prongs bursting out of it
+        float core = smoothstep(0.5, 0.0, r) * (0.85 + 0.3 * n);
+        float body = smoothstep(0.78, 0.18, r + (0.5 - n) * 0.55) * 0.6;
+        float I = max(max(core, body), prong * (0.5 + 0.6 * n) * (1.0 - r * 0.5));
+        I *= smoothstep(1.0, 0.85, r);
+        return vec4(vec3(clamp(I, 0.0, 1.0)), clamp(I * 1.6, 0.0, 1.0));
+      }
+      vec4 petal(vec2 p, float v) {
+        float x = p.x, y = (p.y - 0.5) * 2.0;
+        float n = fbm(vec2(x * 1.5 + v * 0.37, p.y * 0.5 + v * 0.13), vec2(6.0, 2.0), 4) + 0.5;
+        float w = 0.9 * pow(max(0.0, sin(3.14159265 * pow(x, 0.65))), 0.9) * (0.65 + 0.55 * n) + 0.02;
+        float body = smoothstep(w, w * 0.35, abs(y + (n - 0.5) * 0.3 * x));
+        float root = smoothstep(0.16, 0.0, x) * smoothstep(0.7, 0.0, abs(y));
+        float I = body * (1.0 - x * 0.7) * (0.55 + 0.55 * n) + root * 0.6;
+        I *= smoothstep(1.0, 0.85, x) * smoothstep(0.0, 0.03, x);
+        return vec4(vec3(clamp(I, 0.0, 1.0)), clamp(I * 1.5, 0.0, 1.0));
+      }
+      vec4 fire(vec2 p, float v) {
+        float r = length(p - 0.5) * 2.0;
+        float n = fbm(p + v * 0.29, 4.0, 5) + 0.5;
+        float m = fbm(p * 2.0 + v * 0.7, 9.0, 3) + 0.5;
+        float body = smoothstep(0.98, 0.35, r + (n - 0.5) * 0.55);
+        float I = body * (0.35 + 0.65 * smoothstep(0.75, 0.0, r + (m - 0.5) * 0.4)) * (0.7 + 0.45 * n);
+        return vec4(vec3(clamp(I, 0.0, 1.0)), clamp(body * 1.25, 0.0, 1.0) * smoothstep(1.0, 0.9, r));
+      }
+      vec4 raw(vec2 uv) {
+        if (uv.y >= 0.5 && uv.x < 0.5) { vec2 c = floor(uv * 4.0); return star(fract(uv * 4.0), c.x + (c.y - 2.0) * 2.0 + 1.0); }
+        if (uv.y >= 0.5) { float k = floor((uv.y - 0.5) * 8.0); return petal(vec2(fract(uv.x * 2.0), fract(uv.y * 8.0)), k + 1.0); }
+        if (uv.x >= 0.5) { vec2 c = floor(uv * 4.0); return fire(fract(uv * 4.0), c.x + c.y * 2.0 + 1.0); }
+        if (uv.y >= 0.25 && uv.x < 0.25) {
+          float r = length(fract(uv * 4.0) - 0.5) * 2.0;
+          float I = exp(-r * r * 3.2) * smoothstep(1.0, 0.8, r);
+          return vec4(vec3(I), I);
+        }
+        if (uv.y >= 0.375 && uv.x < 0.375) {
+          float r = length(fract(uv * 8.0) - 0.5) * 2.0;
+          float I = smoothstep(1.0, 0.0, r);
+          I *= I;
+          return vec4(vec3(I), I);
+        }
+        return vec4(0.0);
+      }`,
+  });
+}
+
+// Grenade scorch: soot burnt into the ground, darkest in the middle, raying outwards.
+export function scorchTexture(baker) {
+  return baker.raw({
+    name: 'scorch', size: 512, seed: 31, clamp: true,
+    raw: /* glsl */`
+      vec4 raw(vec2 uv) {
+        vec2 q = (uv - 0.5) * 2.0;
+        float r = length(q), a = atan(q.y, q.x);
+        float n = fbm(uv, 5.0, 5) + 0.5;
+        float rays = fbm(vec2(a / 6.2831853 + 0.5, r * 0.35), vec2(22.0, 3.0), 4) + 0.5;
+        float body = smoothstep(0.9, 0.2, r + (n - 0.5) * 0.45);
+        float streak = smoothstep(1.0, 0.3, r) * smoothstep(0.5, 0.8, rays);
+        float alpha = clamp(body * 0.92 + streak * 0.55, 0.0, 1.0) * smoothstep(1.0, 0.8, r);
+        vec3 c = mix(vec3(0.012, 0.011, 0.01), vec3(0.06, 0.052, 0.045), smoothstep(0.25, 0.85, r));
+        float ash = smoothstep(0.14, 0.32, fbm(uv + 2.0, 14.0, 3)) * smoothstep(0.6, 0.15, r);
+        c = mix(c, vec3(0.16, 0.15, 0.14), ash * 0.55);
+        return vec4(c, alpha);
+      }`,
+  });
+}
+
 // Text decal (serial numbers, markings) on a transparent background.
 export function textDecal(lines, w = 512, h = 128, color = 'rgba(210,210,200,0.75)') {
   const c = document.createElement('canvas');
