@@ -36,7 +36,8 @@ export class Materials {
   }
 
   // Builds everything, yielding between steps so a loading bar can repaint.
-  async build(progress) {
+  // onActors runs (and is awaited) once the gun, character and arm materials exist.
+  async build(progress, onActors) {
     const tick = () => new Promise((r) => setTimeout(r, 0));
     const P = this.preset;
     const size = P.textureSize;
@@ -51,6 +52,78 @@ export class Materials {
         map: set.map, normalMap: set.normalMap, roughnessMap: set.roughnessMap, roughness: 1, metalness: 0,
       }, opts || {}));
     };
+    // Guns and operators first: the loading screen's key art is rendered with them while the
+    // streets are still baking.
+    W.woodDark = std(tiled(TX.woodPlanks(small, 1), 1.4, 1.4, an));
+    // Guns
+    const wear = TX.gunWear(256);
+    const st = TX.stipple(256);
+    for (const t of [wear.map, wear.normalMap, wear.roughnessMap]) { t.repeat.set(6, 6); t.anisotropy = an; }
+    st.normalMap.repeat.set(22, 22); st.normalMap.anisotropy = an;
+    const G = this.gun;
+    const gf = SF.gunFinish(B, P.textureSize >= 2048 ? 1024 : 512, 61);
+    for (const t of [gf.map, gf.normalMap, gf.ormMap]) { t.repeat.set(1 / 0.16, 1 / 0.16); t.anisotropy = an; }
+    this.gunFinish = gf;
+    G.anodized = new THREE.MeshStandardMaterial({ color: 0x343438, metalness: 1, roughness: 1, map: gf.map, roughnessMap: gf.ormMap, metalnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.5, 0.5) });
+    G.fde = new THREE.MeshStandardMaterial({ color: 0x8a7656, metalness: 0.1, roughness: 0.85, roughnessMap: wear.roughnessMap });
+    G.steel = new THREE.MeshStandardMaterial({ color: 0x2a2b2e, metalness: 1, roughness: 0.85, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.4, 0.4) });
+    G.nickel = new THREE.MeshStandardMaterial({ color: 0xb4b2ac, metalness: 1, roughness: 0.28 });
+    G.polymer = new THREE.MeshStandardMaterial({ color: 0x27282a, metalness: 0, roughness: 0.74, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.25, 0.25) });
+    G.rubber = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.95 });
+    G.brass = new THREE.MeshStandardMaterial({ color: 0xc9a35a, metalness: 1, roughness: 0.3 });
+    G.copper = new THREE.MeshStandardMaterial({ color: 0xb8733a, metalness: 1, roughness: 0.32 });
+    G.shell = new THREE.MeshStandardMaterial({ color: 0x9a2018, roughness: 0.55 });
+    G.cerakote = new THREE.MeshStandardMaterial({ color: 0x3b3c37, metalness: 0.25, roughness: 1, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
+    // Coloured finishes: ceramic-coated receivers (dielectric, satin) and matching polymer.
+    G.anodBlack = G.anodized.clone();
+    G.fdeMetal = new THREE.MeshStandardMaterial({ color: 0x7c6b51, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
+    G.odgMetal = new THREE.MeshStandardMaterial({ color: 0x4d5240, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
+    G.fdePoly = new THREE.MeshStandardMaterial({ color: 0x7b6a4f, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
+    G.odgPoly = new THREE.MeshStandardMaterial({ color: 0x4f5541, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
+    G.lens = new THREE.MeshStandardMaterial({ color: 0x0c1418, metalness: 1, roughness: 0.04, transparent: true, opacity: 0.55, envMapIntensity: 1.6 });
+    G.lensTint = new THREE.MeshStandardMaterial({ color: 0x2a3a30, metalness: 0.8, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
+    G.reticle = new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, depthTest: false, depthWrite: false });
+    G.laser = new THREE.MeshBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+    G.tritium = new THREE.MeshBasicMaterial({ color: 0x9cff7a });
+    G.orange = new THREE.MeshStandardMaterial({ color: 0xc4602a, roughness: 0.6 });
+    G.wood = new THREE.MeshStandardMaterial({ color: 0x6a4428, roughness: 0.55, map: W.woodDark.map });
+    G.gloveTan = new THREE.MeshStandardMaterial({ color: 0x7a6a50, roughness: 0.9 });
+    for (const k in G) { G[k].name = 'gun_' + k; if (G[k].isMeshStandardMaterial) G[k].envMapIntensity = k === 'lens' ? 1.4 : 0.75; }
+
+    // Characters
+    for (const scheme of ['msg', 'volk']) {
+      const a = TX.characterAtlas(512, scheme);
+      a.map.anisotropy = an;
+      this.char[scheme] = new THREE.MeshStandardMaterial({ map: a.map, normalMap: a.normalMap, roughnessMap: a.roughnessMap, vertexColors: true, roughness: 1, metalness: 0, envMapIntensity: 0.4 });
+    }
+    // First-person arms: a dark ripstop sleeve and a fabric/suede glove (baked).
+    {
+      const rs = SF.ripstop(B, small, 0x3e3d33, 51);
+      for (const t of [rs.map, rs.normalMap, rs.ormMap]) { t.repeat.set(1 / 0.18, 1 / 0.18); t.anisotropy = an; }
+      G.sleeve = new THREE.MeshStandardMaterial({ map: rs.map, normalMap: rs.normalMap, roughnessMap: rs.ormMap, aoMap: rs.ormMap, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2), name: 'gun_sleeve' });
+      const gf = SF.gloveFabric(B, small, 0x2e2b25, 52);
+      for (const t of [gf.map, gf.normalMap, gf.ormMap]) { t.repeat.set(1 / 0.12, 1 / 0.12); t.anisotropy = an; }
+      G.glove = new THREE.MeshStandardMaterial({ map: gf.map, normalMap: gf.normalMap, roughnessMap: gf.ormMap, aoMap: gf.ormMap, roughness: 1, normalScale: new THREE.Vector2(1.1, 1.1), name: 'gun_glove' });
+      G.knuckle = new THREE.MeshStandardMaterial({ color: 0x1c1b19, roughness: 0.55, metalness: 0, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.3, 0.3), name: 'gun_knuckle' });
+      for (const k of ['sleeve', 'glove', 'knuckle']) G[k].envMapIntensity = 0.6;
+    }
+    // Double-sided variants for open tubes such as sight bodies, shared by every gun build.
+    for (const k of ['anodized', 'rubber', 'fdeMetal', 'odgMetal']) { const m = G[k].clone(); m.side = THREE.DoubleSide; m.name = G[k].name + 'DS'; G[k + 'DS'] = m; }
+    // First-person copies: same look, but their sky reflections follow the turning camera.
+    this.gunFP = {};
+    for (const k in G) {
+      const m = G[k];
+      if (m.isMeshStandardMaterial) {
+        const c = m.clone();
+        c.name = m.name + '_fp';
+        // Non-enumerable: Material.clone() JSON-copies userData, which must not drag this along.
+        Object.defineProperty(c.userData, 'base', { value: m });
+        c.envMapIntensity = Math.min(1.3, m.envMapIntensity * 1.35);
+        this.gunFP[k] = enhance(c, { viewEnv: true });
+      } else this.gunFP[k] = m;
+    }
+    if (progress) progress(0.16);
+    if (onActors) await onActors(this);
     const facadeWeather = { weather: { grime: 0.75, moss: 0.35, streaks: 0.6 }, wrap: { amount: 0.4, tint: 0xffb98a } };
     // parallax relief (High and Ultra): depth in metres
     const px = (opts, depth) => (P.parallax ? Object.assign({}, opts, { parallax: { depth, steps: P.parallax } }) : opts);
@@ -91,12 +164,12 @@ export class Materials {
         W.frameWood = enhance(baked(tiled(white, 0.8, 0.8, an)), { weather: { grime: 0.4, moss: 0, streaks: 0.3, tone: 0.4 } });
         W.rustMetal = baked(tiled(SF.rust(B, small, 14), 1.5, 1.5, an));
       },
-      () => { W.woodFloor = std(tiled(TX.woodPlanks(small), 2, 2, an)); W.woodDark = std(tiled(TX.woodPlanks(small, 1), 1.4, 1.4, an)); },
+      () => { W.woodFloor = std(tiled(TX.woodPlanks(small), 2, 2, an)); },
       () => { W.roof = std(tiled(TX.roofTiles(small), 2, 2, an)); },
     ];
     for (let i = 0; i < steps.length; i++) {
       steps[i]();
-      if (progress) progress((i + 1) / (steps.length + 3));
+      if (progress) progress(0.16 + 0.68 * (i + 1) / steps.length);
       await tick();
     }
     // Glass and windows
@@ -159,79 +232,11 @@ export class Materials {
     }
     W.roadPaint.envMapIntensity = 0.3;
 
+    if (progress) progress(0.9);
     await tick();
     this.buildCarMaterials(B, small);
-    await tick();
-
-    // Guns
-    const wear = TX.gunWear(256);
-    const st = TX.stipple(256);
-    for (const t of [wear.map, wear.normalMap, wear.roughnessMap]) { t.repeat.set(6, 6); t.anisotropy = an; }
-    st.normalMap.repeat.set(22, 22); st.normalMap.anisotropy = an;
-    const G = this.gun;
-    const gf = SF.gunFinish(B, P.textureSize >= 2048 ? 1024 : 512, 61);
-    for (const t of [gf.map, gf.normalMap, gf.ormMap]) { t.repeat.set(1 / 0.16, 1 / 0.16); t.anisotropy = an; }
-    this.gunFinish = gf;
-    G.anodized = new THREE.MeshStandardMaterial({ color: 0x343438, metalness: 1, roughness: 1, map: gf.map, roughnessMap: gf.ormMap, metalnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.5, 0.5) });
-    G.fde = new THREE.MeshStandardMaterial({ color: 0x8a7656, metalness: 0.1, roughness: 0.85, roughnessMap: wear.roughnessMap });
-    G.steel = new THREE.MeshStandardMaterial({ color: 0x2a2b2e, metalness: 1, roughness: 0.85, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.4, 0.4) });
-    G.nickel = new THREE.MeshStandardMaterial({ color: 0xb4b2ac, metalness: 1, roughness: 0.28 });
-    G.polymer = new THREE.MeshStandardMaterial({ color: 0x27282a, metalness: 0, roughness: 0.74, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.25, 0.25) });
-    G.rubber = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.95 });
-    G.brass = new THREE.MeshStandardMaterial({ color: 0xc9a35a, metalness: 1, roughness: 0.3 });
-    G.copper = new THREE.MeshStandardMaterial({ color: 0xb8733a, metalness: 1, roughness: 0.32 });
-    G.shell = new THREE.MeshStandardMaterial({ color: 0x9a2018, roughness: 0.55 });
-    G.cerakote = new THREE.MeshStandardMaterial({ color: 0x3b3c37, metalness: 0.25, roughness: 1, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
-    // Coloured finishes: ceramic-coated receivers (dielectric, satin) and matching polymer.
-    G.anodBlack = G.anodized.clone();
-    G.fdeMetal = new THREE.MeshStandardMaterial({ color: 0x7c6b51, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
-    G.odgMetal = new THREE.MeshStandardMaterial({ color: 0x4d5240, metalness: 0.12, roughness: 0.95, map: gf.map, roughnessMap: gf.ormMap, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.35, 0.35) });
-    G.fdePoly = new THREE.MeshStandardMaterial({ color: 0x7b6a4f, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
-    G.odgPoly = new THREE.MeshStandardMaterial({ color: 0x4f5541, metalness: 0, roughness: 0.8, normalMap: st.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) });
-    G.lens = new THREE.MeshStandardMaterial({ color: 0x0c1418, metalness: 1, roughness: 0.04, transparent: true, opacity: 0.55, envMapIntensity: 1.6 });
-    G.lensTint = new THREE.MeshStandardMaterial({ color: 0x2a3a30, metalness: 0.8, roughness: 0.05, transparent: true, opacity: 0.18, depthWrite: false });
-    G.reticle = new THREE.MeshBasicMaterial({ color: 0xff2a1a, transparent: true, depthTest: false, depthWrite: false });
-    G.laser = new THREE.MeshBasicMaterial({ color: 0xff3020, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
-    G.tritium = new THREE.MeshBasicMaterial({ color: 0x9cff7a });
-    G.orange = new THREE.MeshStandardMaterial({ color: 0xc4602a, roughness: 0.6 });
-    G.wood = new THREE.MeshStandardMaterial({ color: 0x6a4428, roughness: 0.55, map: this.world.woodDark.map });
-    G.gloveTan = new THREE.MeshStandardMaterial({ color: 0x7a6a50, roughness: 0.9 });
-    for (const k in G) { G[k].name = 'gun_' + k; if (G[k].isMeshStandardMaterial) G[k].envMapIntensity = k === 'lens' ? 1.4 : 0.75; }
-    if (progress) progress((steps.length + 1) / (steps.length + 3));
-
-    // Characters
-    for (const scheme of ['msg', 'volk']) {
-      const a = TX.characterAtlas(512, scheme);
-      a.map.anisotropy = an;
-      this.char[scheme] = new THREE.MeshStandardMaterial({ map: a.map, normalMap: a.normalMap, roughnessMap: a.roughnessMap, vertexColors: true, roughness: 1, metalness: 0, envMapIntensity: 0.4 });
-    }
-    // First-person arms: a dark ripstop sleeve and a fabric/suede glove (baked).
-    {
-      const rs = SF.ripstop(B, small, 0x3e3d33, 51);
-      for (const t of [rs.map, rs.normalMap, rs.ormMap]) { t.repeat.set(1 / 0.18, 1 / 0.18); t.anisotropy = an; }
-      G.sleeve = new THREE.MeshStandardMaterial({ map: rs.map, normalMap: rs.normalMap, roughnessMap: rs.ormMap, aoMap: rs.ormMap, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2), name: 'gun_sleeve' });
-      const gf = SF.gloveFabric(B, small, 0x2e2b25, 52);
-      for (const t of [gf.map, gf.normalMap, gf.ormMap]) { t.repeat.set(1 / 0.12, 1 / 0.12); t.anisotropy = an; }
-      G.glove = new THREE.MeshStandardMaterial({ map: gf.map, normalMap: gf.normalMap, roughnessMap: gf.ormMap, aoMap: gf.ormMap, roughness: 1, normalScale: new THREE.Vector2(1.1, 1.1), name: 'gun_glove' });
-      G.knuckle = new THREE.MeshStandardMaterial({ color: 0x1c1b19, roughness: 0.55, metalness: 0, normalMap: gf.normalMap, normalScale: new THREE.Vector2(0.3, 0.3), name: 'gun_knuckle' });
-      for (const k of ['sleeve', 'glove', 'knuckle']) G[k].envMapIntensity = 0.6;
-    }
-    // Double-sided variants for open tubes such as sight bodies, shared by every gun build.
-    for (const k of ['anodized', 'rubber', 'fdeMetal', 'odgMetal']) { const m = G[k].clone(); m.side = THREE.DoubleSide; m.name = G[k].name + 'DS'; G[k + 'DS'] = m; }
-    // First-person copies: same look, but their sky reflections follow the turning camera.
-    this.gunFP = {};
-    for (const k in G) {
-      const m = G[k];
-      if (m.isMeshStandardMaterial) {
-        const c = m.clone();
-        c.name = m.name + '_fp';
-        // Non-enumerable: Material.clone() JSON-copies userData, which must not drag this along.
-        Object.defineProperty(c.userData, 'base', { value: m });
-        c.envMapIntensity = Math.min(1.3, m.envMapIntensity * 1.35);
-        this.gunFP[k] = enhance(c, { viewEnv: true });
-      } else this.gunFP[k] = m;
-    }
     if (progress) progress(1);
+    await tick();
 
     // Effects
     this.fx = {

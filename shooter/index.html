@@ -15,11 +15,15 @@
 
   <!-- Loading -->
   <div id="loading" class="screen">
-    <div class="load-card">
-      <div class="brand">IRON MERIDIAN</div>
-      <div class="load-sub">Building Old Town · <span id="load-step">textures</span></div>
+    <div class="ld-art">
+      <div class="ld-stage" id="ld-stage"><div class="ld-smolder"></div><div class="ld-embers" id="ld-embers"></div></div>
+      <div class="ld-brand"><div class="brand">IRON MERIDIAN</div><div class="ld-mode">Team Deathmatch <i></i> Old Town</div></div>
       <div class="bar"><i id="load-bar"></i></div>
-      <p class="tip" id="load-tip">Interior walls are drywall. Bullets go through them; brick and concrete stop them.</p>
+    </div>
+    <div class="ld-foot">
+      <div class="load-sub">Building Old Town · <span id="load-step">textures</span></div>
+      <p class="tip"><b>Tip</b> <span id="load-tip">Interior walls are drywall. Bullets go through them; brick and concrete stop them.</span></p>
+      <div class="ld-ring" aria-hidden="true"><svg viewBox="0 0 48 48"><circle class="trk" cx="24" cy="24" r="21"/><circle class="val" id="load-ring" cx="24" cy="24" r="21"/></svg><span id="load-pct">0%</span></div>
     </div>
   </div>
 

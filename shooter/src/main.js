@@ -15,6 +15,7 @@ import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
 import { SUN_DIR } from './core/renderer.js';
 import { cloudTexture } from './core/sky.js';
 import { TouchControls, isTouchDevice } from './core/touch.js';
+import { renderKeyArt, ART_ASPECT } from './ui/keyart.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -52,14 +53,22 @@ class App {
     const canvas = $('view');
     this.R = new Renderer(canvas);
     const preset = PRESETS[this.settings.preset];
-    const step = (t, label) => { $('load-bar').style.width = Math.round(t * 100) + '%'; if (label) $('load-step').textContent = label; };
-    step(0.02, 'textures');
+    this.embers();
+    const ring = $('load-ring'), pct = $('load-pct');
+    const step = (t, label) => {
+      const p = Math.round(t * 100);
+      $('load-bar').style.width = p + '%';
+      if (ring) ring.style.strokeDashoffset = (131.95 * (1 - t)).toFixed(2);
+      if (pct) pct.textContent = p + '%';
+      if (label) $('load-step').textContent = label;
+    };
+    step(0.02, 'operators');
     await frame();
     linkProbe(this.R.probe.uniforms);
     SHARED.sunDirW.value.copy(SUN_DIR);
     SHARED.sunColorW.value.copy(this.R.sun.color).multiplyScalar(this.R.sun.intensity);
     SHARED.ambW.value.setRGB(0.55, 0.62, 0.75);
-    this.mats = await new Materials(preset, this.R.r).build((t) => step(t * 0.7, 'textures'));
+    this.mats = await new Materials(preset, this.R.r).build((t) => step(t * 0.7, 'textures'), (m) => this.keyArt(m));
     this.R.setClouds(cloudTexture(this.mats.baker));
     step(0.72, 'streets and buildings'); await frame();
     this.audio = new Audio();
@@ -85,7 +94,10 @@ class App {
     let resizeT = 0;
     window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => this.R.resize(), 120); });
     step(1, 'ready'); await frame();
-    $('loading').hidden = true;
+    // let the poster be seen for a moment, then fade into the menu
+    if (this.artShown) { const left = 2400 - (performance.now() - this.artShown); if (left > 0) await new Promise((r) => setTimeout(r, left)); }
+    $('loading').classList.add('done');
+    setTimeout(() => { $('loading').hidden = true; }, 750);
     this.mode = 'menu';
     this.menus.show('menu');
     document.addEventListener('keydown', (e) => {
@@ -101,6 +113,40 @@ class App {
     this.last = performance.now();
     window.__app = this;
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  // Drifting embers over the loading art (CSS-animated, so they keep moving while the main
+  // thread is busy baking).
+  embers() {
+    const box = $('ld-embers');
+    if (!box) return;
+    const r = (a, b) => (a + Math.random() * (b - a)).toFixed(1);
+    for (let i = 0; i < 28; i++) {
+      const e = document.createElement('i');
+      e.style.cssText = `left:${r(0, 100)}%;--s:${r(1.5, 4)}px;--d:${r(4, 9)}s;--t:-${r(0, 9)}s;--x:-${r(6, 22)}vw`;
+      box.appendChild(e);
+    }
+  }
+
+  // The loading poster, rendered with the operators and guns as soon as their materials exist.
+  async keyArt(mats) {
+    const stage = $('ld-stage');
+    if (!stage) return;
+    try {
+      const box = stage.parentElement.getBoundingClientRect();
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const cap = PRESETS[this.settings.preset].textureSize <= 512 ? 1280 : 1920;
+      const w = Math.round(Math.max(960, Math.min(cap, box.width * dpr)) / 2) * 2;
+      const art = await renderKeyArt(this.R, mats, w, Math.round(w / ART_ASPECT));
+      art.canvas.className = 'ld-shot base';
+      art.flash.className = 'ld-shot flash';
+      stage.append(art.canvas, art.flash);
+      await frame();
+      stage.classList.add('ready');
+      this.artShown = performance.now();
+    } catch (e) {
+      console.warn('Loading art skipped:', e);
+    }
   }
 
   enableTouch() {
