@@ -25,6 +25,9 @@ import { makeGradeMaterial } from './grade.js';
 export const SUN_DIR = new THREE.Vector3(-0.42, 0.37, 0.86).normalize();
 const SUN_COLOR = 0xffc98f;
 
+// Materials whose shadows move with the wind (never cached).
+const SWAY = /^(bark|leafCards)/;
+
 export class Renderer {
   constructor(canvas) {
     const r = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
@@ -93,6 +96,7 @@ export class Renderer {
     sun.shadow.radius = 2;
     this.scene.add(sun);
     this.scene.add(sun.target);
+    this.installShadowCache();
     this.sun = sun;
     this.hemi = new THREE.HemisphereLight(0xa9bdd6, 0x6a5240, 0.4);
     this.scene.add(this.hemi);
@@ -198,12 +202,82 @@ export class Renderer {
     SHARED.vmRot.value.setFromMatrix4(cam.matrixWorld);
   }
 
+  // The town never moves, the sun never moves, and the sun's shadow camera is fixed over the whole
+  // map. So the town's shadow is drawn once into a cache, and each frame the cache is copied into
+  // the sun's shadow map (colour and depth) and only what can move (characters, swaying trees,
+  // effects) is drawn on top: the same shadow map, without re-drawing millions of triangles.
+  // freezeStatic also stops the per-frame matrix updates under the town's groups.
+  freezeStatic(roots) {
+    const list = [];
+    for (const root of roots) {
+      root.updateMatrixWorld(true);
+      root.matrixWorldAutoUpdate = false;
+      root.traverse((o) => { if (o.isMesh && !(o.material && SWAY.test(o.material.name))) list.push(o); });
+    }
+    this.statics = list;
+    this.staticCast = new Array(list.length);
+    this.staticSet = new Set(list);
+    this.shadowCacheOK = false;
+  }
+
+  installShadowCache() {
+    const r = this.r, sm = r.shadowMap, sun = this.sun;
+    const render = sm.render.bind(sm), clear = r.clear.bind(r);
+    // inside the sun's shadow pass, "clear" becomes "copy the cached town shadow in"
+    r.clear = (color = true, depth = true, stencil = true) => {
+      if (this.shadowFill && r.getRenderTarget() === sun.shadow.map) { this.shadowFill(); return; }
+      clear(color, depth, stencil);
+    };
+    sm.render = (lights, scene, camera) => {
+      const map = sun.shadow.map, cache = this.shadowCache;
+      if (!this.statics || lights.length !== 1 || lights[0] !== sun || !map || !cache || this.shadowCacheMap !== map) return render(lights, scene, camera);
+      if (!this.shadowCacheOK) {
+        // draw the town alone, keep it
+        const hidden = [];
+        scene.traverse((o) => { if ((o.isMesh || o.isPoints || o.isLine) && o.castShadow && !this.staticSet.has(o)) { o.castShadow = false; hidden.push(o); } });
+        render(lights, scene, camera);
+        for (const o of hidden) o.castShadow = true;
+        this.blitRT(map, cache);
+        this.shadowCacheOK = true;
+        sm.needsUpdate = true;
+      }
+      const st = this.statics, cs = this.staticCast;
+      for (let i = 0; i < st.length; i++) { cs[i] = st[i].castShadow; st[i].castShadow = false; }
+      this.shadowFill = () => this.blitRT(cache, map);
+      render(lights, scene, camera);
+      this.shadowFill = null;
+      for (let i = 0; i < st.length; i++) st[i].castShadow = cs[i];
+    };
+  }
+
+  // Copy colour and depth between two same-sized render targets.
+  blitRT(src, dst) {
+    const r = this.r, gl = r.getContext(), P = r.properties;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, P.get(src).__webglFramebuffer);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, P.get(dst).__webglFramebuffer);
+    gl.blitFramebuffer(0, 0, src.width, src.height, 0, 0, dst.width, dst.height, gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, gl.NEAREST);
+    const cur = r.getRenderTarget();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, cur ? P.get(cur).__webglFramebuffer : null);
+  }
+
+  // A cache target matching the sun's current shadow map (it is remade when a preset changes).
+  syncShadowCache() {
+    const map = this.sun.shadow.map;
+    if (!this.statics || !map || this.shadowCacheMap === map) return;
+    if (this.shadowCache) this.shadowCache.dispose();
+    this.shadowCache = new THREE.WebGLRenderTarget(map.width, map.height, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    this.r.setRenderTarget(this.shadowCache); // allocates its framebuffer
+    this.shadowCacheMap = map;
+    this.shadowCacheOK = false;
+  }
+
   applyPreset(preset) {
     this.preset = preset;
     if (!preset.adaptive) this.renderScale = 1;
     this.r.shadowMap.type = preset.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.sun.shadow.mapSize.set(preset.shadowSize, preset.shadowSize);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
+    this.shadowCacheOK = false;
     this.r.shadowMap.needsUpdate = true;
     this.vol.configure(preset);
     this.vSun.castShadow = !!preset.vmShadows;
@@ -347,6 +421,7 @@ export class Renderer {
     this.syncViewLights();
     this.frameNo = (this.frameNo || 0) + 1;
     if (this.frameNo % ((this.preset && this.preset.shadowEvery) || 1) === 0) r.shadowMap.needsUpdate = true;
+    this.syncShadowCache();
     // World: the volumetric pass replaces the distance fog.
     this.scene.fog.density = 0;
     r.setRenderTarget(this.sceneRT);

@@ -61,7 +61,11 @@ export function tubeZ(r0, r1, z0, z1, seg = 20, open = false) {
   return g;
 }
 
-// Collects geometries per material and merges them into one mesh each.
+// Collects geometries per material and merges them, per material, into meshes the camera can cull:
+// a material with a lot of triangles is split into spatial chunks (each of at most CHUNK_TRIS), so
+// what's behind you or round the corner isn't drawn, and nearer chunks draw first. Shared vertices
+// stay shared (indexed), so each one is shaded once instead of once per triangle.
+const CHUNK_TRIS = 60000;
 export class Batcher {
   constructor() { this.groups = new Map(); }
   add(mat, geo, matrix) {
@@ -73,33 +77,68 @@ export class Batcher {
     const meshes = [];
     for (const [mat, geos] of this.groups) {
       if (!geos.length) continue;
-      const merged = mergeGeometries(geos, false);
+      // transparent surfaces stay in one mesh, so they blend in the same order as before
+      for (const part of mat.transparent ? [geos] : chunk(geos)) {
+        const merged = mergeGeometries(part, false);
+        if (!merged) continue;
+        merged.computeBoundingSphere();
+        const m = new THREE.Mesh(merged, mat);
+        if (mat.userData && mat.userData.depth) m.customDepthMaterial = mat.userData.depth;
+        m.castShadow = opts.cast !== false;
+        m.receiveShadow = opts.receive !== false;
+        m.matrixAutoUpdate = false;
+        m.updateMatrix();
+        parent.add(m);
+        meshes.push(m);
+      }
       for (const g of geos) g.dispose();
-      if (!merged) continue;
-      merged.computeBoundingSphere();
-      const m = new THREE.Mesh(merged, mat);
-      if (mat.userData && mat.userData.depth) m.customDepthMaterial = mat.userData.depth;
-      m.castShadow = opts.cast !== false;
-      m.receiveShadow = opts.receive !== false;
-      m.matrixAutoUpdate = false;
-      m.updateMatrix();
-      parent.add(m);
-      meshes.push(m);
     }
     this.groups.clear();
     return meshes;
   }
 }
 
-// mergeGeometries needs matching attribute sets: make everything non-indexed position/normal/uv
-// (plus colour, for materials that read it).
+// Split geometries into spatial groups of at most CHUNK_TRIS triangles: halve along the longer
+// horizontal spread of their centres, at the triangle-weighted median.
+function chunk(geos) {
+  const items = geos.map((g) => {
+    if (!g.boundingBox) g.computeBoundingBox();
+    const c = g.boundingBox.getCenter(new THREE.Vector3());
+    return { g, x: c.x, z: c.z, tris: g.index.count / 3 };
+  });
+  const out = [];
+  const split = (list) => {
+    let tris = 0, x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const it of list) { tris += it.tris; x0 = Math.min(x0, it.x); x1 = Math.max(x1, it.x); z0 = Math.min(z0, it.z); z1 = Math.max(z1, it.z); }
+    if (tris <= CHUNK_TRIS || list.length < 2) { out.push(list.map((it) => it.g)); return; }
+    const k = x1 - x0 >= z1 - z0 ? 'x' : 'z';
+    list.sort((a, b) => a[k] - b[k]);
+    let acc = 0, i = 0;
+    while (i < list.length - 1 && acc + list[i].tris <= tris / 2) acc += list[i++].tris;
+    i = Math.max(1, i);
+    split(list.slice(0, i));
+    split(list.slice(i));
+  };
+  split(items);
+  return out;
+}
+
+// mergeGeometries needs matching attribute sets: position/normal/uv (plus colour, for materials that
+// read it), all indexed. Geometry without normals is split into flat faces first, as before.
 function prep(g, keepColor = false) {
-  let out = g.index ? g.toNonIndexed() : g;
-  if (out !== g) g.dispose();
-  if (!out.attributes.normal) out.computeVertexNormals();
+  let out = g;
+  if (!out.attributes.normal) {
+    if (out.index) { out = g.toNonIndexed(); g.dispose(); }
+    out.computeVertexNormals();
+  }
   if (!out.attributes.uv) out.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(out.attributes.position.count * 2), 2));
   for (const k of Object.keys(out.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && !(keepColor && k === 'color')) out.deleteAttribute(k);
   out.morphAttributes = {};
   out.clearGroups();
+  if (!out.index) {
+    const n = out.attributes.position.count, ix = n > 65535 ? new Uint32Array(n) : new Uint16Array(n);
+    for (let i = 0; i < n; i++) ix[i] = i;
+    out.setIndex(new THREE.BufferAttribute(ix, 1));
+  }
   return out;
 }

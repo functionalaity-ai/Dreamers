@@ -499,7 +499,15 @@ class SurfaceTint {
         if (!o.isMesh || !DUST[o.material.name]) return;
         let id = this.names.indexOf(o.material.name);
         if (id < 0) { id = this.names.length; this.names.push(o.material.name); }
-        this.add(o.geometry.attributes.position.array, id);
+        // the triangles as a flat list (world meshes are indexed)
+        const g = o.geometry, P = g.attributes.position.array;
+        let tri = P;
+        if (g.index) {
+          const I = g.index.array;
+          tri = new Float32Array(I.length * 3);
+          for (let k = 0; k < I.length; k++) { const v = I[k] * 3; tri[k * 3] = P[v]; tri[k * 3 + 1] = P[v + 1]; tri[k * 3 + 2] = P[v + 2]; }
+        }
+        this.add(tri, id);
       });
     }
   }

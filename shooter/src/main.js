@@ -101,6 +101,8 @@ class App {
     this.menus = new Menus(this);
     this.buildLineup();
     this.game.vm.setScopeRes(preset.scopeRes);
+    step(0.97, 'shaders'); await frame();
+    await this.prewarm();
     // Rebuilding the render targets is heavy; wait for a rotation or window drag to settle.
     let resizeT = 0;
     window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => this.R.resize(), 120); });
@@ -181,6 +183,18 @@ class App {
       const p = el.requestFullscreen({ navigationUI: 'hide' });
       if (p && p.then) p.then(() => { const o = window.screen.orientation; if (o && o.lock) o.lock('landscape').catch(() => {}); }).catch(() => {});
     } catch (e) { /* not allowed in this frame */ }
+  }
+
+  // Compile every material now, hidden effects included, so the first shot, blast or kill doesn't
+  // stall a frame while its shader links.
+  async prewarm() {
+    const R = this.R, r = R.r, hidden = [];
+    for (const s of [R.scene, R.vScene]) s.traverse((o) => { if (!o.visible) { o.visible = true; hidden.push(o); } });
+    r.setRenderTarget(R.sceneRT); // the world and the weapon both draw into the HDR targets
+    const jobs = [[R.scene, R.camera], [R.vScene, R.vCamera]].map(([s, c]) => (r.compileAsync ? r.compileAsync(s, c) : (r.compile(s, c), null)));
+    for (const o of hidden) o.visible = false;
+    r.setRenderTarget(null);
+    try { await Promise.all(jobs.filter(Boolean)); } catch (e) { console.warn('Shader warm-up incomplete:', e); }
   }
 
   // One reflection probe over the main streets; glass, paint and metal are box-projected into it.

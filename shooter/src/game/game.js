@@ -49,7 +49,10 @@ export class Game {
   load() {
     const ph = new Physics(BOUNDS.minX, BOUNDS.minZ, BOUNDS.maxX, BOUNDS.maxZ);
     this.physics = ph;
+    const before = new Set(this.scene.children);
     this.map = buildOldTown(ph, this.mats, this.scene);
+    // the town is static: the renderer caches its shadow and skips its matrices every frame
+    this.R.freezeStatic(this.scene.children.filter((o) => !before.has(o)));
     // Invisible map boundary
     ph.add(-53, 0, -46, 53, 40, -42, 'concrete', { boundary: true }); ph.add(-53, 0, 42, 53, 40, 46, 'concrete', { boundary: true });
     for (const l of this.map.lights) {
