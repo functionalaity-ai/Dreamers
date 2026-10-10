@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { Builder, building } from './builder.js';
 import { WindowKit, stuccoBlock, sovietBlock } from './facades.js';
 import { DecalAtlas, cable } from './dressing.js';
+import { ROAD, sidewalk, roadDetail } from './roads.js';
 import * as VH from './vehicles.js';
 import * as P from './props.js';
 
@@ -24,12 +25,16 @@ export function buildOldTown(physics, materials, scene) {
 
   // --- Ground surfaces (visual; the physics ground is y = 0) ---------------------
   B.solid(-52, -0.05, -13, 52, 0.0, 13, 'cobble', null, { shadow: false });
-  B.solid(-52, -0.05, -20, 52, 0.0, -13, 'asphalt', null, { shadow: false });
-  B.solid(-52, -0.05, 13, 52, 0.0, 20, 'asphalt', null, { shadow: false });
+  // The asphalt stops short of the kerbs and the square: sett gutters run along the kerbs and a
+  // granite edging (roads.js) frames the square.
+  B.solid(-52, -0.05, -20 + ROAD.gutter, 52, 0.0, -13 - ROAD.edge, 'asphalt', null, { shadow: false });
+  B.solid(-52, -0.05, 13 + ROAD.edge, 52, 0.0, 20 - ROAD.gutter, 'asphalt', null, { shadow: false });
+  B.solid(-52, -0.05, -20, 52, 0.0, -20 + ROAD.gutter, 'cobble', null, { shadow: false });
+  B.solid(-52, -0.05, 20 - ROAD.gutter, 52, 0.0, 20, 'cobble', null, { shadow: false });
   B.solid(-52, -0.05, -42, 52, 0.0, -20, 'concrete', null, { shadow: false });
   B.solid(-52, -0.05, 20, 52, 0.0, 42, 'concrete', null, { shadow: false });
-  // Raised sidewalks with curbs (step-able), skipping the building fronts.
-  const walk = (x0, x1, z0, z1) => B.solid(x0, 0, z0, x1, 0.13, z1, 'sidewalk', 'concrete');
+  // Raised sidewalks (step-able) with granite kerbs, skipping the building fronts.
+  const walk = (x0, x1, z0, z1) => sidewalk(B, x0, x1, z0, z1);
   walk(-52, -10, -22, -20); walk(10, 52, -22, -20); walk(-10, 10, -21.5, -20);
   walk(-52, -6, 20, 22); walk(8, 52, 20, 22); walk(-6, 8, 20, 22);
   // Road markings
@@ -196,9 +201,13 @@ export function buildOldTown(physics, materials, scene) {
     cable(B, new THREE.Vector3(x + 0.4, y0 - 0.35, z0), new THREE.Vector3(x + 1.5, y1 - 0.3, z1), 1.2, 0.009);
   }
 
+  // Kerbs, covers, repairs, stains, leaves and litter (after every prop, so placement can avoid them).
+  const roads = roadDetail(B, materials, { burnt: [[-14, -15.4], [14, 15.4], [-34.5, 25.2]] });
+
   const group = B.build(scene);
   kit.build(scene);
   B.decals.build(scene);
+  roads.build(scene);
   return { builder: B, group, spawns: B.spawns, points: B.points, hints: B.hints, indoor: B.indoor, lights: B.lights, signs: B.signs };
 }
 
