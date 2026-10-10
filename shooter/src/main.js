@@ -14,6 +14,7 @@ import { PRESETS, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
 import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
 import { SUN_DIR } from './core/renderer.js';
 import { cloudTexture } from './core/sky.js';
+import { bakeBounce } from './core/bounce.js';
 import { TouchControls, isTouchDevice } from './core/touch.js';
 import { renderKeyArt, ART_ASPECT } from './ui/keyart.js';
 
@@ -78,6 +79,13 @@ class App {
     this.game = new Game(this.R, this.mats, this.audio);
     this.game.load();
     this.R.vol.setIndoor(this.game.map.indoor);
+    // bounce light, baked once the town exists (and before the reflections, which then show it)
+    step(0.74, 'lighting'); await frame();
+    try {
+      await bakeBounce(this.R, this.game, preset, (t) => step(0.74 + 0.06 * t, 'lighting'));
+    } catch (e) {
+      console.warn('Bounce light skipped:', e);
+    }
     step(0.8, 'reflections'); await frame();
     this.captureReflections();
     step(0.9, 'operators'); await frame();

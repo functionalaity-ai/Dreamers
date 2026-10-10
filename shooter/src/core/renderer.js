@@ -97,9 +97,11 @@ export class Renderer {
     this.hemi = new THREE.HemisphereLight(0xa9bdd6, 0x6a5240, 0.4);
     this.scene.add(this.hemi);
     // Warm bounce from the sunlit north facades back into the shaded side of the square.
+    // (Both are stand-ins until the baked bounce light takes over: see useBakedLight.)
     this.bounce = new THREE.DirectionalLight(0xffc896, 0.55);
     this.bounce.position.set(0.15, 0.35, -1).multiplyScalar(100);
     this.scene.add(this.bounce);
+    this.gi = null;
 
     // First-person weapon lighting mirrors the world's.
     this.vSun = new THREE.DirectionalLight(0xffd0a0, 2.8);
@@ -157,6 +159,17 @@ export class Renderer {
     return 1 - t * t * (3 - 2 * t) * cs.w;
   }
 
+  // The baked volume (bounce.js) now carries the bounce and the sky's occlusion: the flat fill
+  // lights step back to what's left, a little sky and no fixed bounce direction. The bounce
+  // is lifted a touch over its physical value so the shade stays readable.
+  useBakedLight(gi) {
+    this.gi = gi;
+    this.hemi.intensity = 0.36;
+    this.hemi.groundColor.setHex(0x3a3028);
+    this.bounce.intensity = 0;
+    SHARED.giBounce.value = 1.4;
+  }
+
   // The weapon is drawn in its own scene: point its lights the way the real sun and sky lie
   // relative to the camera, and dim the sun when you stand in shadow or indoors.
   setIndoor(f) { this.indoorF = f; }
@@ -169,6 +182,19 @@ export class Renderer {
     const f = this.indoorF || 0, sv = this.viewSun === undefined ? 1 : this.viewSun;
     this.vSun.intensity = 3.4 * (1 - f * 0.9) * (0.08 + 0.92 * sv);
     this.vHemi.intensity = 1.05 * (1 - f * 0.45);
+    if (this.gi) {
+      // the sky and the bounce where you stand, eased so walking past a doorway doesn't flicker
+      const s = this.gi.sample(cam.position, this._giS || (this._giS = {}));
+      const k = this._giK || (this._giK = { vis: s.vis, warm: 0, at: cam.position.clone() });
+      const warm = Math.min(1, (s.r * 0.6 + s.g * 0.3) * 0.9);
+      // a respawn (or any jump) starts afresh rather than fading over from the last place
+      const e = k.at.distanceToSquared(cam.position) > 9 ? 1 : 0.08;
+      k.at.copy(cam.position);
+      k.vis += (s.vis - k.vis) * e;
+      k.warm += (warm - k.warm) * e;
+      this.vHemi.intensity *= 0.65 + 0.4 * k.vis;
+      this.vHemi.groundColor.setRGB(0.11 + 0.19 * k.warm, 0.072 + 0.1 * k.warm, 0.045 + 0.035 * k.warm);
+    }
     SHARED.vmRot.value.setFromMatrix4(cam.matrixWorld);
   }
 
@@ -303,14 +329,19 @@ export class Renderer {
     const dt = Math.min(0.1, (now - this.clock) / 1000);
     this.clock = now;
     if (alt) {
+      // the studio isn't in the town: keep the town's baked light off its guns
+      const gi = SHARED.giOn.value;
+      SHARED.giOn.value = 0;
       r.setRenderTarget(null);
       r.render(alt.scene, alt.camera);
+      SHARED.giOn.value = gi;
       return;
     }
     this.dust.update(dt, this.camera, this.size.y);
     this.ash.update(dt, this.camera, this.size.y);
     this.flock.update(dt);
     this.sky.material.uniforms.uTime.value += dt;
+    SHARED.time.value += dt;
     SHARED.cloudShadow.value.x += 0.0016 * dt;
     SHARED.cloudShadow.value.y += 0.0006 * dt;
     this.syncViewLights();

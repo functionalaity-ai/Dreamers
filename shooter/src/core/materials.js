@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import * as TX from './textures.js';
 import * as SF from './surfaces.js';
 import { TexBaker } from './gpu.js';
-import { enhance, weatherTexture, SHARED } from './shaderlib.js';
+import { enhance, weatherTexture, SHARED, swayDepth } from './shaderlib.js';
 
 function tiled(set, tileW, tileH, anisotropy) {
   for (const k of ['map', 'normalMap', 'roughnessMap', 'ormMap']) {
@@ -201,7 +201,9 @@ export class Materials {
     W.carGreen = enhance(new THREE.MeshPhysicalMaterial({ color: 0x3c4a35, roughness: 0.45, metalness: 0.45, clearcoat: 0.6, clearcoatRoughness: 0.25 }), { weather: { grime: 0.5, moss: 0, streaks: 0.5 }, box: true });
     W.leaves = new THREE.MeshStandardMaterial({ color: 0x4a5a2c, roughness: 0.85, flatShading: true });
     W.leavesAutumn = new THREE.MeshStandardMaterial({ color: 0x8a6a2a, roughness: 0.85, flatShading: true });
-    W.bark = new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 0.95, normalMap: W.woodDark.normalMap });
+    // Bark sways with the crown it carries (UVs in metres round and along each limb).
+    W.bark = enhance(baked(tiled(this.bark(B, small), 0.45, 0.9, an)), { foliage: { flutter: 0 } });
+    W.bark.userData.depth = swayDepth(new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking }), 0);
     W.water = enhance(new THREE.MeshStandardMaterial({ color: 0x1d3a3a, roughness: 0.04, metalness: 0.2 }), { box: true });
     W.waterJet = new THREE.MeshPhysicalMaterial({ color: 0xcfe8ee, roughness: 0.03, metalness: 0, transparent: true, opacity: 0.34, depthWrite: false, clearcoat: 1 });
     W.foam = new THREE.MeshStandardMaterial({ color: 0xeef4f2, roughness: 0.6, transparent: true, opacity: 0.55, depthWrite: false });
@@ -229,11 +231,12 @@ export class Materials {
     W.galvanized = enhance(new THREE.MeshStandardMaterial({ color: 0x9a9c9c, metalness: 0.9, roughness: 0.45, normalMap: W.concrete.normalMap, normalScale: new THREE.Vector2(0.3, 0.3) }), { weather: { grime: 0.6, moss: 0, streaks: 0.8 }, box: true });
     W.balconyRail = enhance(new THREE.MeshStandardMaterial({ color: 0x31352f, metalness: 0.7, roughness: 0.6 }), { weather: { grime: 0.3, moss: 0, streaks: 0.4 } });
     W.corrugated = enhance(new THREE.MeshStandardMaterial({ color: 0x8e8a7e, metalness: 0.6, roughness: 0.6 }), { weather: { grime: 0.6, moss: 0.1, streaks: 0.9 }, box: true });
-    // Leaf cards: alpha-tested clusters, with matching depth materials for shadows.
+    // Leaf cards: alpha-tested sprigs, with matching depth materials so the shadows sway too.
+    // Vertex colours carry a tint (rgb) and how deep in the crown a card sits (alpha).
     for (const [key, tint] of [['leafCards', 0], ['leafCardsAutumn', 1]]) {
-      const tex = TX.leafCluster(512, tint);
-      const m = new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.82 });
-      m.userData.depth = new THREE.MeshDepthMaterial({ map: tex, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking });
+      const tex = TX.leafCluster(P.textureSize >= 1024 ? 1024 : 512, tint);
+      const m = enhance(new THREE.MeshStandardMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.78, vertexColors: true }), { foliage: { flutter: 1, trans: 0.6, ao: true } });
+      m.userData.depth = swayDepth(new THREE.MeshDepthMaterial({ map: tex, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking }), 1);
       W[key] = m;
     }
     for (const k in W) {
@@ -273,6 +276,31 @@ export class Materials {
     });
     t.repeat.set(4, 4);
     return t;
+  }
+
+  // Tree bark: vertical plates parted by dark fissures, with a few lichen patches.
+  bark(B, size) {
+    return B.bake({
+      name: 'bark', size, tile: 0.9, seed: 19, height: [0, 4.5],
+      fields: /* glsl */`
+        vec4 fields(vec2 uv) {
+          vec2 w = uv + vec2(fbm(uv, vec2(3.0, 1.0), 3), 0.0) * 0.08;
+          vec4 v = voronoi(w, vec2(7.0, 2.0), 0.9);
+          float plate = smoothstep(0.0, 0.16, v.y);
+          float grain = fbm(uv, vec2(36.0, 6.0), 3);
+          float h = plate * (2.6 + v.z * 1.2) + grain * 0.9 + fbm(uv, vec2(10.0, 3.0), 3) * 0.8;
+          return vec4(h, plate, v.z, fbm(uv, 4.0, 4) + 0.5);
+        }`,
+      shade: /* glsl */`
+        void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
+          vec3 base = mix(lin(vec3(0.34, 0.3, 0.26)), lin(vec3(0.47, 0.44, 0.39)), F.z * 0.6 + F.w * 0.3);
+          alb = mix(lin(vec3(0.1, 0.08, 0.065)), base, F.y) * (1.0 - cav * 0.45);
+          float lichen = smoothstep(0.6, 0.72, F.w + fbm(uv, 6.0, 3) * 0.45) * F.y;
+          alb = mix(alb, lin(vec3(0.44, 0.48, 0.36)), lichen * 0.4);
+          rough = 0.92;
+          metal = 0.0;
+        }`,
+    });
   }
 
   // Patchy wear for painted road markings (alpha-tested).
