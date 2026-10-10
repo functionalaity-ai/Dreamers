@@ -209,7 +209,16 @@ class App {
     if (this.mode === 'gunsmith') this.mode = 'menu';
   }
 
+  // Cut to black and fade back in, for the jumps between the menu and a match.
+  fadeIn() {
+    const f = $('fade');
+    if (!f) return;
+    f.classList.add('on');
+    requestAnimationFrame(() => requestAnimationFrame(() => f.classList.remove('on')));
+  }
+
   deploy() {
+    this.fadeIn();
     this.audio.unlock();
     this.game.start(JSON.parse(JSON.stringify(this.loadout())), this.settings.difficulty);
     for (const h of this.lineup) h.group.visible = false;
@@ -257,6 +266,7 @@ class App {
   }
 
   toMenu() {
+    this.fadeIn();
     this.input.unlock();
     this.input.enabled = false;
     this.mode = 'menu';

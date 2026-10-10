@@ -57,7 +57,7 @@ Phones start on the **Mobile** graphics preset, and the menus and HUD shrink to 
 
 ## What's in the slice
 
-**Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, two five-storey Soviet panel blocks (one sunlit, one backlit by the low sun), rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
+**Map: Old Town.** A 120 × 92 m town square with a fountain under a bronze equestrian monument, a church with a spire, two five-storey Soviet panel blocks (one sunlit, one backlit by the low sun), rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
 - **Hotel Meridian** has three floors and a roof, connected by U-shaped stairs, with furnished rooms.
 - **The Pharmacy** has two floors and roof access, with a shop counter and shelving downstairs and a flat upstairs.
 
@@ -88,7 +88,7 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 **Ballistics.** Each bullet is a projectile with muzzle velocity and drop. It penetrates materials according to how much each one resists, ricochets at shallow angles, and leaves entry and exit holes. Damage depends on hit zone (head, chest, stomach, arms, legs), falls off with range, and is reduced by armour. Bullets that pass close to you make a supersonic crack.
 
 **Characters and AI:**
-- **Characters** are skinned humanoids built in code, with faction-specific kit: helmets, headsets, plate carriers, pouches and backpacks. Two-bone arm IK puts their hands on their guns, they react to hits, and they fall when they die.
+- **Characters** are skinned humanoids built in code. Torso, arms and legs are lofted and bend smoothly across their joints. Each wears faction kit: a wrap-around plate carrier with MOLLE rows, straps, magazine, admin, radio and grenade pouches, a battle belt, a high-cut helmet with rails, an NVG shroud and a headset with a boom mic, eye protection, gloves shaped round the grip and handguard, knee pads, cargo pockets, a drop-leg holster and boots. Two-bone arm IK puts their hands on their guns, they react to hits, and they fall when they die.
 - **Bots** detect you by sight, with a detection meter, and by sound. They share sightings by radio callouts, claim cover on a navigation graph, peek from cover, flank along routes that keep them out of sight, throw and dodge grenades, and fall back when they're hurt. There are three difficulty levels: Recruit, Regular and Veteran.
 
 **Look and sound:**
@@ -106,6 +106,9 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
   - Running-bond brick, granite setts, and worn asphalt with sealed cracks and oil stains.
   - Painted timber with crazed, chipped paint.
 - **Weathering, in world space:** grime and splash-back at street level, rain streaks down the walls, moss on the lower floors and ledges, puddles that reflect the street, and a soft "subsurface" wrap of light on stone and stucco.
+- **Stonework:** carved limestone over the stucco. That means modillion cornices with dentils, string courses, rusticated plinths and quoins, and pedimented window surrounds with keystones and sills on corbels. Doors get banded frames with voussoirs and steps, and the roofs are gabled clay tile with eaves, gutters and chimneys. Stucco peels back to the brick beneath it. On High and Ultra, cobbles, brick and plaster are parallax-mapped, so the relief holds up at an angle.
+- **Street dressing:** wall lanterns, geranium window boxes, drainpipes, sagging cables across the streets, and posters, tags, street signs and house numbers. Shopfronts have striped canvas awnings with scalloped valances on folding arms.
+- **The monument:** a bronze officer on a walking horse, sabre raised, lofted so it reads as a casting. It has a verdigris patina and stands on a moulded pedestal in a basin with four water jets.
 - **Windows:**
   - Real recessed reveals with multi-pane timber or brushed-aluminium frames. The aluminium has anisotropic highlights.
   - Louvred green shutters, built slat by slat and set open, ajar or closed. Their paint is chipped and they cast real shadows.
@@ -130,9 +133,10 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
   | Medium | 24 steps | 512² | No window shadows, AO or bloom |
   | High | 40 steps | 1024² | AO and bloom |
   | Ultra | 64 steps | 2048² | AO, bloom and 4096² shadows |
+- **Loading screen:** letterboxed key art rendered at load with the game's own operators and guns: three MSG operators pushing up a burning street at dusk. It has a wet-street mirror, bokeh depth of field, bloom and a teal-and-amber grade. A red progress line runs along its foot, with a ring and percentage beside the tip, embers drift over it, and the muzzle flash strobes in bursts.
 - **Audio** is synthesised with Web Audio: layered gunshots, outdoor slapback and indoor reverb, distant shots arriving at the speed of sound with their high end muffled, 3D positional sound, foley and footsteps on different surfaces.
 
-**Match.** Team deathmatch, 4 v 4. The first team to 30 kills wins, or the leading team when the 8-minute clock runs out. It includes respawns with spawn protection, a kill feed, damage direction arcs, hit markers, a compass, a scoreboard, a death cam that shows who killed you, and an end-of-match screen.
+**Match.** Team deathmatch, 4 v 4. The first team to 30 kills wins, or the leading team when the 8-minute clock runs out. It includes respawns with spawn protection, a kill feed, damage direction arcs, hit markers, a compass, a scoreboard, a death cam that shows who killed you, and an end-of-match screen. Your kills pop up under the crosshair with the name and points. Quick kills chain into double, triple and multi-kill medals. Matches open on a title card and close on Victory or Defeat.
 
 ## Project layout
 
@@ -144,12 +148,13 @@ src/main.js              boot, screen flow, pointer lock or touch mode, main loo
 src/core/                renderer and post chain, volumetric light, colour grade, GPU texture baker and surface
                          recipes, material shader patches, materials, geometry helpers, physics, audio, input,
                          touch controls
-src/world/               Old Town layout, facades and windows, Soviet panel block, vehicles, building generator,
-                         props, navigation graph, effects
+src/world/               Old Town layout, facades and windows, carved stonework and roofs, street dressing and
+                         awnings, the monument, Soviet panel block, vehicles, building generator, props,
+                         navigation graph, effects
 src/weapons/             gun models, weapon state, ballistics, first-person viewmodel and animations
-src/characters/          humanoid model and animation, hitboxes, bot AI, player controller
+src/characters/          operator body, skeleton and animation, hitboxes, bot AI, player controller
 src/game/game.js         match rules, spawning, damage, grenades, noise and callouts
-src/ui/                  HUD, menus, gunsmith turntable
+src/ui/                  HUD, menus, gunsmith turntable, loading-screen key art
 vendor/three/            Three.js r160 and the add-ons used
 ```
 
@@ -159,7 +164,7 @@ vendor/three/            Three.js r160 and the add-ons used
 - In first person you see only your arms and gun, not your full body.
 - Animations are procedural rather than motion-captured.
 - This is still rasterised WebGL, not Unreal: the "ray-traced" reflections come from a box-projected reflection probe, and the bounce light is approximated. There's no Lumen, Nanite or hardware ray tracing.
-- The richer facades and cars are heavy, around 0.8 million triangles a frame. Use Medium on integrated graphics.
+- The carved facades, cars and characters are heavy, around 2.8 million triangles a frame. Use Medium on integrated graphics.
 - Phones get the same town, so they need a recent, fast GPU. The touch controls and phone layout were tested in an emulated phone in a desktop browser, not on real handsets, so frame rates on real phones haven't been measured.
 
 The later milestones in the prompt (more maps, more weapons, more game modes, a progression system and multiplayer) are not built yet.
