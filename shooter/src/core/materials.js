@@ -2,6 +2,7 @@
 // their real-world tile size. The hero surfaces (stucco, concrete, Soviet panels, brick, setts,
 // asphalt, painted timber) are baked on the GPU at load, then weathered in world space.
 import * as THREE from 'three';
+import { applyWear } from '../weapons/wear.js';
 import * as TX from './textures.js';
 import * as SF from './surfaces.js';
 import { TexBaker } from './gpu.js';
@@ -122,6 +123,9 @@ export class Materials {
         this.gunFP[k] = enhance(c, { viewEnv: true });
       } else this.gunFP[k] = m;
     }
+    // Worn edges and specular anti-aliasing on the finishes, world and first-person sets alike
+    // (chained after the first-person copies' own patch).
+    applyWear(G, this.gunFP);
     if (progress) progress(0.16);
     if (onActors) await onActors(this);
     const facadeWeather = { weather: { grime: 0.75, moss: 0.35, streaks: 0.6 }, wrap: { amount: 0.4, tint: 0xffb98a } };
