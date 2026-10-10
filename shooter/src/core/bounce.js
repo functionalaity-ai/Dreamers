@@ -196,34 +196,10 @@ class AlbedoGrid {
   }
 }
 
-// Reads an RGBA8 target back without stalling the page: the GPU copies into a pixel buffer in
-// its own time and we collect it once a fence says it's done (a plain read is the fallback).
-async function readPixels(renderer, rt, w, h, buf) {
-  const gl = renderer.getContext();
-  if (!renderer.capabilities.isWebGL2 || !gl.fenceSync) { renderer.readRenderTargetPixels(rt, 0, 0, w, h, buf); return; }
-  const pbo = gl.createBuffer();
-  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-  gl.bufferData(gl.PIXEL_PACK_BUFFER, buf.byteLength, gl.STREAM_READ);
-  const prev = renderer.getRenderTarget();
-  renderer.setRenderTarget(rt);
-  gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, 0);
-  renderer.setRenderTarget(prev);
-  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-  const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
-  gl.flush();
-  const t0 = now();
-  while (gl.clientWaitSync(sync, 0, 0) === gl.TIMEOUT_EXPIRED && now() - t0 < 10000) await pause();
-  gl.deleteSync(sync);
-  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pbo);
-  gl.getBufferSubData(gl.PIXEL_PACK_BUFFER, 0, buf);
-  gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-  gl.deleteBuffer(pbo);
-}
-
-// Average colour of each texture (linear) and how much of it is opaque. Canvas and image-data
-// textures are averaged here on the CPU; textures that only live on the GPU (the baked
-// surfaces) are drawn small, side by side, into one target and read back once.
-async function textureMeans(renderer, textures) {
+// Average colour of each texture (linear) and how much of it is opaque. Image-data textures are
+// averaged here on the CPU; the rest (baked surfaces, canvases, whose CPU readback would stall
+// the same way) are drawn small, side by side, into one target and read back once.
+function textureMeans(renderer, textures) {
   const out = new Map(), gpu = [];
   const s2l = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
   const average = (d, step, srgb) => {
@@ -263,7 +239,7 @@ async function textureMeans(renderer, textures) {
   renderer.autoClear = clear;
   const buf = new Uint8Array(S * gpu.length * S * 4);
   const tr = now();
-  await readPixels(renderer, rt, S * gpu.length, S, buf);
+  renderer.readRenderTargetPixels(rt, 0, 0, S * gpu.length, S, buf);
   out.readMs = now() - tr;
   renderer.setRenderTarget(prev);
   gpu.forEach((t, i) => {
@@ -409,7 +385,7 @@ export async function bakeBounce(R, game, preset, onProgress) {
   for (const root of roots) root.traverse((o) => { if ((o.isMesh || o.isInstancedMesh) && o.material && !Array.isArray(o.material)) meshes.push(o); });
   const maps = new Set();
   for (const m of meshes) if (m.material.map) maps.add(m.material.map);
-  const means = await textureMeans(R.r, maps);
+  const means = textureMeans(R.r, maps);
   const Tm = now();
   const A = new AlbedoGrid(ph.minX, ph.minZ, Math.ceil(ph.maxX - ph.minX), Math.ceil(ph.maxZ - ph.minZ), 41);
   let seed = 7;

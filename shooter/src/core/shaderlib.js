@@ -64,7 +64,7 @@ function linkGI(sh) { for (const k of GI_UNIFORMS) sh.uniforms[k] = SHARED[k]; }
 // Wind: a slow sway that grows with height above ~1.5 m (trunks stay put, crowns move), in
 // gusts that roll across the square, plus a quick flutter for the leaves. Batched geometry
 // keeps no per-vertex weights, so everything comes from the world position.
-export const WIND_FN = /* glsl */`
+const WIND_FN = /* glsl */`
 uniform float uTime;
 vec3 windSway(vec3 p, float flutter) {
   float h = max(p.y - 1.5, 0.0);
@@ -93,9 +93,10 @@ export function swayDepth(depthMat, flutter = 1) {
 
 // Baked light for a world material that doesn't go through enhance() (plain props, cars, decals,
 // characters). Chains any onBeforeCompile already there.
+const GI_PATCHED = new WeakSet(); // (not in userData: clones copy that, but not the patch)
 export function giPatch(mat) {
-  if (!mat || !mat.isMeshStandardMaterial || mat.userData.giPatched || mat.userData.enhance) return mat;
-  mat.userData.giPatched = true;
+  if (!mat || !mat.isMeshStandardMaterial || GI_PATCHED.has(mat) || mat.userData.enhance) return mat;
+  GI_PATCHED.add(mat);
   const prev = mat.onBeforeCompile, prevSrc = prev.toString();
   const prevKey = mat.customProgramCacheKey === THREE.Material.prototype.customProgramCacheKey ? null : mat.customProgramCacheKey;
   mat.onBeforeCompile = function (sh, r) {

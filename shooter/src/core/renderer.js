@@ -159,12 +159,14 @@ export class Renderer {
   }
 
   // The baked volume (bounce.js) now carries the bounce and the sky's occlusion: the flat fill
-  // lights step back to what's left, a little sky and no fixed bounce direction.
+  // lights step back to what's left, a little sky and no fixed bounce direction. The bounce
+  // is lifted a touch over its physical value so the shade stays readable.
   useBakedLight(gi) {
     this.gi = gi;
-    this.hemi.intensity = 0.3;
+    this.hemi.intensity = 0.36;
     this.hemi.groundColor.setHex(0x3a3028);
     this.bounce.intensity = 0;
+    SHARED.giBounce.value = 1.4;
   }
 
   // The weapon is drawn in its own scene: point its lights the way the real sun and sky lie
@@ -182,10 +184,13 @@ export class Renderer {
     if (this.gi) {
       // the sky and the bounce where you stand, eased so walking past a doorway doesn't flicker
       const s = this.gi.sample(cam.position, this._giS || (this._giS = {}));
-      const k = this._giK || (this._giK = { vis: s.vis, warm: 0 });
+      const k = this._giK || (this._giK = { vis: s.vis, warm: 0, at: cam.position.clone() });
       const warm = Math.min(1, (s.r * 0.6 + s.g * 0.3) * 0.9);
-      k.vis += (s.vis - k.vis) * 0.08;
-      k.warm += (warm - k.warm) * 0.08;
+      // a respawn (or any jump) starts afresh rather than fading over from the last place
+      const e = k.at.distanceToSquared(cam.position) > 9 ? 1 : 0.08;
+      k.at.copy(cam.position);
+      k.vis += (s.vis - k.vis) * e;
+      k.warm += (warm - k.warm) * e;
       this.vHemi.intensity *= 0.65 + 0.4 * k.vis;
       this.vHemi.groundColor.setRGB(0.11 + 0.19 * k.warm, 0.072 + 0.1 * k.warm, 0.045 + 0.035 * k.warm);
     }
