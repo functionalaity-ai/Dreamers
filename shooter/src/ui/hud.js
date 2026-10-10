@@ -1,8 +1,10 @@
 // HUD: crosshair, hit markers, damage arcs, compass, vitals, ammo, kill feed, comms, death and scoreboard.
 import { FACTIONS, MATCH } from '../config.js';
+import { GunIcons } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const iconImg = (icon, cls) => '<img class="' + cls + '" src="' + icon.url + '" alt="' + esc(icon.name) + '" title="' + esc(icon.name) + '" style="aspect-ratio:' + icon.w + '/' + icon.h + '">';
 
 export class HUD {
   constructor(game, settings) {
@@ -16,6 +18,17 @@ export class HUD {
     this.deathT = 0;
     this.buildCompass();
     this.fpsT = 0; this.frames = 0;
+    // weapon silhouettes for the kill feed and the weapon panel (the text names stay as fallback)
+    this.icons = null;
+    try { this.icons = new GunIcons(game.R, game.mats); } catch (e) { console.warn('weapon icons unavailable:', e); }
+  }
+
+  // The icon for a hit's weapon, or its name as text; `sep` goes between a text name and what follows.
+  weaponTag(info, cls, sep) {
+    const icon = this.icons && this.icons.forWeapon(info.weapon, info.explosive);
+    if (icon) return { html: iconImg(icon, cls + (icon === this.icons.frag ? ' frag' : '')), sep: '' };
+    const name = info.weapon && info.weapon.name ? info.weapon.name : '';
+    return { html: esc(name), sep: name ? sep : '' };
   }
 
   show(v) { this.root.hidden = !v; }
@@ -28,6 +41,8 @@ export class HUD {
     $('scoreboard').hidden = true;
     $('limit').textContent = 'FIRST TO ' + MATCH.scoreLimit;
     this.killer = null;
+    // the player's own guns, drawn with this loadout's attachments
+    if (this.icons) for (const w of this.g.player.weapons) this.icons.render(w.id, w.stats.att);
     this.refreshAmmo();
   }
 
@@ -85,8 +100,8 @@ export class HUD {
   killfeed(a, v, info) {
     const el = document.createElement('div');
     el.className = 'kf';
-    const w = info.weapon && info.weapon.name ? info.weapon.name : '';
-    el.innerHTML = (a ? this.nameOf(a) : '') + ' <span class="w">' + esc(w) + (info.dist ? ' · ' + Math.round(info.dist) + 'm' : '') + '</span>' + (info.zone === 'head' && !info.explosive ? ' <span class="hs">HEADSHOT</span>' : '') + ' ' + this.nameOf(v);
+    const wt = this.weaponTag(info, 'gi', '· ');
+    el.innerHTML = (a ? this.nameOf(a) : '') + ' <span class="w">' + wt.html + (info.dist ? '<span class="d">' + wt.sep + Math.round(info.dist) + 'm</span>' : '') + '</span>' + (info.zone === 'head' && !info.explosive ? ' <span class="hs">HEADSHOT</span>' : '') + ' ' + this.nameOf(v);
     const kf = $('killfeed');
     kf.prepend(el);
     while (kf.children.length > 5) kf.lastChild.remove();
@@ -145,8 +160,11 @@ export class HUD {
     const d = $('death');
     d.hidden = false;
     const w = info.weapon && info.weapon.name ? info.weapon.name : '';
+    // the silhouette ahead of the name
+    const icon = this.icons && this.icons.forWeapon(info.weapon, info.explosive);
+    const img = icon ? iconImg(icon, 'di' + (icon === this.icons.frag ? ' frag' : '')) + ' ' : '';
     $('death-line').innerHTML = killer && killer !== this.g.player
-      ? 'Killed by ' + this.nameOf(killer) + ' <span class="w">' + esc(w) + (info.dist ? ' · ' + Math.round(info.dist) + ' m' : '') + (info.zone === 'head' && !info.explosive ? ' · headshot' : '') + '</span>'
+      ? 'Killed by ' + this.nameOf(killer) + ' <span class="w">' + img + esc(w) + (info.dist ? ' · ' + Math.round(info.dist) + ' m' : '') + (info.zone === 'head' && !info.explosive ? ' · headshot' : '') + '</span>'
       : 'You died.';
     $('crosshair').style.opacity = '0';
   }
@@ -167,6 +185,12 @@ export class HUD {
     const p = this.g.player;
     if (!p.weapons.length) return;
     const ws = p.ws, s = ws.stats;
+    const img = $('w-icon'), icon = this.icons ? this.icons.render(ws.id, s.att) : null;
+    if (img && img.icon !== icon) {
+      img.icon = icon;
+      img.hidden = !icon;
+      if (icon) { img.src = icon.url; img.alt = icon.name; img.style.aspectRatio = icon.w + '/' + icon.h; }
+    }
     $('w-name').textContent = s.name;
     $('w-cal').textContent = s.caliber;
     $('w-mode').textContent = ws.modeName.toUpperCase();

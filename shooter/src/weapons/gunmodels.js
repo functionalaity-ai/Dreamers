@@ -7,6 +7,7 @@ import { Q, cartridgeGeo, makeRound } from './gunkit.js';
 import { buildKestrel, buildRifleMag } from './kestrel.js';
 import { buildWarden } from './pistol.js';
 import { buildBastion } from './shotgun.js';
+import { EDGES } from '../core/shapes.js';
 import { WEAPONS } from '../config.js';
 
 const BUILDERS = { kestrel: buildKestrel, warden: buildWarden, bastion: buildBastion };
@@ -29,11 +30,12 @@ export function gunMaterials(id, att, M) {
   return out;
 }
 
-// opts: { fp: first-person detail (markings, rounds), shadows }
+// opts: { fp: first-person detail (markings, rounds, rolled edges, moulded polymer), shadows }
 export function buildGun(id, att, M, opts = {}) {
   Q.low = !opts.fp;
+  EDGES.round = !!opts.fp;
   let g;
-  try { g = BUILDERS[id](gunMaterials(id, att, M), att || {}, opts); } finally { Q.low = false; }
+  try { g = BUILDERS[id](gunMaterials(id, att, M), att || {}, Object.assign({ finish: finishOf(id, att) }, opts)); } finally { Q.low = false; EDGES.round = false; }
   g.finish(opts.shadows);
   g.att = Object.assign({}, att);
   return g;

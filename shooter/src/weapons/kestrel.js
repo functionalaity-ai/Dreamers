@@ -1,10 +1,9 @@
 // KR-5 Kestrel: a 5.56 AR with a 15-inch M-LOK rail. Every part is a bevelled extrusion of
 // its real outline, with the slots, ports and windows cut through, so nothing reads as a box.
 import * as THREE from 'three';
-import { Q, V, Gun, rb, cz, cy, makeRound } from './gunkit.js';
-import { outline, hole, slot, circle, rrect, sector, ring, side, along, plate, turned, turnedX, railParts } from '../core/shapes.js';
+import { Q, V, Gun, rb, cz, cy, makeRound, marking, MARK_FONT } from './gunkit.js';
+import { outline, hole, slot, circle, rrect, sector, ring, side, along, plate, turned, turnedX, railParts, dome } from '../core/shapes.js';
 import { redDot, scope4x, suppressor, compensator, laserModule } from './attachments.js';
-import { textDecal } from '../core/textures.js';
 
 const BORE = 0.016;     // barrel axis height
 const RAIL_Y = 0.0405;  // top of the receiver and handguard, where the rail's base sits
@@ -44,7 +43,7 @@ function upper(g, M) {
   for (let i = 0; i < 3; i++) g.s(M.steel, rb(0.0076, 0.0008, 0.0012, -0.0165, 0.0417, 0.0885 + i * 0.0028, 0.0003));
 }
 
-function lower(g, M, fp) {
+function lower(g, M, fp, finish) {
   const A = M.anodized, S = M.steel, lo = Q.low, B = lo ? 0 : 0.0009;
   // Fire-control housing at the rear; the wider magwell block with the pivot lug at the front.
   const rear = [[0.084, 0.0022, 0.002], [0.084, -0.016, 0.004], [0.064, -0.0265, 0.006], [0.028, -0.0285, 0.004], [-0.047, -0.0285, 0.003], [-0.0555, -0.031, 0.001], [-0.0555, 0.0022, 0.001]];
@@ -81,12 +80,16 @@ function lower(g, M, fp) {
   g.s(S, turned([[0.0155, 0.0888], [0.0168, 0.0888], [0.0185, 0.0892], [0.0185, 0.0968], [0.0168, 0.0975], [0.0155, 0.0975]], 28, 0, 0.012));
   for (const a of [0.5, 2.6, 4.7]) g.s(M.rubber, rb(0.0024, 0.0045, 0.0082, 0.0181, 0, 0, 0.0004).rotateZ(a).translate(0, 0.012, 0.0932));
   if (fp) {
-    const dec = new THREE.Mesh(new THREE.PlaneGeometry(0.068, 0.026), new THREE.MeshBasicMaterial({ map: textDecal([{ text: 'KESTREL ARMS', size: 0.62 }, { text: 'KR-5 · CAL 5.56 NATO', size: 0.48 }, { text: 'SN KR-041779', size: 0.44 }], 512, 192), transparent: true, depthWrite: false, opacity: 0.85 }));
-    dec.position.set(-0.01322, -0.0465, -0.093); dec.rotation.y = -Math.PI / 2;
-    g.body.add(dec);
-    const sm = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.018), new THREE.MeshBasicMaterial({ map: textDecal([{ text: 'SAFE', size: 0.8 }, { text: 'SEMI', size: 0.8 }, { text: 'AUTO', size: 0.8 }], 128, 128), transparent: true, depthWrite: false, opacity: 0.85 }));
-    sm.position.set(-0.01118, -0.012, 0.052); sm.rotation.y = -Math.PI / 2;
-    g.body.add(sm);
+    // Roll mark on the magwell's left wall; selector positions engraved round the selector on both
+    // sides (the lever points forward at SAFE, up at SEMI, back at AUTO). Cut through Cerakote the
+    // marks show the dark anodising beneath; on bare black anodising they are laser-bleached.
+    const style = finish === 'black' ? 'laser' : 'engrave';
+    g.body.add(marking('kr-roll', [{ text: 'KR-5 KESTREL', size: 0.74, weight: 700, spacing: 4 }, { text: 'CAL 5.56 NATO', size: 0.6, spacing: 3 }, { text: 'IM 004217', size: 0.6, spacing: 3 }], [512, 176], 0.05, 0.0172, -0.0139, -0.0466, -0.0925, -1, { style }));
+    for (const sx of [-1, 1]) {
+      for (const [word, z, y] of [['SAFE', 0.0145, -0.0088], ['SEMI', 0.035, -0.0035], ['AUTO', 0.0555, -0.0088]]) {
+        g.body.add(marking('kr-' + word, [{ text: word, size: 0.86, weight: 700, spacing: 3 }], [192, 64], 0.0092, 0.0031, sx * 0.0111, y, z, sx, { style }));
+      }
+    }
   }
 }
 
@@ -100,6 +103,11 @@ function controls(g, M) {
   const sel = g.pivot(g.body, -0.0125, -0.012, 0.035, 'selector');
   g.m(S, side(outline([[0.004, -0.0022, 0.0012], [0.004, 0.0022, 0.0012], [-0.0135, 0.0026, 0.002], [-0.0158, 0, 0.0016], [-0.0135, -0.0026, 0.002]]), 0.0022, lo ? 0 : 0.0004, { x: -0.0006, flat: lo }), sel);
   g.m(S, turnedX([[0, -0.0024], [0.0046, -0.0024], [0.0049, -0.0012], [0.0049, 0.0008], [0, 0.0008]], 18), sel);
+  if (!lo) {
+    // the short ambidextrous lever on the right, on the same shaft
+    g.m(S, side(outline([[0.003, -0.0019, 0.001], [0.003, 0.0019, 0.001], [-0.0082, 0.0021, 0.0014], [-0.0096, 0, 0.001], [-0.0082, -0.0021, 0.0014]]), 0.0019, 0.0004, { x: 0.0256 }), sel);
+    g.m(S, turnedX([[0, 0.0236], [0.0042, 0.0236], [0.0042, 0.0244], [0.0038, 0.0249], [0, 0.0249]], 16), sel);
+  }
   g.parts.selector = sel;
 }
 
@@ -108,9 +116,11 @@ function furniture(g, M) {
   const cs = lo ? 3 : 12;
   // Pistol grip: beavertail, a front finger swell, a raised textured panel and a separate cap
   const grip = [[0.021, -0.025, 0.002], [0.062, -0.025, 0.002], [0.0712, -0.031, 0.004], [0.063, -0.038, 0.004], [0.088, -0.12, 0.007], [0.089, -0.133, 0.006], [0.054, -0.141, 0.008], [0.041, -0.129, 0.007], [0.0435, -0.108, 0.01], [0.036, -0.09, 0.012], [0.029, -0.062, 0.008], [0.026, -0.04, 0.004]];
-  g.s(P, side(outline(grip), 0.0285, lo ? 0 : 0.0036, { curve: cs, flat: lo }));
+  // moulded faces dome gently; the textured panel rides on the grip's dome
+  const gd = lo ? null : dome(outline(grip), 0.0009, 0.008, { curve: cs });
+  g.s(P, side(outline(grip), 0.0285, lo ? 0 : 0.0036, { curve: cs, flat: lo, pillow: gd }));
   if (!lo) {
-    g.s(P, side(outline([[0.041, -0.051, 0.005], [0.064, -0.049, 0.005], [0.0795, -0.113, 0.007], [0.058, -0.123, 0.007], [0.047, -0.1, 0.008]]), 0.0299, 0.0009));
+    g.s(P, side(outline([[0.041, -0.051, 0.005], [0.064, -0.049, 0.005], [0.0795, -0.113, 0.007], [0.058, -0.123, 0.007], [0.047, -0.1, 0.008]]), 0.0299, 0.0009, { pillow: gd }));
     g.s(P, side(outline([[0.0525, -0.1386, 0.002], [0.0898, -0.1312, 0.002], [0.0906, -0.1376, 0.003], [0.0565, -0.1452, 0.004]]), 0.0276, 0.0014));
   }
   // Receiver extension (buffer tube) with its adjustment notches
@@ -118,14 +128,18 @@ function furniture(g, M) {
   if (!lo) for (let i = 0; i < 6; i++) g.s(M.rubber, rb(0.006, 0.0016, 0.0042, 0, -0.0034, 0.168 + i * 0.016, 0.0005));
   // Stock: angular SL-style body with a sling slot, a rubber butt pad with ribs, latch and QD cup
   const stock = outline([[0.162, 0.03, 0.006], [0.19, 0.0355, 0.012], [0.284, 0.0375, 0.006], [0.299, 0.033, 0.003], [0.303, -0.087, 0.004], [0.292, -0.096, 0.006], [0.27, -0.091, 0.008], [0.21, -0.05, 0.04], [0.172, -0.021, 0.008], [0.162, -0.012, 0.004]]);
+  let sd = null;
   if (!lo) {
     stock.holes.push(slot(0.2775, -0.0705, 0.027, 0.0068, -0.62));
     // a deep recessed panel on each side below the cheek weld
     const recess = [[0.206, -0.006, 0.006], [0.28, 0.014, 0.006], [0.284, -0.052, 0.008], [0.264, -0.066, 0.008], [0.228, -0.044, 0.02]];
     stock.holes.push(hole(recess));
-    g.s(P, side(outline(recess.map(([z, y, r]) => [z, y, r])), 0.0302, 0.0012, { curve: cs }));
+    g.s(P, side(outline(recess), 0.0302, 0.0012, { curve: cs, pillow: dome(outline(recess), 0.0008, 0.007, { curve: cs }) }));
+    sd = dome(stock, 0.0012, 0.008, { curve: cs });
+    // the maker's mark moulded into both sides, under the cheek weld
+    for (const sx of [-1, 1]) g.body.add(marking('kr-logo', drawKestrelLogo, [320, 160], 0.034, 0.017, sx * 0.0195, 0.0212, 0.243, sx, { style: 'mould', dome: sd }));
   }
-  g.s(P, side(stock, 0.039, lo ? 0 : 0.0038, { curve: cs, flat: lo }));
+  g.s(P, side(stock, 0.039, lo ? 0 : 0.0038, { curve: cs, flat: lo, pillow: sd }));
   g.s(M.rubber, side(outline([[0.2975, 0.0362, 0.003], [0.3112, 0.0362, 0.003], [0.3142, -0.0905, 0.004], [0.3005, -0.0948, 0.004]]), 0.0412, lo ? 0 : 0.0021, { curve: cs, flat: lo }));
   if (lo) return;
   for (let i = 0; i < 8; i++) { const y = 0.026 - i * 0.0145; g.s(M.rubber, rb(0.0395, 0.0016, 0.0016, 0, y, 0.3112 + (0.0362 - y) * 0.0237 + 0.0019, 0.0006)); }
@@ -134,6 +148,26 @@ function furniture(g, M) {
     g.s(M.steel, turnedX(sx < 0 ? [[0, -0.0212], [0.0052, -0.0212], [0.0058, -0.0204], [0.0058, -0.0186], [0, -0.0186]] : [[0, 0.0186], [0.0058, 0.0186], [0.0058, 0.0204], [0.0052, 0.0212], [0, 0.0212]], 18, -0.058, 0.262));
     g.s(M.rubber, turnedX(sx < 0 ? [[0, -0.0214], [0.003, -0.0214], [0, -0.021]] : [[0, 0.021], [0.003, 0.0214], [0, 0.0214]], 12, -0.058, 0.262));
   }
+}
+
+// The Kestrel Arms mark: a falcon stooping on swept wings, over the name.
+function drawKestrelLogo(g, w, h) {
+  const cx = w / 2, cy = h * 0.36, s = h * 0.34;
+  g.beginPath();
+  g.moveTo(cx, cy + s * 0.62);
+  g.quadraticCurveTo(cx - s * 0.38, cy + s * 0.08, cx - s * 1.7, cy - s * 0.62);
+  g.quadraticCurveTo(cx - s * 0.75, cy - s * 0.1, cx - s * 0.24, cy - s * 0.16);
+  g.lineTo(cx, cy - s * 0.58);
+  g.lineTo(cx + s * 0.24, cy - s * 0.16);
+  g.quadraticCurveTo(cx + s * 0.75, cy - s * 0.1, cx + s * 1.7, cy - s * 0.62);
+  g.quadraticCurveTo(cx + s * 0.38, cy + s * 0.08, cx, cy + s * 0.62);
+  g.closePath();
+  g.fill();
+  g.font = '700 ' + Math.round(h * 0.24) + 'px ' + MARK_FONT;
+  if ('letterSpacing' in g) g.letterSpacing = '4px';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('KESTREL ARMS', cx, h * 0.82);
 }
 
 // --- rail, barrel, muzzle, sights ----------------------------------------------------------------
@@ -236,7 +270,7 @@ function sights(g, M, optic) {
 export function buildKestrel(M, att, opts) {
   const g = new Gun('kestrel', M);
   upper(g, M);
-  lower(g, M, opts.fp);
+  lower(g, M, opts.fp, opts.finish);
   controls(g, M);
   furniture(g, M);
   handguard(g, M);
@@ -262,7 +296,8 @@ export function buildKestrel(M, att, opts) {
     g.anchors.fore = V(0, -0.075, -0.36);
     g.foreGrip = 'vertical';
   } else if (att.underbarrel === 'agrip') {
-    g.s(P, side(outline([[-0.29, -0.006, 0.003], [-0.372, -0.006, 0.003], [-0.378, -0.017, 0.004], [-0.302, -0.047, 0.006], [-0.288, -0.04, 0.004]]), 0.022, Q.low ? 0 : 0.003, { curve: Q.low ? 2 : 8, flat: Q.low }));
+    const ag = outline([[-0.29, -0.006, 0.003], [-0.372, -0.006, 0.003], [-0.378, -0.017, 0.004], [-0.302, -0.047, 0.006], [-0.288, -0.04, 0.004]]);
+    g.s(P, side(ag, 0.022, Q.low ? 0 : 0.003, { curve: Q.low ? 2 : 8, flat: Q.low, pillow: Q.low ? null : dome(ag, 0.0007, 0.006) }));
     g.anchors.fore = V(0, -0.03, -0.32);
     g.foreGrip = 'angled';
   } else {
@@ -301,16 +336,18 @@ export function buildRifleMag(M, ext, fp) {
   const winC = [(zt + zb) / 2, (yt + yb) / 2], winA = Math.atan2(yb - yt, zb - zt), winL = Math.hypot(yb - yt, zb - zt);
   const shape = outline(body);
   if (fp && !lo) shape.holes.push(slot(winC[0], winC[1], winL, 0.0056, winA));
-  add(side(shape, 0.0225, lo ? 0 : 0.0012, { curve: lo ? 2 : 10, flat: lo }), P);
+  // the body's faces dome gently; the shell and its ribs ride on that dome
+  const md = lo ? null : dome(shape, 0.0009, 0.009, { curve: 10 });
+  add(side(shape, 0.0225, lo ? 0 : 0.0012, { curve: lo ? 2 : 10, flat: lo, pillow: md }), P);
   if (!lo) {
     // Slightly proud textured shell over the lower body, cut for the window too
     const shell = outline([[-0.0675, -0.088], [-0.073, -0.15, 0.04], [-0.082, bottom + 0.024, 0.012], [-0.152, bottom + 0.024, 0.012], [-0.1415, -0.15, 0.04], [-0.1305, -0.088]]);
     // the window's stretch inside the shell (a hole must stay within its outline)
     if (fp) { const y0 = -0.092, z0 = zt + (zb - zt) * (yt - y0) / winLen, c = [(z0 + zb) / 2, (y0 + yb) / 2]; shell.holes.push(slot(c[0], c[1], Math.hypot(yb - y0, zb - z0), 0.0062, winA)); }
-    add(side(shell, 0.0235, 0.0007, { curve: 10 }), P);
+    add(side(shell, 0.0235, 0.0007, { curve: 10, pillow: md }), P);
     for (let i = 0; i < 3; i++) {
       const y = bottom + 0.032 + i * 0.011;
-      add(side(outline([[-0.083 + i * 0.0012, y, 0.001], [-0.1505 + i * 0.001, y, 0.001], [-0.1505 + i * 0.001, y + 0.003, 0.001], [-0.083 + i * 0.0012, y + 0.003, 0.001]]), 0.0242, 0.0005), P);
+      add(side(outline([[-0.083 + i * 0.0012, y, 0.001], [-0.1505 + i * 0.001, y, 0.001], [-0.1505 + i * 0.001, y + 0.003, 0.001], [-0.083 + i * 0.0012, y + 0.003, 0.001]]), 0.0242, 0.0005, { pillow: md }), P);
     }
   }
   add(side(outline([[-0.0855, bottom + 0.0085, 0.003], [-0.1545, bottom + 0.0085, 0.003], [-0.1568, bottom - 0.0022, 0.0035], [-0.0832, bottom - 0.0022, 0.0035]]), 0.0262, lo ? 0 : 0.0015, { curve: lo ? 2 : 8, flat: lo }), P);
