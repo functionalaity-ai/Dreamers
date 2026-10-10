@@ -281,23 +281,33 @@ export class Humanoid {
       faceW.copy(groupQ).multiply(quatOf(p, 0, TILT, _q));
       return H.copy(EYE_R).applyQuaternion(faceW).negate().add(eye).distanceTo(N) - NECK;
     };
-    // Bracket the pitches where the gap closes and bisect each; keep the one nearest last frame's
-    // (so the head doesn't hop between solutions), or the nearest miss when out of reach.
-    const lo = pitch - 0.8, hi = pitch + 0.2, n = 12;
+    const bisect = (p0, g0, p1, steps) => {
+      for (let k = 0; k < steps; k++) { const m = (p0 + p1) / 2; if (Math.sign(gap(m)) === Math.sign(g0)) p0 = m; else p1 = m; }
+      return (p0 + p1) / 2;
+    };
+    // Usually last frame's pitch is a close bracket; otherwise scan for the pitches where the gap
+    // closes, bisect each and keep the one nearest last frame's (so the head doesn't hop between
+    // solutions), or the nearest miss when out of reach.
     const want = this.facePitch !== undefined ? this.facePitch : pitch - 0.25;
-    let best = null, near = hi, nearG = Infinity, prevP = 0, prevG = 0;
-    for (let i = 0; i <= n; i++) {
-      const p = lo + (hi - lo) * (i / n), g = gap(p);
-      if (Math.abs(g) < nearG) { nearG = Math.abs(g); near = p; }
-      if (i > 0 && Math.sign(g) !== Math.sign(prevG)) {
-        let p0 = prevP, p1 = p;
-        for (let k = 0; k < 12; k++) { const m = (p0 + p1) / 2; if (Math.sign(gap(m)) === Math.sign(prevG)) p0 = m; else p1 = m; }
-        const r = (p0 + p1) / 2;
-        if (best === null || Math.abs(r - want) < Math.abs(best - want)) best = r;
-      }
-      prevP = p; prevG = g;
+    let best = null;
+    if (this.facePitch !== undefined) {
+      const g0 = gap(want - 0.05), g1 = gap(want + 0.05);
+      if (Math.sign(g0) !== Math.sign(g1)) best = bisect(want - 0.05, g0, want + 0.05, 8);
     }
-    if (best === null) best = near;
+    if (best === null) {
+      const lo = pitch - 0.8, hi = pitch + 0.2, n = 12;
+      let near = hi, nearG = Infinity, prevP = 0, prevG = 0;
+      for (let i = 0; i <= n; i++) {
+        const p = lo + (hi - lo) * (i / n), g = gap(p);
+        if (Math.abs(g) < nearG) { nearG = Math.abs(g); near = p; }
+        if (i > 0 && Math.sign(g) !== Math.sign(prevG)) {
+          const r = bisect(prevP, prevG, p, 12);
+          if (best === null || Math.abs(r - want) < Math.abs(best - want)) best = r;
+        }
+        prevP = p; prevG = g;
+      }
+      if (best === null) best = near;
+    }
     gap(best);
     this.facePitch = best;
     const dir = H.sub(N).normalize();
