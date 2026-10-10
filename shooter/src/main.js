@@ -11,6 +11,8 @@ import { Studio } from './ui/studio.js';
 import { Humanoid } from './characters/humanoid.js';
 import { buildGun, bakeGun } from './weapons/gunmodels.js';
 import { PRESETS, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
+import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
+import { SUN_DIR } from './core/renderer.js';
 
 const $ = (id) => document.getElementById(id);
 const store = {
@@ -41,12 +43,19 @@ class App {
     const step = (t, label) => { $('load-bar').style.width = Math.round(t * 100) + '%'; if (label) $('load-step').textContent = label; };
     step(0.02, 'textures');
     await frame();
-    this.mats = await new Materials(preset).build((t) => step(t * 0.7, 'textures'));
+    linkProbe(this.R.probe.uniforms);
+    SHARED.sunDirW.value.copy(SUN_DIR);
+    SHARED.sunColorW.value.copy(this.R.sun.color).multiplyScalar(this.R.sun.intensity);
+    SHARED.ambW.value.setRGB(0.55, 0.62, 0.75);
+    this.mats = await new Materials(preset, this.R.r).build((t) => step(t * 0.7, 'textures'));
     step(0.72, 'streets and buildings'); await frame();
     this.audio = new Audio();
     this.audio.setVolume(this.settings.volume);
     this.game = new Game(this.R, this.mats, this.audio);
     this.game.load();
+    this.R.vol.setIndoor(this.game.map.indoor);
+    step(0.8, 'reflections'); await frame();
+    this.captureReflections();
     step(0.9, 'operators'); await frame();
     this.hud = new HUD(this.game, this.settings);
     this.game.hud = this.hud;
@@ -57,7 +66,6 @@ class App {
     this.input.onUnlock = () => { if (this.mode === 'playing') this.pause(); };
     this.menus = new Menus(this);
     this.buildLineup();
-    this.R.applyPreset(preset);
     this.game.vm.setScopeRes(preset.scopeRes);
     window.addEventListener('resize', () => this.R.resize());
     step(1, 'ready'); await frame();
@@ -71,6 +79,16 @@ class App {
     this.last = performance.now();
     window.__app = this;
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  // One reflection probe over the main streets; glass, paint and metal are box-projected into it.
+  captureReflections() {
+    const R = this.R;
+    R.applyPreset(PRESETS[this.settings.preset]);
+    const hide = this.game.characters.map((c) => c.h ? c.h.group : null).filter(Boolean);
+    R.captureProbe(new THREE.Vector3(2, 3.2, 9), new THREE.Box3(new THREE.Vector3(-56, -0.2, -22.2), new THREE.Vector3(56, 30, 22.2)), hide);
+    for (const m of SHARED_PROBE_MATS) { m.envMap = R.probe.texture; m.needsUpdate = true; }
+    SHARED.probeOn.value = 1;
   }
 
   loadout() { return this.loadouts[this.settings.loadout] || this.loadouts[0]; }

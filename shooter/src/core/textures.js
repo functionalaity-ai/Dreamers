@@ -50,34 +50,7 @@ function makeNoises(seed, base, octaves) {
   return out;
 }
 
-function hexToRgb(h) {
-  return [(h >> 16) & 255, (h >> 8) & 255, h & 255];
-}
 
-// Tileable Voronoi: returns { f1, f2, id } distances in cell units.
-function voronoiSetup(seed, n) {
-  const r = mulberry(seed);
-  const pts = [];
-  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) pts.push([i + 0.15 + r() * 0.7, j + 0.15 + r() * 0.7, r()]);
-  return { n, pts };
-}
-function voronoi(vs, u, v) {
-  const n = vs.n;
-  const x = u * n, y = v * n;
-  const ci = Math.floor(x), cj = Math.floor(y);
-  let f1 = 9, f2 = 9, id = 0;
-  for (let dj = -1; dj <= 1; dj++) {
-    for (let di = -1; di <= 1; di++) {
-      const i = ci + di, j = cj + dj;
-      const wi = ((i % n) + n) % n, wj = ((j % n) + n) % n;
-      const pt = vs.pts[wj * n + wi];
-      const px = pt[0] + (i - wi), py = pt[1] + (j - wj);
-      const d = Math.hypot(px - x, py - y);
-      if (d < f1) { f2 = f1; f1 = d; id = pt[2]; } else if (d < f2) f2 = d;
-    }
-  }
-  return { f1, f2, id };
-}
 
 // Builds a texture set from a per-pixel function: fn(u, v) -> [r, g, b, height, roughness]
 function build(size, fn, opts = {}) {
@@ -124,99 +97,7 @@ function build(size, fn, opts = {}) {
   return { map: toTex(albedo, true), normalMap: toTex(nrm, false), roughnessMap: toTex(rough, false) };
 }
 
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const mix = (a, b, t) => a + (b - a) * t;
-
-// ---------------------------------------------------------------------------
-// Surfaces
-// ---------------------------------------------------------------------------
-export function cobblestone(size) {
-  const vs = voronoiSetup(11, 10);
-  const nz = makeNoises(3, 4, 5);
-  const fine = makeNoises(9, 32, 2);
-  return build(size, (u, v) => {
-    const c = voronoi(vs, u, v);
-    const edge = c.f2 - c.f1;
-    const stone = clamp(edge * 6, 0, 1);
-    const dome = Math.sqrt(stone);
-    const n = fbm(nz, u, v, 4), f = fbm(fine, u, v, 32);
-    const tint = c.id;
-    const base = [mix(122, 160, tint), mix(110, 144, tint), mix(92, 120, tint)];
-    const grout = [58, 54, 50];
-    const k = stone > 0.08 ? 1 : 0;
-    const shade = 0.75 + n * 0.35 + f * 0.12;
-    const cav = 0.55 + dome * 0.45;
-    const col = k ? base.map((x) => x * shade * cav) : grout.map((x) => x * (0.8 + f * 0.4));
-    return [col[0], col[1], col[2], dome * 0.9 + f * 0.08, k ? 0.62 + n * 0.25 : 0.95];
-  }, { normal: 3.2 });
-}
-
-export function brick(size, tint = 0) {
-  const rows = 16, cols = 4;
-  const nz = makeNoises(5 + tint, 8, 4);
-  const fine = makeNoises(15, 64, 2);
-  const r = mulberry(77 + tint);
-  const shades = [];
-  for (let i = 0; i < rows * cols * 2; i++) shades.push(r());
-  return build(size, (u, v) => {
-    const row = Math.floor(v * rows);
-    const off = row % 2 ? 0.5 / cols : 0;
-    const cu = ((u + off) % 1) * cols;
-    const col = Math.floor(cu);
-    const fu = cu - col, fv = v * rows - row;
-    const mortar = fu < 0.03 || fv < 0.11;
-    const sh = shades[(row * cols + col) % shades.length];
-    const n = fbm(nz, u, v, 8), f = fbm(fine, u, v, 64);
-    if (mortar) {
-      const m = 150 + f * 40;
-      return [m * 0.95, m * 0.92, m * 0.86, 0.1 + f * 0.05, 0.95];
-    }
-    const base = tint ? [mix(120, 165, sh), mix(104, 140, sh), mix(88, 110, sh)] : [mix(130, 170, sh), mix(62, 86, sh), mix(46, 60, sh)];
-    const s = 0.78 + n * 0.32 + f * 0.1;
-    return [base[0] * s, base[1] * s, base[2] * s, 0.6 + n * 0.25 + f * 0.1, 0.8 + f * 0.15];
-  }, { normal: 2.6 });
-}
-
-export function plaster(size, color = 0xd9c9a8, seed = 1) {
-  const rgb = hexToRgb(color);
-  const nz = makeNoises(20 + seed, 4, 5);
-  const fine = makeNoises(40 + seed, 64, 2);
-  const stain = makeNoises(60 + seed, 2, 3);
-  return build(size, (u, v) => {
-    const n = fbm(nz, u, v, 4), f = fbm(fine, u, v, 64);
-    const st = fbm(stain, u, v * 0.5, 2);
-    // Water streaks running down from the top of each tile.
-    const streak = Math.max(0, st - 0.55) * 2.2 * (1 - v * 0.6);
-    const chip = n > 0.8 ? 1 : 0;
-    const s = (0.86 + n * 0.18 + f * 0.06) * (1 - streak * 0.35);
-    let c = rgb.map((x) => x * s);
-    if (chip) c = [c[0] * 0.9, c[1] * 0.86, c[2] * 0.82];
-    return [c[0], c[1], c[2], n * 0.35 + f * 0.25 - chip * 0.3, 0.88 + f * 0.1];
-  }, { normal: 1.6 });
-}
-
-export function concrete(size, tone = 1) {
-  const nz = makeNoises(31, 4, 5);
-  const fine = makeNoises(32, 64, 2);
-  const pores = makeNoises(33, 128, 1);
-  return build(size, (u, v) => {
-    const n = fbm(nz, u, v, 4), f = fbm(fine, u, v, 64), p = pores[0].at(u * 128, v * 128);
-    const pit = p > 0.86 ? 1 : 0;
-    const g = (120 + n * 50 + f * 18 - pit * 30) * tone;
-    return [g * 1.0, g * 0.98, g * 0.94, n * 0.3 + f * 0.2 - pit * 0.4, 0.82 + f * 0.12];
-  }, { normal: 1.8 });
-}
-
-export function asphalt(size) {
-  const nz = makeNoises(41, 8, 4);
-  const grit = makeNoises(42, 256, 1);
-  return build(size, (u, v) => {
-    const n = fbm(nz, u, v, 8), g = grit[0].at(u * 256, v * 256);
-    const stone = g > 0.78 ? (g - 0.78) * 4 : 0;
-    const c = 44 + n * 22 + stone * 60;
-    return [c, c * 0.98, c * 0.96, n * 0.2 + stone * 0.6, 0.86 - stone * 0.2];
-  }, { normal: 2 });
-}
 
 export function woodPlanks(size, dark = 0) {
   const boards = 6;
@@ -261,58 +142,6 @@ export function roofTiles(size) {
     const c = [mix(140, 176, s), mix(64, 88, s), mix(44, 56, s)].map((x) => x * (0.65 + lip * 0.35) * (0.85 + n * 0.25));
     return [c[0], c[1], c[2], lip * 0.6 + curve * 0.3, 0.7 + n * 0.2];
   }, { normal: 3 });
-}
-
-// One facade bay (3.5 m wide x 3.4 m tall): plaster wall with a shuttered window.
-export function facadeBay(size, wall = 0xcdb894, shutter = 0x4f6a52, seed = 1) {
-  const pl = plaster(size, wall, seed);
-  const c = document.createElement('canvas');
-  c.width = c.height = size;
-  const g = c.getContext('2d');
-  g.drawImage(pl.map.image, 0, 0);
-  const W = size, s = size / 3.5;
-  const wx = 1.1 * s, wy = 0.7 * s, ww = 1.3 * s, wh = 1.8 * s;
-  // Frame and sill
-  g.fillStyle = '#e9e2d2';
-  g.fillRect(wx - 0.09 * s, wy - 0.09 * s, ww + 0.18 * s, wh + 0.18 * s);
-  g.fillStyle = '#bdb3a0';
-  g.fillRect(wx - 0.16 * s, wy + wh + 0.06 * s, ww + 0.32 * s, 0.09 * s);
-  // Glass with a sky reflection
-  const grad = g.createLinearGradient(0, wy, 0, wy + wh);
-  grad.addColorStop(0, '#5b6f80');
-  grad.addColorStop(0.45, '#2c3640');
-  grad.addColorStop(1, '#1a1f24');
-  g.fillStyle = grad;
-  g.fillRect(wx, wy, ww, wh);
-  g.fillStyle = 'rgba(255,240,210,0.12)';
-  g.beginPath(); g.moveTo(wx, wy + wh * 0.2); g.lineTo(wx + ww * 0.5, wy); g.lineTo(wx + ww * 0.75, wy); g.lineTo(wx, wy + wh * 0.6); g.fill();
-  g.fillStyle = '#e9e2d2';
-  g.fillRect(wx + ww / 2 - 0.03 * s, wy, 0.06 * s, wh);
-  g.fillRect(wx, wy + wh * 0.38, ww, 0.05 * s);
-  // Shutters (louvred)
-  const sc = '#' + shutter.toString(16).padStart(6, '0');
-  for (const sx of [wx - 0.62 * s, wx + ww + 0.08 * s]) {
-    g.fillStyle = sc;
-    g.fillRect(sx, wy - 0.04 * s, 0.54 * s, wh + 0.08 * s);
-    g.fillStyle = 'rgba(0,0,0,0.25)';
-    for (let k = wy; k < wy + wh; k += 0.08 * s) g.fillRect(sx + 0.04 * s, k, 0.46 * s, 0.025 * s);
-  }
-  // Floor band
-  g.fillStyle = 'rgba(0,0,0,0.08)';
-  g.fillRect(0, W - 0.12 * s, W, 0.12 * s);
-  const map = new THREE.CanvasTexture(c);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = map.wrapT = THREE.RepeatWrapping;
-  // Height/roughness from a second canvas so frames protrude and glass is glossy.
-  const hc = document.createElement('canvas');
-  hc.width = hc.height = size;
-  const hg = hc.getContext('2d');
-  hg.fillStyle = '#e0e0e0'; hg.fillRect(0, 0, W, W);
-  hg.fillStyle = '#ffffff'; hg.fillRect(wx - 0.09 * s, wy - 0.09 * s, ww + 0.18 * s, wh + 0.18 * s);
-  hg.fillStyle = '#202020'; hg.fillRect(wx, wy, ww, wh);
-  const rough = new THREE.CanvasTexture(hc);
-  rough.wrapS = rough.wrapT = THREE.RepeatWrapping;
-  return { map, normalMap: pl.normalMap, roughnessMap: rough };
 }
 
 // Camouflage atlas for characters: 4 quadrants (camo, fabric, skin, rubber).
@@ -487,5 +316,107 @@ export function textDecal(lines, w = 512, h = 128, color = 'rgba(210,210,200,0.7
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  return t;
+}
+
+// Normal map from a height drawn into a canvas (white = raised).
+function canvasHeightToNormal(c, strength) {
+  const w = c.width, h = c.height;
+  const src = c.getContext('2d').getImageData(0, 0, w, h).data;
+  const H = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) H[i] = src[i * 4] / 255;
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const xl = Math.max(0, x - 1), xr = Math.min(w - 1, x + 1), yu = Math.max(0, y - 1), yd = Math.min(h - 1, y + 1);
+    const dx = (H[y * w + xr] - H[y * w + xl]) * strength, dy = (H[yd * w + x] - H[yu * w + x]) * strength;
+    let nx = -dx, ny = dy, nz = 1;
+    const l = Math.hypot(nx, ny, nz);
+    const i = (y * w + x) * 4;
+    out[i] = (nx / l * 0.5 + 0.5) * 255; out[i + 1] = (ny / l * 0.5 + 0.5) * 255; out[i + 2] = (nz / l * 0.5 + 0.5) * 255; out[i + 3] = 255;
+  }
+  const o = document.createElement('canvas');
+  o.width = w; o.height = h;
+  o.getContext('2d').putImageData(new ImageData(out, w, h), 0, 0);
+  const t = new THREE.CanvasTexture(o);
+  t.colorSpace = THREE.NoColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+// Tyre sidewall lettering and ribs, laid out for a ring with planar UVs.
+export function sidewallNormal(size = 1024) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, size, size);
+  const cx = size / 2;
+  // concentric ribs near the rim and the tread shoulder
+  g.strokeStyle = '#5a5a5a'; g.lineWidth = size * 0.003;
+  for (const r of [0.33, 0.345, 0.47, 0.485]) { g.beginPath(); g.arc(cx, cx, r * size, 0, Math.PI * 2); g.stroke(); }
+  const ring = (text, r, px, start) => {
+    g.save();
+    g.translate(cx, cx);
+    g.font = '700 ' + px + 'px "Arial Narrow", Arial, sans-serif';
+    g.fillStyle = '#d8d8d8';
+    let a = start;
+    for (const ch of text) {
+      const w = g.measureText(ch).width;
+      a += (w / 2) / (r * size);
+      g.save(); g.rotate(a); g.translate(0, -r * size); g.fillText(ch, -w / 2, px * 0.35); g.restore();
+      a += (w / 2) / (r * size) + 0.004;
+    }
+    g.restore();
+  };
+  ring('MERIDIAN  ·  RADIAL  M+S', 0.41, size * 0.05, -0.6);
+  ring('165/80 R13  82T  ·  TUBELESS', 0.41, size * 0.034, 2.35);
+  g.filter = 'blur(' + (size * 0.0012) + 'px)';
+  g.drawImage(c, 0, 0);
+  return canvasHeightToNormal(c, 3);
+}
+
+// Fluted prism pattern for lamp lenses.
+export function flutedNormal(size = 256) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d');
+  const n = 12;
+  for (let i = 0; i < n; i++) {
+    const grad = g.createLinearGradient(i * size / n, 0, (i + 1) * size / n, 0);
+    grad.addColorStop(0, '#000'); grad.addColorStop(0.5, '#fff'); grad.addColorStop(1, '#000');
+    g.fillStyle = grad; g.fillRect(i * size / n, 0, size / n, size);
+  }
+  g.globalCompositeOperation = 'multiply';
+  for (let j = 0; j < 6; j++) {
+    const grad = g.createLinearGradient(0, j * size / 6, 0, (j + 1) * size / 6);
+    grad.addColorStop(0, '#888'); grad.addColorStop(0.5, '#fff'); grad.addColorStop(1, '#888');
+    g.fillStyle = grad; g.fillRect(0, j * size / 6, size, size / 6);
+  }
+  const t = canvasHeightToNormal(c, 1.5);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+// Licence plate in the old Soviet style: black characters on white, with a pressed border.
+export function plateTexture(text, region) {
+  const c = document.createElement('canvas');
+  c.width = 520; c.height = 112;
+  const g = c.getContext('2d');
+  g.fillStyle = '#e6e3d8'; g.fillRect(0, 0, 520, 112);
+  g.strokeStyle = '#1a1a1a'; g.lineWidth = 6; g.strokeRect(6, 6, 508, 100);
+  g.fillStyle = '#141414';
+  g.font = '700 74px "DejaVu Sans Mono", "Courier New", monospace';
+  g.textBaseline = 'middle';
+  g.fillText(text, 26, 60);
+  g.font = '700 30px "DejaVu Sans Mono", monospace';
+  g.fillText(region, 430, 40);
+  g.fillText('SU', 440, 82);
+  // grime and rust at the bolts
+  for (const x of [60, 460]) { g.fillStyle = 'rgba(90,50,20,0.6)'; g.beginPath(); g.arc(x, 18, 7, 0, Math.PI * 2); g.fill(); }
+  const grad = g.createLinearGradient(0, 0, 0, 112);
+  grad.addColorStop(0, 'rgba(60,50,40,0.05)'); grad.addColorStop(1, 'rgba(60,50,40,0.35)');
+  g.fillStyle = grad; g.fillRect(0, 0, 520, 112);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
   return t;
 }

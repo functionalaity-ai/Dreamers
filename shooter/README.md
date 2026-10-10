@@ -38,7 +38,7 @@ Click **Deploy** to start. The game captures your mouse for aiming. Press **Esc*
 
 ## What's in the slice
 
-**Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, rows of facades, streets of parked cars, a bus and a van, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
+**Map: Old Town.** A 120 × 92 m town square with a fountain and statue, a church with a spire, a five-storey Soviet panel block, rows of pre-war stucco buildings with green shutters and shopfronts, two barricaded side streets, parked and burnt-out cars, a minibus and two gutted buses, market stalls, sandbag and jersey-barrier cover, trees and street lamps. Two buildings are fully enterable:
 - **Hotel Meridian** has three floors and a roof, connected by U-shaped stairs, with furnished rooms.
 - **The Pharmacy** has two floors and roof access, with a shop counter and shelving downstairs and a flat upstairs.
 
@@ -68,7 +68,40 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 - **Bots** detect you by sight, with a detection meter, and by sound. They share sightings by radio callouts, claim cover on a navigation graph, peek from cover, flank along routes that keep them out of sight, throw and dodge grenades, and fall back when they're hurt. There are three difficulty levels: Recruit, Regular and Veteran.
 
 **Look and sound:**
-- **Rendering:** a physical sky with image-based lighting, a low sun with soft shadows, ambient occlusion (GTAO), bloom, SMAA, ACES tone mapping and fog. Indoor lighting is adjusted as you move inside. There are three graphics presets: Medium, High and Ultra.
+- **Light and atmosphere:**
+  - A low golden-hour sun with soft shadows, and warm bounce light from the sunlit facades into the shade.
+  - Raymarched volumetric light: height haze lit through the sun's shadow map, so god rays fall between buildings and through windows into rooms. It's smoothed over time and blurred without crossing edges, so it stays clean rather than grainy.
+  - Screen-space sun shafts that streak through leaves and past rooflines when you face the sun.
+  - Dust motes that only show up where sunlight reaches them.
+- **Surfaces** are baked on the GPU at load time: colour, normal, and AO/roughness maps at up to 2048² on Ultra.
+  - Lime stucco with sand grain, hairline cracks and spalled patches.
+  - Cast concrete with aggregate and bug holes.
+  - Soviet wall panels with mastic-sealed joints and rust bleeding from the connectors.
+  - Running-bond brick, granite setts, and worn asphalt with sealed cracks and oil stains.
+  - Painted timber with crazed, chipped paint.
+- **Weathering, in world space:** grime and splash-back at street level, rain streaks down the walls, moss on the lower floors and ledges, puddles that reflect the street, and a soft "subsurface" wrap of light on stone and stucco.
+- **Windows:**
+  - Real recessed reveals with multi-pane timber or brushed-aluminium frames. The aluminium has anisotropic highlights.
+  - Louvred green shutters, built slat by slat and set open, ajar or closed. Their paint is chipped and they cast real shadows.
+  - Stucco surrounds, pediments, sills, string courses and cornices.
+  - Behind every pane there's a room: interior mapping with wallpaper, parquet, rugs, furniture, net curtains and drapes, and sun patches on the floor that match the real sun. The glass is dusty and slightly wavy, and reflects the street.
+- **Reflections:** a reflection probe of the finished town, box-projected so glass, car paint, chrome and puddles reflect the right buildings.
+- **Cars:**
+  - An 80s Eastern-bloc saloon with a rounded body shell and panel gaps.
+  - Clear-coated metallic paint over flake normals, with road dirt on the sills.
+  - Chrome bumpers, belt mouldings and drip rails.
+  - Square headlamps with chrome reflectors and fluted lenses, and segmented tail-lights.
+  - Tyres with tread and moulded sidewall lettering, alloy wheels with brake discs and calipers.
+  - A full interior seen through the glass, a dusty windscreen with two clean wiper arcs, and licence plates.
+  - Burnt-out versions sit on their rusted rims.
+- **Grade:** an ACES filmic curve, a warm split tone, a vignette and dithering, then SMAA. Also ambient occlusion (GTAO) and bloom.
+- **Presets:**
+
+  | Preset | Volumetric light | Textures | Extras |
+  | --- | --- | --- | --- |
+  | Medium | 24 steps | 512² | No window shadows, AO or bloom |
+  | High | 40 steps | 1024² | AO and bloom |
+  | Ultra | 64 steps | 2048² | AO, bloom and 4096² shadows |
 - **Audio** is synthesised with Web Audio: layered gunshots, outdoor slapback and indoor reverb, distant shots arriving at the speed of sound with their high end muffled, 3D positional sound, foley and footsteps on different surfaces.
 
 **Match.** Team deathmatch, 4 v 4. The first team to 30 kills wins, or the leading team when the 8-minute clock runs out. It includes respawns with spawn protection, a kill feed, damage direction arcs, hit markers, a compass, a scoreboard, a death cam that shows who killed you, and an end-of-match screen.
@@ -80,8 +113,10 @@ index.html               page, HUD and menu markup, import map
 css/style.css            UI styling
 src/config.js            weapons, attachments, materials, hit zones, difficulty, presets, loadouts
 src/main.js              boot, screen flow, pointer lock, main loop
-src/core/                renderer, procedural textures and materials, geometry helpers, physics, audio, input
-src/world/               Old Town layout, building generator, props, navigation graph, effects
+src/core/                renderer and post chain, volumetric light, colour grade, GPU texture baker and surface
+                         recipes, material shader patches, materials, geometry helpers, physics, audio, input
+src/world/               Old Town layout, facades and windows, Soviet panel block, vehicles, building generator,
+                         props, navigation graph, effects
 src/weapons/             gun models, weapon state, ballistics, first-person viewmodel and animations
 src/characters/          humanoid model and animation, hitboxes, bot AI, player controller
 src/game/game.js         match rules, spawning, damage, grenades, noise and callouts
@@ -94,6 +129,7 @@ vendor/three/            Three.js r160 and the add-ons used
 - No multiplayer. The slice is single-player against bots.
 - In first person you see only your arms and gun, not your full body.
 - Animations are procedural rather than motion-captured.
-- The browser uses rasterised lighting with baked-style tricks. It has no Lumen, Nanite or ray tracing, which the full UE5 version in the prompt calls for.
+- This is still rasterised WebGL, not Unreal: the "ray-traced" reflections come from a box-projected reflection probe, and the bounce light is approximated. There's no Lumen, Nanite or hardware ray tracing.
+- The richer facades and cars are heavy, around 0.8 million triangles a frame. Use Medium on integrated graphics.
 
 The later milestones in the prompt (more maps, more weapons, more game modes, a progression system and multiplayer) are not built yet.

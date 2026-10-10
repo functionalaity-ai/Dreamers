@@ -9,12 +9,16 @@
 //   z  42 └───────────────── facades ─────────────────────────────┘
 import * as THREE from 'three';
 import { Builder, building } from './builder.js';
+import { WindowKit, stuccoBlock, sovietBlock } from './facades.js';
+import * as VH from './vehicles.js';
 import * as P from './props.js';
 
 export const BOUNDS = { minX: -60, minZ: -46, maxX: 60, maxZ: 46 };
 
 export function buildOldTown(physics, materials, scene) {
   const B = new Builder(physics, materials);
+  const kit = new WindowKit(materials.world, { seed: 77 });
+  B.kit = kit;
 
   // --- Ground surfaces (visual; the physics ground is y = 0) ---------------------
   B.solid(-52, -0.05, -13, 52, 0.0, 13, 'cobble', null, { shadow: false });
@@ -28,26 +32,41 @@ export function buildOldTown(physics, materials, scene) {
   walk(-52, -6, 20, 22); walk(8, 52, 20, 22); walk(-6, 8, 20, 22);
   // Road markings
   for (let x = -48; x < 48; x += 4.5) {
-    B.solid(x, 0.0, -16.6, x + 2.4, 0.012, -16.45, 'trim', null, { shadow: false });
-    B.solid(x, 0.0, 16.45, x + 2.4, 0.012, 16.6, 'trim', null, { shadow: false });
+    B.solid(x, 0.0, -16.6, x + 2.4, 0.012, -16.45, 'roadPaint', null, { shadow: false });
+    B.solid(x, 0.0, 16.45, x + 2.4, 0.012, 16.6, 'roadPaint', null, { shadow: false });
   }
   // Pedestrian crossings into the plaza
-  for (const zc of [-16.5, 16.5]) for (let i = 0; i < 7; i++) B.solid(-3.2 + i * 0.95, 0, zc - 2.4, -2.7 + i * 0.95, 0.012, zc + 2.4, 'trim', null, { shadow: false });
+  for (const zc of [-16.5, 16.5]) for (let i = 0; i < 7; i++) B.solid(-3.2 + i * 0.95, 0, zc - 2.4, -2.7 + i * 0.95, 0.012, zc + 2.4, 'roadPaint', null, { shadow: false });
 
-  // --- Perimeter facade blocks -------------------------------------------------------
-  const blocks = [
-    // north row
-    [-52, -42, -38, -22, 17, 'facadeC'], [-38, -42, -24, -22, 13.6, 'facadeA'], [-24, -42, -12, -22, 10.2, 'facadeB'],
-    [-12, -42, 12, -34, 13.6, 'facadeC'],
-    [12, -42, 20, -22, 10.2, 'facadeA'], [20, -42, 38, -38, 10.2, 'facadeB'], [38, -42, 52, -22, 13.6, 'facadeB'],
-    // south row
-    [-52, 22, -36, 42, 13.6, 'facadeB'], [-36, 22, -20, 42, 17, 'facadeC'], [-20, 22, -8, 42, 10.2, 'facadeA'],
-    [-8, 33.5, 10, 42, 13.6, 'facadeB'],
-    [10, 22, 24, 42, 10.2, 'facadeC'], [24, 22, 38, 42, 13.6, 'facadeA'], [38, 22, 52, 42, 17, 'facadeB'],
-    // ends
-    [-60, -22, -52, 22, 13.6, 'facadeA'], [52, -22, 60, 22, 13.6, 'facadeC'],
-  ];
-  for (const b of blocks) facadeBlock(B, b[0], b[1], b[2], b[3], b[4], b[5]);
+  // --- Perimeter blocks ----------------------------------------------------------------
+  // North row (street faces south, into the sun).
+  sovietBlock(B, kit, { x0: -52, x1: -23.2, z0: -36, z1: -22, face: 's', floors: 5, entrances: [2, 6], balconies: [0, 4, 8], seed: 11 });
+  B.solid(-52, 0, -42, -23.2, 2.6, -36, 'panelPlinth', 'concrete'); // garages behind the block
+  stuccoBlock(B, kit, { x0: -23.2, x1: -12, z0: -38, z1: -22, floors: 4, mat: 'plasterOchre', faces: ['s'], shops: true, signs: ['ХЛЕБ · BAKERY', 'ОБУВЬ · SHOES'], seed: 21 });
+  stuccoBlock(B, kit, { x0: -12, x1: 12, z0: -42, z1: -34, floors: 4, mat: 'plasterCream', faces: ['s'], shops: false, seed: 22 });
+  stuccoBlock(B, kit, { x0: 12, x1: 20, z0: -42, z1: -22, floors: 3, mat: 'plasterRose', faces: ['s'], shops: true, signs: ['КАФЕ · CAFÉ'], seed: 23 });
+  B.solid(20, 0, -42, 38, 10.2, -38, 'plasterCream', 'brick');
+  stuccoBlock(B, kit, { x0: 38, x1: 52, z0: -42, z1: -22, floors: 4, mat: 'plasterSage', faces: ['s'], shops: true, signs: ['ПРОДУКТЫ · GROCER', 'ЧАСЫ · WATCHES'], seed: 24 });
+  // South row (street faces north, in shade) with two side streets that let the low sun through.
+  stuccoBlock(B, kit, { x0: -52, x1: -38, z0: 22, z1: 42, floors: 4, mat: 'plasterCream', faces: ['n', 'e'], shops: true, signs: ['ГАСТРОНОМ', 'АПТЕКА №2'], seed: 31 });
+  stuccoBlock(B, kit, { x0: -31, x1: -20, z0: 22, z1: 42, floors: 3, mat: 'plasterSage', faces: ['n', 'w'], shops: true, signs: ['РЕМОНТ · REPAIRS'], seed: 32 });
+  stuccoBlock(B, kit, { x0: -20, x1: -8, z0: 22, z1: 42, floors: 2, mat: 'plasterWhite', faces: ['n'], shops: true, signs: ['ПОЧТА · POST'], seed: 33 });
+  stuccoBlock(B, kit, { x0: -8, x1: 10, z0: 33.5, z1: 42, floors: 2, mat: 'plasterOchre', faces: [], seed: 34 });
+  stuccoBlock(B, kit, { x0: 10, x1: 24, z0: 22, z1: 42, floors: 3, mat: 'plasterOchre', faces: ['n', 'e'], shops: true, signs: ['КНИГИ · BOOKS', 'МЯСО · BUTCHER'], seed: 35 });
+  stuccoBlock(B, kit, { x0: 30, x1: 38, z0: 22, z1: 42, floors: 4, mat: 'plasterRose', faces: ['n', 'w'], shops: true, signs: ['ТАБАК'], seed: 36 });
+  stuccoBlock(B, kit, { x0: 38, x1: 52, z0: 22, z1: 42, floors: 4, mat: 'plasterCream', faces: ['n'], shops: true, signs: ['ВИНО · WINE', 'ТКАНИ · FABRIC'], seed: 37 });
+  // Ends of the square.
+  stuccoBlock(B, kit, { x0: -60, x1: -52, z0: -22, z1: 22, floors: 4, mat: 'plasterOchre', faces: ['e'], shops: true, signs: ['УНИВЕРМАГ', 'ФОТО'], seed: 41 });
+  stuccoBlock(B, kit, { x0: 52, x1: 60, z0: -22, z1: 22, floors: 4, mat: 'plasterRose', faces: ['w'], shops: true, signs: ['РЕСТОРАН', 'ЧАЙ · TEA'], seed: 42 });
+  // Side streets: barricaded halfway, closed by a yard wall.
+  for (const [sx0, sx1] of [[-38, -31], [24, 30]]) {
+    B.solid(sx0, 0, 40.5, sx1, 3.2, 42, 'brick', 'brick');
+    B.solid(sx0, 3.2, 40.4, sx1, 3.35, 42, 'concrete', null);
+    P.jersey(B, (sx0 + sx1) / 2 - 1.6, 29, 0); P.jersey(B, (sx0 + sx1) / 2 + 1.6, 29.4, 0);
+    P.sandbags(B, (sx0 + sx1) / 2, 30.2, 0, 3, 4);
+    B.collider(sx0, 0, 30.6, sx1, 3, 31, 'concrete');
+  }
+  P.rubble(B, -34, 34, 1.4); P.rubble(B, 27, 36, 1.2);
   church(B);
   // Churchyard between the nave and the street
   B.solid(20, 0, -26, 38, 0.13, -22, 'cobble', 'concrete');
@@ -117,11 +136,18 @@ export function buildOldTown(physics, materials, scene) {
 
   // --- Streets ---------------------------------------------------------------------------
   // North street (lane 1) and its mirror in the south street (lane 3).
-  P.car(B, -30, -17.6, 0, 'carRed'); P.car(B, 30, 17.6, 2, 'carBlue');
-  P.car(B, -14, -15.4, 0, 'carRed', true); P.car(B, 14, 15.4, 2, 'carRed', true);
+  VH.saloon(B, materials, -30, -17.6, 0, 'cherry', { yaw: 0.03 });
+  VH.saloon(B, materials, 30, 17.6, 2, 'sky', { yaw: -0.02, steer: 0.25 });
+  VH.saloon(B, materials, -14, -15.4, 0, null, { burnt: true, yaw: 0.12 });
+  VH.saloon(B, materials, 14, 15.4, 2, null, { burnt: true, yaw: -0.1 });
   P.jersey(B, -3.5, -18.2, 0); P.jersey(B, 3.5, 18.2, 0);
-  P.van(B, 22, -17.3, 2, 'carWhite'); P.van(B, -22, 17.3, 0, 'carWhite');
-  P.car(B, 37, -15.5, 1, 'carGreen'); P.car(B, -37, 15.5, 3, 'carGreen');
+  VH.minibus(B, materials, 22, -17.3, 2, 'ivory');
+  VH.minibus(B, materials, -22, 17.3, 0, 'mustard');
+  VH.saloon(B, materials, 37, -15.5, 1, 'olive', { steer: -0.3 });
+  VH.saloon(B, materials, -37, 15.5, 3, 'steel');
+  VH.saloon(B, materials, -45, -18.9, 0, 'white', { yaw: -0.02 });
+  VH.saloon(B, materials, 44, 18.9, 2, 'green', { yaw: 0.02 });
+  VH.saloon(B, materials, -34.5, 25.2, 1, null, { burnt: true, yaw: 0.08 });
   P.dumpster(B, 11, -24.2, 1); P.dumpster(B, -9, 24.2, 1);
   P.crate(B, -10.9, -33, 0, 0.9, 2); P.crate(B, 9.1, 32.3, 0, 0.9, 2);
   P.dumpster(B, 6, -33, 0); P.dumpster(B, -4, 32.4, 0);
@@ -136,7 +162,7 @@ export function buildOldTown(physics, materials, scene) {
   P.rubble(B, -19.5, -12, 1.1); P.rubble(B, 19.5, 12, 1.1);
 
   // West and east avenues
-  P.bus(B, -28, 4.2, 0); P.bus(B, 28, -4.2, 2);
+  VH.wreckedBus(B, materials, -28, 4.2, 0, { yaw: 0.02 }); VH.wreckedBus(B, materials, 28, -4.2, 2, { yaw: -0.03 });
   P.crate(B, -30.5, -6.5, 0, 1.0, 2); P.crate(B, 30.5, 6.5, 0, 1.0, 2);
   P.crate(B, -24, -9.5, 1, 1.0, 1); P.crate(B, 24, 9.5, 1, 1.0, 1);
   P.sandbags(B, -35, -1.5, 1, 3.6, 4); P.sandbags(B, 35, 1.5, 1, 3.6, 4);
@@ -161,31 +187,8 @@ export function buildOldTown(physics, materials, scene) {
   );
 
   const group = B.build(scene);
+  kit.build(scene);
   return { builder: B, group, spawns: B.spawns, points: B.points, hints: B.hints, indoor: B.indoor, lights: B.lights, signs: B.signs };
-}
-
-// A non-enterable city block with a facade texture, roof slab and shopfronts.
-function facadeBlock(B, x0, z0, x1, z1, h, mat) {
-  B.solid(x0, 0, z0, x1, h, z1, mat, 'brick');
-  B.solid(x0 - 0.25, h, z0 - 0.25, x1 + 0.25, h + 0.35, z1 + 0.25, 'trim', 'brick');
-  B.solid(x0 + 0.4, h + 0.35, z0 + 0.4, x1 - 0.4, h + 0.9, z1 - 0.4, 'concrete', 'brick');
-  // Ground-floor shopfronts on street-facing sides
-  const front = z0 === -22 ? z0 : z1 === 22 ? z1 : null;
-  if (front !== null) {
-    const dir = front === z0 ? -1 : 1;
-    for (let x = x0 + 1.2; x + 3.4 < x1; x += 4.7) {
-      const zf = front + dir * 0.02;
-      const zo = front + dir * 0.12;
-      B.solid(x, 0.45, Math.min(zf, zo), x + 3.2, 2.7, Math.max(zf, zo), 'glass', null);
-      B.solid(x - 0.12, 0.35, Math.min(front, zo + dir * 0.04), x + 3.32, 0.45, Math.max(front, zo + dir * 0.04), 'trim', null);
-      B.solid(x - 0.12, 2.7, Math.min(front, zo + dir * 0.04), x + 3.32, 2.95, Math.max(front, zo + dir * 0.04), 'darkMetal', null);
-      // Awning
-      const g = new THREE.BoxGeometry(3.4, 0.05, 1.3);
-      g.rotateX(dir * -0.32);
-      g.translate(x + 1.6, 3.15, front + dir * 0.62);
-      B.geo(((x * 7) | 0) % 3 === 0 ? 'canvasRed' : ((x * 7) | 0) % 3 === 1 ? 'canvasGreen' : 'canvasStripe', g);
-    }
-  }
 }
 
 function church(B) {

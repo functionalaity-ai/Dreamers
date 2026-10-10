@@ -35,48 +35,6 @@ function wheel(P, lx, lz, r = 0.33, w = 0.22, mat = 'tire') {
   P.geo(mat === 'tire' ? 'chrome' : 'burnt', hub);
 }
 
-export function car(B, x, z, rot, paint = 'carRed', burnt = false) {
-  const P = placer(B, x, z, rot);
-  const body = burnt ? 'burnt' : paint;
-  const L = 2.25, W = 0.88;
-  P.box(-L, 0.32, -W, L, 0.92, W, body, null);
-  P.box(-L - 0.06, 0.34, -W + 0.06, -L, 0.6, W - 0.06, burnt ? 'burnt' : 'darkMetal', null);
-  P.box(L, 0.34, -W + 0.06, L + 0.06, 0.6, W - 0.06, burnt ? 'burnt' : 'darkMetal', null);
-  // Cabin: pillars + glass
-  P.box(-1.15, 0.92, -W + 0.08, 1.05, 1.42, W - 0.08, burnt ? 'burnt' : 'glass', null);
-  P.box(-1.2, 1.4, -W + 0.05, 1.1, 1.46, W - 0.05, body, null);
-  for (const px of [-1.2, -0.05, 1.0]) P.box(px, 0.92, -W + 0.04, px + 0.1, 1.42, W - 0.04, body, null);
-  if (!burnt) {
-    P.box(L - 0.02, 0.62, -W + 0.12, L + 0.03, 0.76, -W + 0.42, 'lampGlow', null);
-    P.box(L - 0.02, 0.62, W - 0.42, L + 0.03, 0.76, W - 0.12, 'lampGlow', null);
-  }
-  for (const wx of [-1.45, 1.45]) for (const wz of [-W + 0.08, W - 0.08]) wheel(P, wx, wz, 0.33, 0.24, burnt ? 'burnt' : 'tire');
-  P.col(-L, 0.05, -W, L, 1.0, W, 'metal');
-  P.col(-1.2, 1.0, -W + 0.05, 1.1, 1.46, W - 0.05, 'metal');
-}
-
-export function bus(B, x, z, rot) {
-  const P = placer(B, x, z, rot);
-  const L = 5.6, W = 1.25;
-  P.box(-L, 0.45, -W, L, 1.4, W, 'burnt', null);
-  P.box(-L, 1.4, -W, L, 2.6, W, 'glass', null);
-  for (let px = -L; px <= L; px += 1.4) P.box(px, 1.4, -W - 0.01, px + 0.12, 2.6, W + 0.01, 'rust', null);
-  P.box(-L, 2.6, -W, L, 3.0, W, 'rust', null);
-  for (const wx of [-3.8, 3.4]) for (const wz of [-W + 0.1, W - 0.1]) wheel(P, wx, wz, 0.48, 0.3, 'burnt');
-  P.col(-L, 0.1, -W, L, 3.0, W, 'metal');
-}
-
-export function van(B, x, z, rot, paint = 'carWhite') {
-  const P = placer(B, x, z, rot);
-  const L = 2.6, W = 0.98;
-  P.box(-L, 0.38, -W, L - 0.9, 2.3, W, paint, null);
-  P.box(L - 0.9, 0.38, -W, L, 1.2, W, paint, null);
-  P.box(L - 0.9, 1.2, -W + 0.06, L - 0.2, 1.95, W - 0.06, 'glass', null);
-  P.box(L - 0.95, 1.95, -W, L - 0.6, 2.3, W, paint, null);
-  for (const wx of [-1.7, 1.75]) for (const wz of [-W + 0.08, W - 0.08]) wheel(P, wx, wz, 0.36, 0.25);
-  P.col(-L, 0.05, -W, L, 2.3, W, 'metal');
-}
-
 export function sandbags(B, x, z, rot, len = 3, rows = 3, y = 0) {
   const P = placer(B, x, z, rot, y);
   const bagL = 0.6, bagH = 0.17, bagD = 0.36;

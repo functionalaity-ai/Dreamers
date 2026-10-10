@@ -1,6 +1,7 @@
 // World builder: every solid() call adds a textured, merged box and a collider.
 import * as THREE from 'three';
 import { worldBox, Batcher } from '../core/geometry.js';
+import { faceMatrix } from './facades.js';
 
 export class Builder {
   constructor(physics, materials) {
@@ -118,6 +119,10 @@ export function building(B, s) {
     for (const side of ['n', 's', 'e', 'w']) {
       for (const o of ops[side]) {
         trimOpening(B, s, side, o, t, s.trim || 'trim');
+        if (o.window && B.kit) {
+          const f = side === 'n' ? { axis: 'x', p: s.z0, out: -1 } : side === 's' ? { axis: 'x', p: s.z1, out: 1 } : side === 'w' ? { axis: 'z', p: s.x0, out: -1 } : { axis: 'z', p: s.x1, out: 1 };
+          B.kit.add('open', faceMatrix(f, o.c, o.y0), 0, { shutters: 'auto' });
+        }
         if (o.door) {
           const p = sidePoint(s, side, o.c, 0.9), q = sidePoint(s, side, o.c, -0.9);
           B.hint(p.x, y0, p.z); B.hint(q.x, y0, q.z);
