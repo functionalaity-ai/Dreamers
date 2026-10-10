@@ -167,17 +167,38 @@ export class Viewmodel {
     for (const o of [this.handR, this.handL, this.foreR, this.foreL]) o.traverse((m) => { if (m.isMesh) m.castShadow = m.receiveShadow = true; });
   }
 
+  // Layered flash at the muzzle: one of four star cores facing back down the bore, flame petals
+  // thrown out round it and leaning forward, and a brief warm glow, all through the heat ramp.
   buildFlash() {
-    const mat = new THREE.MeshBasicMaterial({ map: this.M.fx.flash, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, color: 0xffffff });
+    const fx = this.fx;
+    this.flashMat = fx.flashMaterial();
     this.flash = new THREE.Group();
-    const a = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.16), mat);
-    const b = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.24), mat);
-    b.rotation.x = Math.PI / 2; b.position.z = -0.06;
-    const c = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.24), mat);
-    c.rotation.set(Math.PI / 2, 0, Math.PI / 2); c.position.z = -0.06;
-    this.flash.add(a, b, c);
+    const part = (cell, i, w, h, bright, radial) => {
+      const m = new THREE.Mesh(fx.flashQuad(cell, i, w, h, bright, radial), this.flashMat);
+      m.frustumCulled = false;
+      this.flash.add(m);
+      return m;
+    };
+    this.flashGlow = part('glow', 0, 0.36, 0.36, 1.1);
+    this.flashPetals = [0, 1, 2, 3].map((i) => { const m = part('petal', i, 0.13, 0.05, 4.5, true); m.rotation.order = 'ZYX'; return m; });
+    this.flashCores = [0, 1, 2, 3].map((i) => { const m = part('star', i, 0.15, 0.15, 7); m.position.z = -0.008; return m; });
     this.flash.visible = false;
     this.flashT = 1;
+    this.smokeHeat = 0;   // builds while firing; the barrel smokes while it bleeds off
+    this.wispT = 0;
+  }
+
+  // Where the drawn muzzle sits on screen, pushed into the world at the same depth (the weapon
+  // camera's field of view differs from the world's), and the bore's direction in the world.
+  muzzleOnScreen(camera, out) {
+    const p = this.gun.body.localToWorld(out.copy(this.gun.anchors.muzzle));
+    const d = Math.max(0.05, -p.z);
+    p.applyMatrix4(this.cam.projectionMatrix);
+    const t = Math.tan(camera.fov * Math.PI / 360);
+    return camera.localToWorld(out.set(p.x * d * t * camera.aspect, p.y * d * t, -d));
+  }
+  boreWorld(camera, out) {
+    return out.set(0, 0, -1).transformDirection(this.gun.body.matrixWorld).transformDirection(camera.matrixWorld);
   }
 
   // Picture-in-picture scope: renders the world through a narrow camera into the ocular.
@@ -277,10 +298,24 @@ export class Viewmodel {
   onFire() {
     const g = this.gun;
     this.boltT = 0;
+    // a fresh flash each shot: another core, turned, petals of new lengths; a suppressor leaves a
+    // faint core now and then and more smoke
+    const sup = this.ws.stats.suppressed;
     this.flashT = 0;
-    this.flash.visible = !this.ws.stats.suppressed || Math.random() < 0.25;
-    this.flash.rotation.z = Math.random() * Math.PI;
-    this.flash.scale.setScalar(this.ws.stats.suppressed ? 0.3 : 0.8 + Math.random() * 0.5);
+    this.flashSeen = false;
+    this.flash.visible = !sup || Math.random() < 0.25;
+    this.flash.rotation.z = Math.random() * Math.PI * 2;
+    this.flash.scale.setScalar((sup ? 0.3 : 0.8 + Math.random() * 0.45) * (this.ws.pump ? 1.35 : 1));
+    const core = Math.floor(Math.random() * 4);
+    this.flashCores.forEach((m, i) => { m.visible = i === core; });
+    const spin = Math.random() * Math.PI * 2;
+    this.flashPetals.forEach((p, i) => {
+      p.visible = !sup && (i < 3 || Math.random() < 0.5);
+      p.rotation.set(-0.35 - Math.random() * 0.3, 0, spin + i * Math.PI / 2 + (Math.random() - 0.5) * 0.8);
+      p.scale.set(0.8 + Math.random() * 0.5, 0.6 + Math.random() * 0.9, 1);
+    });
+    this.flashMat.uniforms.fade.value = 1;
+    this.smokeHeat = Math.min(6, this.smokeHeat + (sup ? 1.1 : 0.75));
     const k = KICK[this.ws.id];
     const ads = 1 - this.adsT * 0.45;
     this.kickV.z += k[0] * 28 * ads;
@@ -407,9 +442,19 @@ export class Viewmodel {
     if (g.parts.slide) g.parts.slide.position.z = back * 0.032;
     if (g.parts.trigger) g.parts.trigger.rotation.x *= Math.exp(-dt * 25);
     if (this.ejectPending && this.boltT > cyc * 0.45) { this.ejectPending = false; this.ejectBrass(c, ws.id === 'warden' ? '9mm' : '556'); }
-    // Flash
+    // Flash: shown for at least one frame, gone within a few; then wisps from the hot barrel
     this.flashT += dt;
-    if (this.flashT > 0.035) this.flash.visible = false;
+    this.flashMat.uniforms.fade.value = this.flashSeen ? Math.max(0.3, 1 - this.flashT / 0.05) : 1;
+    if (this.flashT > 0.045 && this.flashSeen) this.flash.visible = false;
+    this.flashSeen = true;
+    this.smokeHeat = Math.max(0, this.smokeHeat - dt * 0.8);
+    if (this.boltT > 0.1 && this.smokeHeat > 0.7 && c.camera) {
+      this.wispT -= dt;
+      if (this.wispT <= 0) {
+        this.wispT = 0.05 + Math.random() * 0.04;
+        this.fx.muzzleWisp(this.muzzleOnScreen(c.camera, new THREE.Vector3()), this.boreWorld(c.camera, new THREE.Vector3()), Math.min(1, this.smokeHeat / 4));
+      }
+    }
     // Reticle and scope
     if (this.reticle) this.reticle.material.opacity = Math.max(0, (a - 0.55) / 0.45);
     if (this.ocular) {
