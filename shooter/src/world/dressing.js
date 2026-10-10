@@ -266,3 +266,52 @@ function mergeQuads(list) {
   out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   return out;
 }
+
+// A shop awning in its own frame (x along the wall, y up, z out from the wall, the top edge at the
+// origin): canvas bellied a little between the wall and the front bar, a scalloped valance, a roller
+// box and folding arms back to the wall. Returns [material, geometry] pairs.
+export function awningParts(kind, w, depth = 1.3, drop = 0.42, frame = true) {
+  const n = 6, L = Math.hypot(depth, drop);
+  const pos = [], uv = [], idx = [];
+  for (let j = 0; j <= n; j++) {
+    const t = j / n;
+    for (const x of [-w / 2, w / 2]) {
+      pos.push(x, -drop * t - Math.sin(t * Math.PI) * 0.035, depth * t);
+      uv.push(x / 0.6, (t * L) / 0.6);
+    }
+  }
+  for (let j = 0; j < n; j++) { const a = j * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const canvas = new THREE.BufferGeometry();
+  canvas.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  canvas.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  canvas.setIndex(idx);
+  canvas.computeVertexNormals();
+  if (canvas.attributes.normal.getY(0) < 0) { canvas.setIndex(idx.map((v, i) => idx[i - (i % 3) + 2 - (i % 3)])); canvas.computeVertexNormals(); }
+  const vh = 0.24;
+  const val = new THREE.PlaneGeometry(w, vh);
+  const vu = val.attributes.uv, vp = val.attributes.position;
+  for (let i = 0; i < vu.count; i++) vu.setXY(i, vp.getX(i) / 0.6, vu.getY(i));
+  val.translate(0, -drop - vh / 2 + 0.01, depth + 0.004);
+  const out = [[kind, canvas], [kind + 'Valance', val]];
+  const bar = new THREE.CylinderGeometry(0.014, 0.014, w + 0.04, 8);
+  bar.rotateZ(Math.PI / 2);
+  bar.translate(0, -drop, depth);
+  out.push(['darkMetal', bar]);
+  if (frame) {
+    const box = new THREE.BoxGeometry(w + 0.1, 0.12, 0.14);
+    box.translate(0, 0.02, 0.07);
+    out.push(['darkMetal', box]);
+    for (const x of [-w / 2 + 0.08, w / 2 - 0.08]) {
+      const a = new THREE.Vector3(x, -drop - 0.55, 0.02), b = new THREE.Vector3(x, -drop, depth);
+      const arm = new THREE.CylinderGeometry(0.012, 0.012, a.distanceTo(b), 6);
+      arm.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize())));
+      arm.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+      out.push(['darkMetal', arm]);
+      const shoe = new THREE.BoxGeometry(0.06, 0.1, 0.05);
+      shoe.translate(x, -drop - 0.55, 0.025);
+      out.push(['darkMetal', shoe]);
+    }
+  }
+  return out;
+}
+

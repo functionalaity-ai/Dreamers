@@ -239,6 +239,47 @@ export function leafCluster(size, autumn) {
   return t;
 }
 
+// Striped awning canvas: one 0.6 m repeat across u (two stripes with sewn seams), a fine weave and
+// a little weathering towards the top. scallopMask is the valance's alpha: two lobes per repeat.
+export function awningCanvas(a, b) {
+  const W = 128, H = 128;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = a; g.fillRect(0, 0, W / 2, H);
+  g.fillStyle = b; g.fillRect(W / 2, 0, W / 2, H);
+  g.fillStyle = 'rgba(0,0,0,0.2)';
+  g.fillRect(W / 2 - 1, 0, 2, H); g.fillRect(0, 0, 1, H); g.fillRect(W - 1, 0, 1, H);
+  const r = mulberry(77);
+  for (let y = 0; y < H; y += 2) { g.fillStyle = `rgba(0,0,0,${(0.03 + r() * 0.04).toFixed(3)})`; g.fillRect(0, y, W, 1); }
+  for (let x = 0; x < W; x += 2) { g.fillStyle = `rgba(255,255,255,${(0.02 + r() * 0.03).toFixed(3)})`; g.fillRect(x, 0, 1, H); }
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(40,30,20,0.22)'); grad.addColorStop(0.5, 'rgba(40,30,20,0.05)'); grad.addColorStop(1, 'rgba(40,30,20,0.12)');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  return t;
+}
+
+export function scallopMask() {
+  const W = 128, H = 64;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#fff';
+  g.fillRect(0, 0, W, H * 0.45);
+  for (let i = 0; i < 2; i++) {
+    g.beginPath();
+    g.ellipse(W / 4 + i * W / 2, H * 0.45, W / 4, H * 0.52, 0, 0, Math.PI);
+    g.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = THREE.RepeatWrapping;
+  return t;
+}
+
 // Simple canvas sprites
 export function spriteTexture(kind) {
   const c = document.createElement('canvas');

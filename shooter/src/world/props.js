@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { worldUV, roundedBox } from '../core/geometry.js';
 import { monument } from './statue.js';
+import { awningParts } from './dressing.js';
 
 function placer(B, x, z, rot, y = 0) {
   const c = [1, 0, -1, 0][rot & 3], s = [0, 1, 0, -1][rot & 3];
@@ -86,11 +87,8 @@ export function stall(B, x, z, rot, canvas = 'canvasStripe') {
   P.box(-1.4, 0, -0.6, 1.4, 0.95, 0.6, 'woodDark', 'wood');
   P.box(-1.5, 0.95, -0.7, 1.5, 1.0, 0.7, 'woodFloor', null);
   for (const px of [-1.45, 1.35]) for (const pz of [-0.65, 0.55]) P.box(px, 1.0, pz, px + 0.1, 2.3, pz + 0.1, 'woodDark', null);
-  // Sloped awning (visual only)
-  const g = new THREE.BoxGeometry(3.3, 0.04, 1.9);
-  g.rotateX(0.18);
-  g.translate(0, 2.35, 0.1);
-  P.geo(canvas, g);
+  // Sloped striped awning with a scalloped valance (visual only)
+  for (const [mat, g] of awningParts(canvas, 3.3, 1.9, 0.3, false)) { g.translate(0, 2.53, -0.95); P.geo(mat, g, false); }
   // Goods on the counter
   for (let i = 0; i < 5; i++) {
     const b = roundedBox(0.4, 0.25, 0.35, 0.03);

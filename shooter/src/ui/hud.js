@@ -22,6 +22,7 @@ export class HUD {
 
   reset() {
     $('killfeed').innerHTML = '';
+    $('confirm').innerHTML = '';
     $('comms').innerHTML = '';
     $('death').hidden = true;
     $('scoreboard').hidden = true;
@@ -92,6 +93,42 @@ export class HUD {
     setTimeout(() => el.remove(), 7000);
   }
 
+  // Your own kills: who went down, the points, and a medal for quick multi-kills.
+  confirmKill(victim, info, points, streak) {
+    const box = $('confirm');
+    const el = document.createElement('div');
+    el.className = 'kc';
+    const head = info.zone === 'head' && !info.explosive;
+    el.innerHTML = '<span class="lbl">' + (head ? 'Headshot' : 'Eliminated') + '</span><span>' + esc(victim.name) + '</span><span class="pts">+' + points + '</span>';
+    box.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+    const lines = box.querySelectorAll('.kc:not(.medal)');
+    for (let i = 0; i < lines.length - 3; i++) lines[i].remove();
+    if (streak > 1) {
+      // one medal at a time, always on top
+      const old = box.querySelector('.medal');
+      if (old) old.remove();
+      const m = document.createElement('div');
+      m.className = 'kc medal';
+      m.textContent = streak === 2 ? 'Double kill' : streak === 3 ? 'Triple kill' : 'Multi kill';
+      box.prepend(m);
+      setTimeout(() => m.remove(), 3000);
+    }
+  }
+
+  // A centred title card: match start, victory, defeat.
+  banner(title, sub, cls = '') {
+    const b = $('banner');
+    b.className = cls;
+    b.innerHTML = '<b>' + esc(title) + '</b><span>' + esc(sub) + '</span>';
+    b.hidden = false;
+    b.style.animation = 'none';
+    void b.offsetWidth; // restart the animation
+    b.style.animation = '';
+    clearTimeout(this.bannerT);
+    this.bannerT = setTimeout(() => { b.hidden = true; }, 3700);
+  }
+
   comms(name, text) {
     const el = document.createElement('div');
     el.className = 'cm';
@@ -121,7 +158,10 @@ export class HUD {
     this.refreshAmmo();
   }
 
-  matchOver() {}
+  matchOver(winner) {
+    const win = winner === this.g.player.team;
+    this.banner(win ? 'Victory' : 'Defeat', (FACTIONS[winner] ? FACTIONS[winner].name : winner) + ' holds Old Town', win ? 'win' : 'lose');
+  }
 
   refreshAmmo() {
     const p = this.g.player;

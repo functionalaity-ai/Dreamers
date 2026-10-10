@@ -81,7 +81,8 @@ class App {
     step(0.9, 'operators'); await frame();
     this.hud = new HUD(this.game, this.settings);
     this.game.hud = this.hud;
-    this.hud.matchOver = (w) => this.matchOver(w);
+    const banner = this.hud.matchOver.bind(this.hud);
+    this.hud.matchOver = (w) => { banner(w); this.matchOver(w); };
     this.studio = new Studio(this.R, this.mats);
     this.studio.bind($('gunsmith'));
     this.input = new Input(canvas);

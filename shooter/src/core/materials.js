@@ -207,9 +207,16 @@ export class Materials {
     W.foam = new THREE.MeshStandardMaterial({ color: 0xeef4f2, roughness: 0.6, transparent: true, opacity: 0.55, depthWrite: false });
     W.bronze = enhance(new THREE.MeshStandardMaterial({ color: 0x4f6656, roughness: 0.45, metalness: 0.85 }), { box: true });
     W.statueBronze = enhance(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.48, metalness: 0.6 }), { box: true });
-    W.canvasGreen = new THREE.MeshStandardMaterial({ color: 0x4a5a3a, roughness: 0.95, side: THREE.DoubleSide });
-    W.canvasRed = new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.95, side: THREE.DoubleSide });
-    W.canvasStripe = new THREE.MeshStandardMaterial({ color: 0xc9b48a, roughness: 0.95, side: THREE.DoubleSide });
+    // striped awning canvas (UVs in 0.6 m repeats) and matching scalloped valances
+    const scallop = TX.scallopMask();
+    for (const [k, ca, cb] of [['canvasRed', '#9a3226', '#e6dbc0'], ['canvasGreen', '#2e5638', '#e2dbc3'], ['canvasStripe', '#b4853a', '#eee4cc']]) {
+      const map = TX.awningCanvas(ca, cb);
+      map.anisotropy = an;
+      W[k] = new THREE.MeshStandardMaterial({ map, roughness: 0.92, side: THREE.DoubleSide });
+      const v = new THREE.MeshStandardMaterial({ map, alphaMap: scallop, alphaTest: 0.5, roughness: 0.92, side: THREE.DoubleSide });
+      v.userData.depth = new THREE.MeshDepthMaterial({ alphaMap: scallop, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking });
+      W[k + 'Valance'] = v;
+    }
     W.fabric = new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.95 });
     W.paper = new THREE.MeshStandardMaterial({ color: 0xd8d2c0, roughness: 0.9 });
     W.lampGlow = new THREE.MeshStandardMaterial({ color: 0xfff1c8, emissive: 0xffd890, emissiveIntensity: 2.2 });

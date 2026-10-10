@@ -116,7 +116,10 @@ export class Game {
     this.spawn(this.player);
     for (const b of this.bots) this.spawn(b);
     this.state = 'playing';
+    this.streak = 0;
+    this.lastKillT = -99;
     this.hud.reset();
+    this.hud.banner('Team Deathmatch', 'First to ' + MATCH.scoreLimit + ' · Old Town');
   }
 
   spawnPoint(team) {
@@ -150,6 +153,12 @@ export class Game {
       this.scores[attacker.team]++;
     }
     this.hud.killfeed(attacker, victim, info);
+    if (attacker === this.player && victim !== this.player) {
+      // kills within four seconds of each other chain into a streak
+      this.streak = this.time - (this.lastKillT ?? -99) < 4 ? (this.streak || 1) + 1 : 1;
+      this.lastKillT = this.time;
+      this.hud.confirmKill(victim, info, 100 + (info.zone === 'head' ? 50 : 0), this.streak);
+    }
     if (victim === this.player) this.hud.died(attacker, info, MATCH.respawn);
     this.respawns.push({ c: victim, t: MATCH.respawn });
     if (!this.over && attacker && this.scores[attacker.team] >= MATCH.scoreLimit) this.end(attacker.team);

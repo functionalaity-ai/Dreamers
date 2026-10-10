@@ -10,7 +10,7 @@ import { worldUV } from '../core/geometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { PANEL } from '../core/surfaces.js';
 import { cornice, stringCourse, plinthCap, rusticate, quoins, surroundGeo, doorFrame, tileRoof } from './ornament.js';
-import { lantern, windowBox, drainpipe } from './dressing.js';
+import { awningParts, lantern, windowBox, drainpipe } from './dressing.js';
 
 const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpP = new THREE.Vector3(), tmpS = new THREE.Vector3(1, 1, 1), Y = new THREE.Vector3(0, 1, 0);
 
@@ -349,11 +349,9 @@ export function stuccoBlock(B, kit, s) {
           faceBox(B, f, h.a - h.w / 2 - 0.05, h.a + h.w / 2 + 0.05, h.y1, h.y1 + 0.55, 0, 0.06, 'darkMetal');
           faceBox(B, f, h.a - h.w / 2, h.a + h.w / 2, 0.0, h.y0, -0.1, 0.04, 'concrete');
           if (rnd() < 0.6) {
-            const g = new THREE.BoxGeometry(h.w + 0.2, 0.04, 1.3);
-            g.rotateX(-0.32);
-            g.translate(0, 0, 0.6);
-            g.applyMatrix4(faceMatrix(f, h.a, h.y1 + 0.42));
-            B.geo(['canvasRed', 'canvasGreen', 'canvasStripe'][Math.floor(rnd() * 3)], g);
+            const kind = ['canvasRed', 'canvasGreen', 'canvasStripe'][Math.floor(rnd() * 3)];
+            const am = faceMatrix(f, h.a, h.y1 + 0.62);
+            for (const [mat, g] of awningParts(kind, h.w + 0.2, 1.25, 0.42)) { g.applyMatrix4(am); B.geo(mat, g); }
           }
           if (s.signs && s.signs.length) {
             const text = s.signs[Math.floor(rnd() * s.signs.length)];
