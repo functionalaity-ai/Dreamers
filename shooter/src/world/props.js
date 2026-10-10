@@ -2,6 +2,7 @@
 // rot is a quarter-turn count so every collider stays axis-aligned.
 import * as THREE from 'three';
 import { worldUV, roundedBox } from '../core/geometry.js';
+import { monument } from './statue.js';
 
 function placer(B, x, z, rot, y = 0) {
   const c = [1, 0, -1, 0][rot & 3], s = [0, 1, 0, -1][rot & 3];
@@ -168,52 +169,16 @@ function mulberryLocal(seed) {
 }
 
 export function fountain(B, x, z) {
-  const P = placer(B, x, z, 0);
-  const outer = new THREE.CylinderGeometry(3.4, 3.5, 0.7, 32, 1, true);
-  outer.translate(0, 0.35, 0);
-  P.geo('stone' in B.M ? 'stone' : 'concrete', outer);
-  const rim = new THREE.TorusGeometry(3.42, 0.14, 8, 40);
-  rim.rotateX(Math.PI / 2);
-  rim.translate(0, 0.72, 0);
-  P.geo('concrete', rim);
-  const inner = new THREE.CylinderGeometry(3.3, 3.3, 0.05, 32);
-  inner.translate(0, 0.45, 0);
-  P.geo('water', inner);
-  const ped = new THREE.CylinderGeometry(0.9, 1.1, 1.8, 16);
-  ped.translate(0, 1.2, 0);
-  P.geo('concrete', ped);
-  const plinth = new THREE.BoxGeometry(1.1, 0.5, 1.1);
-  plinth.translate(0, 2.35, 0);
-  P.geo('concrete', plinth);
-  // A bronze rider statue, roughly sketched in primitives.
-  const horse = roundedBox(1.6, 0.7, 0.5, 0.2, 3);
-  horse.translate(0, 3.15, 0);
-  P.geo('bronze', horse, false);
-  const neck = roundedBox(0.35, 0.9, 0.3, 0.12, 2);
-  neck.rotateZ(-0.6);
-  neck.translate(0.8, 3.6, 0);
-  P.geo('bronze', neck, false);
-  const head = roundedBox(0.55, 0.25, 0.22, 0.08, 2);
-  head.translate(1.12, 3.95, 0);
-  P.geo('bronze', head, false);
-  for (const lx of [-0.6, 0.6]) for (const lz of [-0.15, 0.15]) {
-    const leg = new THREE.CylinderGeometry(0.07, 0.06, 0.75, 6);
-    leg.translate(lx, 2.6 + 0.375, lz);
-    P.geo('bronze', leg, false);
-  }
-  const rider = roundedBox(0.35, 0.8, 0.3, 0.1, 2);
-  rider.translate(-0.05, 3.85, 0);
-  P.geo('bronze', rider, false);
-  const rhead = new THREE.SphereGeometry(0.14, 12, 8);
-  rhead.translate(-0.05, 4.4, 0);
-  P.geo('bronze', rhead, false);
-  // Colliders: ring of boxes approximating the basin, plus the pedestal.
+  const inner = new THREE.CylinderGeometry(3.3, 3.3, 0.05, 40);
+  inner.translate(x, 0.45, z);
+  B.geo('water', inner);
+  monument(B, x, z, -0.98);
+  // Colliders: ring of boxes approximating the basin.
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     const cx = Math.cos(a) * 3.3, cz = Math.sin(a) * 3.3;
     B.collider(x + cx - 0.9, 0, z + cz - 0.9, x + cx + 0.9, 0.82, z + cz + 0.9, 'stone');
   }
-  B.collider(x - 1.0, 0, z - 1.0, x + 1.0, 4.6, z + 1.0, 'stone');
   B.collider(x - 2.6, 0, z - 2.6, x + 2.6, 0.5, z + 2.6, 'stone');
 }
 

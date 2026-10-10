@@ -203,7 +203,10 @@ export class Materials {
     W.leavesAutumn = new THREE.MeshStandardMaterial({ color: 0x8a6a2a, roughness: 0.85, flatShading: true });
     W.bark = new THREE.MeshStandardMaterial({ color: 0x4a3a2c, roughness: 0.95, normalMap: W.woodDark.normalMap });
     W.water = enhance(new THREE.MeshStandardMaterial({ color: 0x1d3a3a, roughness: 0.04, metalness: 0.2 }), { box: true });
+    W.waterJet = new THREE.MeshPhysicalMaterial({ color: 0xcfe8ee, roughness: 0.03, metalness: 0, transparent: true, opacity: 0.34, depthWrite: false, clearcoat: 1 });
+    W.foam = new THREE.MeshStandardMaterial({ color: 0xeef4f2, roughness: 0.6, transparent: true, opacity: 0.55, depthWrite: false });
     W.bronze = enhance(new THREE.MeshStandardMaterial({ color: 0x4f6656, roughness: 0.45, metalness: 0.85 }), { box: true });
+    W.statueBronze = enhance(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.48, metalness: 0.6 }), { box: true });
     W.canvasGreen = new THREE.MeshStandardMaterial({ color: 0x4a5a3a, roughness: 0.95, side: THREE.DoubleSide });
     W.canvasRed = new THREE.MeshStandardMaterial({ color: 0x8a3a2a, roughness: 0.95, side: THREE.DoubleSide });
     W.canvasStripe = new THREE.MeshStandardMaterial({ color: 0xc9b48a, roughness: 0.95, side: THREE.DoubleSide });

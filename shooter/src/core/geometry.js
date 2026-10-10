@@ -67,7 +67,7 @@ export class Batcher {
   add(mat, geo, matrix) {
     if (matrix) geo.applyMatrix4(matrix);
     if (!this.groups.has(mat)) this.groups.set(mat, []);
-    this.groups.get(mat).push(prep(geo));
+    this.groups.get(mat).push(prep(geo, mat.vertexColors));
   }
   build(parent, opts = {}) {
     const meshes = [];
@@ -91,13 +91,14 @@ export class Batcher {
   }
 }
 
-// mergeGeometries needs matching attribute sets: make everything non-indexed position/normal/uv.
-function prep(g) {
+// mergeGeometries needs matching attribute sets: make everything non-indexed position/normal/uv
+// (plus colour, for materials that read it).
+function prep(g, keepColor = false) {
   let out = g.index ? g.toNonIndexed() : g;
   if (out !== g) g.dispose();
   if (!out.attributes.normal) out.computeVertexNormals();
   if (!out.attributes.uv) out.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(out.attributes.position.count * 2), 2));
-  for (const k of Object.keys(out.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv') out.deleteAttribute(k);
+  for (const k of Object.keys(out.attributes)) if (k !== 'position' && k !== 'normal' && k !== 'uv' && !(keepColor && k === 'color')) out.deleteAttribute(k);
   out.morphAttributes = {};
   out.clearGroups();
   return out;
