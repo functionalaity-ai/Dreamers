@@ -178,8 +178,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #compass-strip span.card { color: var(--fg); font-weight: 600; font-size: 14px; top: 1px; font-family: var(--font); }
 #compass .needle { position: absolute; left: 50%; bottom: 0; width: 2px; height: 6px; margin-left: -1px; background: var(--accent); }
 #killfeed { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 16px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 16px; }
-.kf { background: var(--panel); padding: 3px 10px; display: flex; gap: 8px; align-items: baseline; animation: kfin 0.18s ease-out; }
-.kf .w { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+.kf { background: var(--panel); padding: 3px 10px; display: flex; gap: 8px; align-items: center; animation: kfin 0.18s ease-out; }
+.kf .w { color: var(--muted); font-size: 13px; font-family: var(--mono); display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+/* weapon silhouettes: a fixed height, their width follows the gun */
+.kf .gi { display: block; height: 1.4em; width: auto; max-width: 6.4em; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.55)); }
+.kf .gi.frag { height: 1.35em; }
+#death .di { height: 1.3em; width: auto; vertical-align: -0.3em; margin-right: 2px; }
+#death .di.frag { height: 1.15em; }
 .kf .msg { color: var(--msg); } .kf .volk { color: var(--volk); } .kf .you { color: var(--accent); font-weight: 600; }
 .kf .hs { color: var(--accent); font-size: 12px; letter-spacing: 0.1em; }
 @keyframes kfin { from { opacity: 0; transform: translateX(10px); } }
@@ -198,6 +203,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .meter.stamina i { background: var(--accent); }
 .meter.low i { background: var(--bad); }
 #weapon { position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); text-align: right; background: var(--panel); padding: 10px 14px; min-width: 240px; font-variant-numeric: tabular-nums; }
+#weapon .whead { display: flex; flex-direction: column; align-items: flex-end; }
+#weapon .wicon { display: block; height: 46px; width: auto; max-width: 236px; margin: 2px 0 6px; object-fit: contain; object-position: right center; opacity: 0.94; }
 #weapon .wname { font-size: 20px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
 #weapon .wsub { color: var(--muted); font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }
 #weapon .ammo { margin-top: 2px; }
@@ -207,6 +214,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 #weapon .plus { font-family: var(--mono); font-size: 16px; color: var(--muted); margin-left: 2px; }
 #weapon .res { font-family: var(--mono); font-size: 18px; color: var(--muted); margin-left: 8px; }
 #weapon .gear { color: var(--muted); font-size: 13px; letter-spacing: 0.1em; margin-top: 4px; }
+@media (max-height: 520px) {
+  #weapon .wicon { height: 30px; margin-bottom: 3px; }
+  .kf .gi { height: 1.3em; }
+}
 .key { font-family: var(--mono); border: 1px solid var(--line); padding: 0 5px; font-size: 11px; }
 #notice { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0; transition: opacity 0.3s; }
 #confirm { position: absolute; left: 50%; top: 67%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
@@ -371,6 +382,9 @@ html.touch, html.touch body { -webkit-tap-highlight-color: transparent; -webkit-
 .touch .kf .w { font-size: 11px; }
 .touch .kf:nth-child(n+4) { display: none; } /* three lines, clear of the jump button */
 .touch #weapon { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); min-width: 0; padding: 4px 12px 5px; text-align: center; background: rgba(14, 17, 20, 0.5); }
+/* on touch the silhouette sits beside the name, so the compact panel keeps its height */
+.touch #weapon .whead { flex-direction: row; align-items: center; justify-content: center; gap: 6px; }
+.touch #weapon .wicon { height: 13px; max-width: 70px; margin: 0; object-position: center; }
 .touch #weapon .wname { font-size: 13px; }
 .touch #weapon .wsub { font-size: 10px; }
 .touch #weapon .ammo b { font-size: 28px; }
