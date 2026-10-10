@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Iron Meridian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
+</head>
+<body>
+  <canvas id="view" tabindex="-1"></canvas>
+
+  <!-- Loading -->
+  <div id="loading" class="screen">
+    <div class="load-card">
+      <div class="brand">IRON MERIDIAN</div>
+      <div class="load-sub">Building Old Town · <span id="load-step">textures</span></div>
+      <div class="bar"><i id="load-bar"></i></div>
+      <p class="tip" id="load-tip">Interior walls are drywall. Bullets go through them; brick and concrete stop them.</p>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud" hidden>
+    <div id="vignette"></div>
+    <div id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="dot"></i></div>
+    <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+    <div id="damage"></div>
+    <div id="topbar">
+      <div class="score msg"><span class="tag">MSG</span><b id="score-msg">0</b></div>
+      <div class="clock"><span id="timer">8:00</span><small id="limit">FIRST TO 30</small></div>
+      <div class="score volk"><b id="score-volk">0</b><span class="tag">VOLK</span></div>
+    </div>
+    <div id="compass"><div id="compass-strip"></div><i class="needle"></i></div>
+    <div id="killfeed"></div>
+    <div id="comms"></div>
+    <div id="vitals">
+      <div class="row"><span class="lbl">HP</span><div class="meter"><i id="hp-fill"></i></div><b id="hp-num">100</b></div>
+      <div class="row"><span class="lbl">ARM</span><div class="meter armor"><i id="ar-fill"></i></div><b id="ar-num">100</b></div>
+      <div class="row stam"><span class="lbl">STA</span><div class="meter stamina"><i id="st-fill"></i></div><b id="stance">STAND</b></div>
+    </div>
+    <div id="weapon">
+      <div class="wname" id="w-name">KR-5 Kestrel</div>
+      <div class="wsub"><span id="w-mode">AUTO</span> · <span id="w-cal">5.56×45mm</span></div>
+      <div class="ammo"><b id="ammo-mag">30</b><span class="plus" id="ammo-ch">+1</span><span class="res" id="ammo-res">/ 150</span></div>
+      <div class="gear"><span id="frags">⬤⬤</span> FRAG <span class="key">G</span></div>
+    </div>
+    <div id="notice"></div>
+    <div id="protect" hidden>SPAWN PROTECTION</div>
+    <div id="fps" hidden></div>
+    <div id="death" hidden>
+      <div class="dtitle">KILLED IN ACTION</div>
+      <div class="dline" id="death-line"></div>
+      <div class="dtime">Redeploying in <b id="death-timer">4</b></div>
+    </div>
+    <div id="scoreboard" hidden></div>
+  </div>
+
+  <!-- Menus -->
+  <div id="menu" class="screen" hidden>
+    <div class="menu-left">
+      <div class="brand big">IRON<br>MERIDIAN</div>
+      <div class="op">OPERATION · OLD TOWN</div>
+      <nav class="menu-nav">
+        <button class="mbtn primary" data-go="deploy">Deploy <small>Team Deathmatch · 4 v 4 with bots</small></button>
+        <button class="mbtn" data-go="loadouts">Loadouts &amp; Gunsmith</button>
+        <button class="mbtn" data-go="settings">Settings</button>
+        <button class="mbtn" data-go="controls">Controls</button>
+      </nav>
+      <div class="diff">
+        <span>AI difficulty</span>
+        <div class="seg" id="diff-seg">
+          <button data-diff="recruit">Recruit</button><button data-diff="regular">Regular</button><button data-diff="veteran">Veteran</button>
+        </div>
+      </div>
+    </div>
+    <div class="menu-right">
+      <div class="panel" id="menu-loadout"></div>
+      <div class="panel brief">
+        <h3>Briefing</h3>
+        <p>Volk Group contractors hold the east end of Old Town. Push through the plaza, the hotel and the pharmacy rooftops. First team to 30 eliminations wins.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadouts" class="screen" hidden>
+    <header class="shead"><button class="back" data-go="menu">‹ Back</button><h2>Loadouts</h2></header>
+    <div class="lo-grid" id="lo-grid"></div>
+  </div>
+
+  <div id="gunsmith" class="screen gs" hidden>
+    <header class="shead"><button class="back" data-go="loadouts">‹ Loadouts</button><h2 id="gs-title">Gunsmith</h2><span class="hint">Drag to rotate · scroll to zoom</span></header>
+    <div class="gs-left" id="gs-slots"></div>
+    <div class="gs-right">
+      <div class="panel">
+        <h3 id="gs-name">KR-5 Kestrel</h3>
+        <div class="spec" id="gs-spec"></div>
+        <div id="gs-stats"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings" class="screen" hidden>
+    <header class="shead"><button class="back" data-go="back">‹ Back</button><h2>Settings</h2></header>
+    <div class="panel form" id="settings-form"></div>
+  </div>
+
+  <div id="controls" class="screen" hidden>
+    <header class="shead"><button class="back" data-go="back">‹ Back</button><h2>Controls</h2></header>
+    <div class="panel keys" id="keys"></div>
+  </div>
+
+  <div id="pause" class="screen dim" hidden>
+    <div class="panel center">
+      <h2>Paused</h2>
+      <button class="mbtn primary" id="resume">Resume</button>
+      <button class="mbtn" data-go="settings">Settings</button>
+      <button class="mbtn" data-go="controls">Controls</button>
+      <button class="mbtn" id="leave">Leave match</button>
+    </div>
+  </div>
+
+  <div id="over" class="screen dim" hidden>
+    <div class="panel center wide">
+      <h2 id="over-title">Victory</h2>
+      <p id="over-sub"></p>
+      <div id="over-board"></div>
+      <div class="row-btns">
+        <button class="mbtn primary" id="again">Play again</button>
+        <button class="mbtn" id="to-menu">Main menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="clicktoplay" class="screen dim" hidden>
+    <div class="panel center"><h2>Click to deploy</h2><p>Your mouse will be captured for aiming. Press Esc to pause.</p></div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
