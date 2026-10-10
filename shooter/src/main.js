@@ -48,10 +48,12 @@ class App {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
     if (!saved.preset && this.touchMode) this.settings.preset = 'mobile';
     if (!PRESETS[this.settings.preset]) this.settings.preset = 'high';
+    if (![1, 1.5, 2].includes(this.settings.superSample)) this.settings.superSample = 1;
     if (typeof this.settings.loadout !== 'number') this.settings.loadout = 0;
     this.loadouts = store.get(LOADOUTS_KEY, null) || JSON.parse(JSON.stringify(DEFAULT_LOADOUTS));
     const canvas = $('view');
     this.R = new Renderer(canvas);
+    this.R.superSample = this.settings.superSample;
     const preset = PRESETS[this.settings.preset];
     this.embers();
     const ring = $('load-ring'), pct = $('load-pct');

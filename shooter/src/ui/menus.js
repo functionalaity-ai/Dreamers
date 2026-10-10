@@ -148,6 +148,8 @@ export class Menus {
     f.innerHTML = `
       <label for="set-preset">Graphics</label>
       <select id="set-preset">${Object.keys(PRESETS).map((k) => `<option value="${k}" ${s.preset === k ? 'selected' : ''}>${PRESETS[k].name}</option>`).join('')}</select>
+      <label for="set-ss">Supersampling</label>
+      <div><select id="set-ss">${[[1, 'Off · 100%'], [1.5, '150%'], [2, '200% · 8K on a 4K screen']].map(([k, n]) => `<option value="${k}" ${s.superSample === k ? 'selected' : ''}>${n}</option>`).join('')}</select><span class="val" id="v-ss"></span></div>
       <label for="set-fov">Field of view</label>
       <div><input id="set-fov" type="range" min="60" max="120" step="1" value="${s.fov}"><span class="val" id="v-fov">${s.fov}°</span></div>
       <label for="set-sens">${app.touchMode ? 'Look sensitivity' : 'Mouse sensitivity'}</label>
@@ -163,7 +165,15 @@ export class Menus {
       <label for="set-fps">Performance readout</label>
       <select id="set-fps"><option value="0" ${!s.showFps ? 'selected' : ''}>Hidden</option><option value="1" ${s.showFps ? 'selected' : ''}>Shown</option></select>`;
     const bind = (id, fn) => { const el = $(id); el.addEventListener('input', () => { fn(el.value); app.saveSettings(); }); };
-    bind('set-preset', (v) => { s.preset = v; app.applyPreset(); });
+    // the frame the GPU actually draws, before the browser scales it to the screen
+    const res = () => {
+      const c = app.R.canvas;
+      $('set-ss').disabled = !!PRESETS[s.preset].adaptive;
+      $('v-ss').textContent = PRESETS[s.preset].adaptive ? 'dynamic' : c.width + '×' + c.height;
+    };
+    res();
+    bind('set-preset', (v) => { s.preset = v; app.applyPreset(); res(); });
+    bind('set-ss', (v) => { s.superSample = +v; app.R.setSuperSample(+v); res(); });
     bind('set-fov', (v) => { s.fov = +v; $('v-fov').textContent = v + '°'; });
     bind('set-sens', (v) => { s.sens = +v; $('v-sens').textContent = (+v).toFixed(2); });
     bind('set-ads', (v) => { s.adsSens = +v; $('v-ads').textContent = (+v).toFixed(2); });

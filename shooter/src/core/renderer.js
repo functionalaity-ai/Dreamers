@@ -41,6 +41,7 @@ export class Renderer {
     this.r = r;
     this.canvas = canvas;
     this.renderScale = 1;
+    this.superSample = 1;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(90, 1, 0.05, 900);
     this.vScene = new THREE.Scene();
@@ -174,7 +175,6 @@ export class Renderer {
   applyPreset(preset) {
     this.preset = preset;
     if (!preset.adaptive) this.renderScale = 1;
-    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, preset.pixelRatio) * this.renderScale);
     this.r.shadowMap.type = preset.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     this.sun.shadow.mapSize.set(preset.shadowSize, preset.shadowSize);
     if (this.sun.shadow.map) { this.sun.shadow.map.dispose(); this.sun.shadow.map = null; }
@@ -193,8 +193,26 @@ export class Renderer {
   setRenderScale(s) {
     if (Math.abs(s - this.renderScale) < 0.01) return;
     this.renderScale = s;
-    this.r.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.preset.pixelRatio) * s);
     this.resize();
+  }
+
+  // Supersampling: draw above the screen's resolution and let the browser scale it down
+  // (200% on a 4K screen renders every frame at 7680×4320). The adaptive Mobile preset ignores it.
+  setSuperSample(s) {
+    this.superSample = s;
+    if (this.preset) this.resize();
+  }
+
+  // Drawing-buffer pixels per CSS pixel, held to 8K and to the GPU's largest render target.
+  pixelRatio(w, h) {
+    const P = this.preset;
+    let k = Math.min(window.devicePixelRatio || 1, P.pixelRatio) * this.renderScale;
+    if (!P.adaptive) k *= this.superSample;
+    if (!this.maxSide) {
+      const gl = this.r.getContext();
+      this.maxSide = Math.min(this.r.capabilities.maxTextureSize, gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+    }
+    return Math.min(k, Math.sqrt((7680 * 4320) / (w * h)), this.maxSide / Math.max(w, h));
   }
 
   buildPipeline() {
@@ -238,6 +256,7 @@ export class Renderer {
   resize() {
     const w = this.canvas.clientWidth || window.innerWidth, h = this.canvas.clientHeight || window.innerHeight;
     this.width = w; this.height = h;
+    if (this.preset) this.r.setPixelRatio(this.pixelRatio(w, h));
     this.r.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();

@@ -126,7 +126,7 @@ export const PRESETS = {
 
 export const DEFAULT_SETTINGS = {
   preset: 'high', fov: 90, sens: 1, adsSens: 0.8, invertY: false, volume: 0.8,
-  ammoDisplay: 'numeric', showFps: false, difficulty: 'regular',
+  ammoDisplay: 'numeric', showFps: false, difficulty: 'regular', superSample: 1,
 };
 
 export const DEFAULT_LOADOUTS = [
