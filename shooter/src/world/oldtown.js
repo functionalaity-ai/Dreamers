@@ -17,11 +17,17 @@ import * as P from './props.js';
 
 export const BOUNDS = { minX: -60, minZ: -46, maxX: 60, maxZ: 46 };
 
-export function buildOldTown(physics, materials, scene) {
-  const B = new Builder(physics, materials);
-  const kit = new WindowKit(materials.world, { seed: 77 });
+// opts (all optional; Team Deathmatch passes none):
+//   builder, kit   build into these instead (the caller then builds the meshes: see the return value)
+//   open           open the town up for a bigger map: the blocks closing the east and west ends of
+//                  the square and the yard walls at the end of the south side streets are left out
+//   burnt          more burnt-out car spots for the road dressing ([[x, z], ...])
+export function buildOldTown(physics, materials, scene, opts = {}) {
+  const B = opts.builder || new Builder(physics, materials);
+  const kit = opts.kit || new WindowKit(materials.world, { seed: 77 });
   B.kit = kit;
-  B.decals = new DecalAtlas();
+  B.decals = B.decals || new DecalAtlas();
+  const open = !!opts.open;
 
   // --- Ground surfaces (visual; the physics ground is y = 0) ---------------------
   B.solid(-52, -0.05, -13, 52, 0.0, 13, 'cobble', null, { shadow: false });
@@ -64,16 +70,26 @@ export function buildOldTown(physics, materials, scene) {
   // A second panel block, backlit by the low sun (its x0 keeps the panel joints in step).
   sovietBlock(B, kit, { x0: 37.6, x1: 53.6, z0: 22, z1: 36, face: 'n', floors: 5, entrances: [2], balconies: [0, 4], seed: 12 });
   B.solid(37.6, 0, 36, 53.6, 2.6, 42, 'panelPlinth', 'concrete');
-  // Ends of the square.
-  stuccoBlock(B, kit, { x0: -60, x1: -52, z0: -22, z1: 22, floors: 4, mat: 'plasterOchre', faces: ['e'], shops: true, signs: ['УНИВЕРМАГ', 'ФОТО'], seed: 41 });
-  stuccoBlock(B, kit, { x0: 52, x1: 60, z0: -22, z1: 22, floors: 4, mat: 'plasterRose', faces: ['w'], shops: true, signs: ['РЕСТОРАН', 'ЧАЙ · TEA'], seed: 42 });
-  // Side streets: barricaded halfway, closed by a yard wall.
+  // Ends of the square (left open on the big map, where the streets run on).
+  if (!open) {
+    stuccoBlock(B, kit, { x0: -60, x1: -52, z0: -22, z1: 22, floors: 4, mat: 'plasterOchre', faces: ['e'], shops: true, signs: ['УНИВЕРМАГ', 'ФОТО'], seed: 41 });
+    stuccoBlock(B, kit, { x0: 52, x1: 60, z0: -22, z1: 22, floors: 4, mat: 'plasterRose', faces: ['w'], shops: true, signs: ['РЕСТОРАН', 'ЧАЙ · TEA'], seed: 42 });
+  }
+  // Side streets: barricaded halfway, closed by a yard wall (on the big map the barricade has a
+  // gap and the yard wall is gone).
   for (const [sx0, sx1] of [[-38, -31], [24, 30]]) {
-    B.solid(sx0, 0, 40.5, sx1, 3.2, 42, 'brick', 'brick');
-    B.solid(sx0, 3.2, 40.4, sx1, 3.35, 42, 'concrete', null);
-    P.jersey(B, (sx0 + sx1) / 2 - 1.6, 29, 0); P.jersey(B, (sx0 + sx1) / 2 + 1.6, 29.4, 0);
-    P.sandbags(B, (sx0 + sx1) / 2, 30.2, 0, 3, 4);
-    B.collider(sx0, 0, 30.6, sx1, 3, 31, 'concrete');
+    if (!open) {
+      B.solid(sx0, 0, 40.5, sx1, 3.2, 42, 'brick', 'brick');
+      B.solid(sx0, 3.2, 40.4, sx1, 3.35, 42, 'concrete', null);
+    }
+    if (!open) {
+      P.jersey(B, (sx0 + sx1) / 2 - 1.6, 29, 0); P.jersey(B, (sx0 + sx1) / 2 + 1.6, 29.4, 0);
+      P.sandbags(B, (sx0 + sx1) / 2, 30.2, 0, 3, 4);
+      B.collider(sx0, 0, 30.6, sx1, 3, 31, 'concrete');
+    } else {
+      P.jersey(B, sx0 + 1.6, 29, 0);
+      P.sandbags(B, sx1 - 1.5, 30.2, 0, 2.4, 4);
+    }
   }
   P.rubble(B, -34, 34, 1.4); P.rubble(B, 27, 36, 1.2);
   church(B);
@@ -202,7 +218,8 @@ export function buildOldTown(physics, materials, scene) {
   }
 
   // Kerbs, covers, repairs, stains, leaves and litter (after every prop, so placement can avoid them).
-  const roads = roadDetail(B, materials, { burnt: [[-14, -15.4], [14, 15.4], [-34.5, 25.2]] });
+  const roads = roadDetail(B, materials, { burnt: [[-14, -15.4], [14, 15.4], [-34.5, 25.2]].concat(opts.burnt || []) });
+  if (opts.builder) return { builder: B, roads, kit, spawns: B.spawns, points: B.points, hints: B.hints, indoor: B.indoor, lights: B.lights, signs: B.signs };
 
   const group = B.build(scene);
   kit.build(scene);

@@ -42,14 +42,18 @@ export class NavGraph {
     }
   }
 
-  build(hints, area) {
+  // opts (the big map; Team Deathmatch passes none): sp grid spacing, link edge length, maxY highest
+  // floor sampled, maxIter A* budget, fast: open-ground edges pass on one swept-box test
+  build(hints, area, opts = {}) {
     const ph = this.ph;
-    const sp = 1.25;
+    const sp = opts.sp || 1.25, link = opts.link || 1.9, maxY = opts.maxY || 7.6;
+    this.maxIter = opts.maxIter || 6000;
+    this.fast = !!opts.fast;
     const tmp = [];
     for (let x = area.minX; x <= area.maxX; x += sp) {
       for (let z = area.minZ; z <= area.maxZ; z += sp) {
         const heights = new Set([0]);
-        for (const b of ph.overlap(x - 0.02, -1, z - 0.02, x + 0.02, 9, z + 0.02, tmp)) if (b.max[1] < 7.6) heights.add(Math.round(b.max[1] * 1000) / 1000);
+        for (const b of ph.overlap(x - 0.02, -1, z - 0.02, x + 0.02, maxY + 1.4, z + 0.02, tmp)) if (b.max[1] < maxY) heights.add(Math.round(b.max[1] * 1000) / 1000);
         for (const h of heights) if (this.standable(x, h, z)) this.addNode(x, h, z);
       }
     }
@@ -59,10 +63,10 @@ export class NavGraph {
     }
     // Edges
     for (const n of this.nodes) {
-      this.near(n.p, 2, (m) => {
+      this.near(n.p, Math.max(2, link), (m) => {
         if (m.id <= n.id) return;
         const d = n.p.distanceTo(m.p);
-        if (d > 1.9 || Math.abs(n.p.y - m.p.y) > 1.1) return;
+        if (d > link || Math.abs(n.p.y - m.p.y) > 1.1) return;
         if (this.walkable(n.p, m.p)) { n.edges.push({ to: m.id, c: d }); m.edges.push({ to: n.id, c: d }); }
       });
     }
@@ -90,6 +94,7 @@ export class NavGraph {
   // Walk the segment in small steps; climbing must stay within step height.
   walkable(a, b) {
     const ph = this.ph;
+    if (this.fast && a.y < 0.01 && b.y < 0.01 && ph.boxFree(Math.min(a.x, b.x) - 0.27, 0.46, Math.min(a.z, b.z) - 0.27, Math.max(a.x, b.x) + 0.27, 1.7, Math.max(a.z, b.z) + 0.27)) return true;
     const d = new THREE.Vector3().subVectors(b, a);
     const len = Math.hypot(d.x, d.z);
     const steps = Math.max(1, Math.ceil(len / 0.3));
@@ -147,7 +152,7 @@ export class NavGraph {
     heap.push(s.id, s.p.distanceTo(g.p));
     let found = false;
     let iter = 0;
-    while (heap.size && iter++ < 6000) {
+    while (heap.size && iter++ < (this.maxIter || 6000)) {
       const cur = heap.pop();
       if (cur === g.id) { found = true; break; }
       if (closed[cur]) continue;
