@@ -42,10 +42,17 @@ export class BRGame extends Game {
     const ph = new Physics(B.minX, B.minZ, B.maxX, B.maxZ);
     this.physics = ph;
     const before = new Set(this.scene.children);
-    this.map = buildBRMap(ph, this.mats, this.scene, { preset: this.preset });
+    this.map = buildBRMap(ph, this.mats, this.scene, { preset: this.preset, renderer: this.R });
     const b = this.bounds = this.map.bounds || B;
-    // The map is static (cached shadow, no matrix updates), except the containers, which animate.
-    const dyn = new Set((this.map.containers || []).map((c) => c.object));
+    // The map is static (cached shadow, no matrix updates), except the containers, which animate:
+    // leave out any top-level group of their own (containers inside the map's group are its business).
+    const statics = new Set([].concat(this.map.group || []));
+    const dyn = new Set();
+    for (const c of this.map.containers || []) {
+      let o = c.object;
+      while (o && o.parent && o.parent !== this.scene) o = o.parent;
+      if (o && !statics.has(o)) dyn.add(o);
+    }
     this.R.freezeStatic(this.scene.children.filter((o) => !before.has(o) && !dyn.has(o)));
     this.map.indoor = (this.map.indoor || []).map((v) => (v.min ? v : { min: [v.x0, v.y0, v.z0], max: [v.x1, v.y1, v.z1] }));
     this.map.points = this.map.points || [];
@@ -60,7 +67,8 @@ export class BRGame extends Game {
       this.scene.add(pl);
     }
     for (const s of this.map.signs || []) this.addSign(s);
-    this.nav = new NavGraph(ph, b).build(this.map.hints || [], { minX: b.minX + 1.5, maxX: b.maxX - 1.5, minZ: b.minZ + 1.5, maxZ: b.maxZ - 1.5 });
+    const nav = this.map.nav || {};
+    this.nav = new NavGraph(ph, B).build(this.map.hints || [], nav.area || { minX: b.minX + 1.5, maxX: b.maxX - 1.5, minZ: b.minZ + 1.5, maxZ: b.maxZ - 1.5 }, nav.opts);
     this.groundNodes = this.nav.nodes.filter((n) => n.ok && n.p.y < 0.5);
     this.effects = new Effects(this.scene, ph, this.mats, this.audio);
     this.ballistics = new Ballistics(this);
@@ -79,13 +87,13 @@ export class BRGame extends Game {
     this.zone = new Zone(this, { pickCenter: (cur, r) => this.zoneCenter(cur, r) });
     this.loot = new LootWorld(this);
     this.drop = new Drop(this);
-    this.drop.onLand = (c) => this.onLand(c);
+    this.drop.onLand = (c, info) => this.onLand(c, info);
     this.laser = this.makeLaser();
-    // reflection probe over the middle of the map
+    // the reflection probe the map asks for ({ position: Vector3, box: Box3 }), else the middle of the map
     const pr = this.map.probe;
     const cx = (b.minX + b.maxX) / 2, cz = (b.minZ + b.maxZ) / 2;
-    this.probeSpot = pr
-      ? { pos: new THREE.Vector3().fromArray(pr.pos), box: new THREE.Box3(new THREE.Vector3().fromArray(pr.box[0]), new THREE.Vector3().fromArray(pr.box[1])) }
+    this.probeSpot = pr && pr.position && pr.box
+      ? { pos: pr.position, box: pr.box }
       : { pos: new THREE.Vector3(cx, 3.2, cz), box: new THREE.Box3(new THREE.Vector3(b.minX + 4, -0.2, b.minZ + 4), new THREE.Vector3(b.maxX - 4, 30, b.maxZ - 4)) };
   }
 
@@ -155,7 +163,7 @@ export class BRGame extends Game {
     const dx = Math.cos(ang), dz = Math.sin(ang);
     const off = (Math.random() - 0.5) * 0.6 * Math.min(hx, hz);
     const ox = cx - dz * off, oz = cz + dx * off;
-    const L = Math.max(hx, hz) * 1.25;
+    const L = Math.max(hx, hz) * 1.05;
     return { a: new THREE.Vector3(ox - dx * L, PLANE_ALT, oz - dz * L), b: new THREE.Vector3(ox + dx * L, PLANE_ALT, oz + dz * L) };
   }
 
@@ -183,9 +191,17 @@ export class BRGame extends Game {
     return n ? { x: n.p.x, z: n.p.z } : t;
   }
 
-  onLand(c) {
+  // touchdown (info: { speed, vSpeed, hSpeed, flared, canopy, roof, hard, point } from the Drop)
+  onLand(c, info) {
     c.body.v.set(0, 0, 0);
     c.body.grounded = true;
+    if (info && info.hard && c.alive) {
+      const dmg = Math.min(45, 10 + Math.max(0, (info.vSpeed || 0) - 8) * 3);
+      const hit = { zone: 'leg', dir: new THREE.Vector3(0, -1, 0), point: c.body.p.clone(), attacker: null, weapon: { name: 'Hard landing' } };
+      const was = c.alive;
+      c.takeDamage(dmg, hit);
+      if (was && !c.alive) { this.kill(null, c, hit); return; }
+    }
     if (c === this.player) {
       this.landedAt = this.time;
       this.showViewmodel(true);
@@ -456,23 +472,27 @@ export class BRGame extends Game {
   }
 
   // --- per frame -------------------------------------------------------------------------------
+  // Off the ground: on the plane or falling (the Drop flags riders `airborne` until just before onLand).
+  aloft(c) { return !!c.airborne || this.drop.state(c) !== 'landed'; }
+
   update(dt, input, settings) {
     if (this.state !== 'playing' && this.state !== 'over') return;
     this.time += dt;
     const p = this.player, drop = this.drop;
-    this.characters = this.all.filter((c) => drop.state(c) === 'landed');
-    const landed = drop.state(p) === 'landed';
+    this.characters = this.all.filter((c) => !this.aloft(c));
+    const landed = !this.aloft(p);
     if (this.state === 'playing') {
       this.zone.update(dt, this.camera, landed && p.alive && !this.zone.inside(p.body.p));
       this.timeLeft = Math.max(0, ZONE_TOTAL - (this.time - this.t0));
     } else this.zone.update(0, this.camera, false);
-    if (drop.state(p) === 'plane' && p.alive && (input.pressed('Space') || input.pressed('KeyF'))) { drop.jump(p); input.consume('Space'); input.consume('KeyF'); if (this.brhud) this.brhud.jumped(); }
-    if (drop.active) drop.update(dt, input);
+    // the map closes once you leave the plane
+    const aboard = drop.state(p) === 'plane';
+    if (this.aboard && !aboard && this.brhud) this.brhud.jumped();
+    this.aboard = aboard;
     if (landed && p.alive && this.state === 'playing') this.playerTurn(dt, input, settings);
     else if (!p.alive) this.deathCam(dt);
     for (const b of this.bots) {
-      const st = drop.state(b);
-      if (st !== 'landed') { if (st === 'plane') b.h.group.visible = false; continue; }
+      if (this.aloft(b)) { if (drop.state(b) === 'plane') b.h.group.visible = false; continue; }
       if (b.evade > 0) b.evade -= dt;
       b.update(dt);
     }
@@ -500,6 +520,10 @@ export class BRGame extends Game {
     this.sunF = this.sunF === undefined ? sunTarget : this.sunF + (sunTarget - this.sunF) * Math.min(1, dt * 5);
     this.R.setViewSun(this.sunF);
     this.audio.setListener(this.camera);
+    // Last: the Drop flies the plane and the riders, and owns the camera (position, fov) and the
+    // listener while the player is aboard or in the air. It handles Space/F (jump, canopy) itself.
+    drop.sens = settings.sens;
+    drop.update(dt, input);
     if (this.brhud) this.brhud.update(dt, input);
   }
 

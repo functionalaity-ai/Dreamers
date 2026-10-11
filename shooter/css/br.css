@@ -67,7 +67,8 @@ html.br #protect { display: none !important; }
 #br-air .rd { background: var(--panel); padding: 4px 12px; display: flex; align-items: baseline; gap: 6px; }
 #br-air .rd b { font-family: var(--mono); font-size: 26px; font-weight: 600; }
 #br-air .rd small { color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
-#br-air .hint { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(217, 181, 106, 0.18); border: 1px solid var(--accent); padding: 6px 12px; }
+#br-air .hint { font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; background: rgba(233, 230, 220, 0.08); border: 1px solid var(--line); padding: 6px 12px; color: var(--muted); }
+#br-air .hint.go { background: rgba(143, 207, 122, 0.18); border-color: var(--good); color: var(--fg); }
 
 #br-map { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(6, 8, 10, 0.45); }
 #br-map .frame { position: relative; background: var(--panel); border: 1px solid var(--line); padding: 34px 12px 30px; }

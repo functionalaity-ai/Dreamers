@@ -310,6 +310,20 @@ class LootModels {
 
 const _box = new THREE.Box3(), _ray = new THREE.Ray(), _p = new THREE.Vector3(), _c = new THREE.Vector3();
 
+// What to aim at for a container: its model's bounds, or (if that's empty or implausible, e.g. a
+// culled LOD) a 1 m box standing just behind its floor point.
+function containerBox(c) {
+  let box = null;
+  try { if (c.object) box = new THREE.Box3().setFromObject(c.object); } catch (e) { box = null; }
+  const sz = box && !box.isEmpty() ? box.getSize(new THREE.Vector3()) : null;
+  if (!sz || sz.x > 4 || sz.z > 4 || sz.y > 3.5 || box.distanceToPoint(c.pos) > 1.2) {
+    const fx = -Math.sin(c.yaw || 0), fz = -Math.cos(c.yaw || 0);
+    const m = new THREE.Vector3(c.pos.x - fx * 0.75, c.pos.y + 0.6, c.pos.z - fz * 0.75);
+    box = new THREE.Box3().setFromCenterAndSize(m, new THREE.Vector3(1, 1.2, 1));
+  }
+  return box.expandByScalar(0.12);
+}
+
 export class LootWorld {
   constructor(game) {
     this.g = game;
@@ -417,7 +431,8 @@ export class LootWorld {
     const far = (q, r) => Math.abs(q.x - feet.x) > r || Math.abs(q.z - feet.z) > r;
     for (const c of this.containers) {
       if (c.looted || far(c.pos, 2)) continue;
-      if (!c._box) { c._box = new THREE.Box3().setFromObject(c.object).expandByScalar(0.12); c._center = c._box.getCenter(new THREE.Vector3()); }
+      if (!c._box) c._box = containerBox(c);
+      if (!c._center) c._center = c._box.getCenter(new THREE.Vector3());
       consider(c, 'container', c._center, c._box, 1.6);
     }
     for (const b of this.boxes) {

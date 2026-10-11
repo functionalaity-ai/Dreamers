@@ -23,7 +23,8 @@ const GROUND = [
   [-45, 0, -17, 0], [45, 0, 17, 0], [-30, 0, 12, 0], [30, 0, -12, 0], [0, 0, 8, 1],
 ];
 
-export function buildBRMap(physics, materials, scene) {
+// opts: { preset, renderer } (the real map uses the renderer; the stub doesn't need it)
+export function buildBRMap(physics, materials, scene, opts = {}) {  // eslint-disable-line no-unused-vars
   const ot = buildOldTown(physics, materials, scene);
   const floorY = (x, z, f) => physics.groundHeight(x, z, 0.15, f * H + 0.6);
   const containers = CONTAINERS.map(([kind, x, f, z, yaw, tier]) => {
@@ -48,7 +49,8 @@ export function buildBRMap(physics, materials, scene) {
     group: ot.group, bounds: BR_BOUNDS, containers, groundLoot, buildings, roads, landmarks,
     hints: ot.hints, indoor: ot.indoor, lights: ot.lights, signs: ot.signs, points: ot.points,
     spawns: { msg: [], volk: [] },
-    probe: { pos: [2, 3.2, 9], box: [[-56, -0.2, -22.2], [56, 30, 22.2]] },   // Old Town's reflection probe
+    probe: { position: new THREE.Vector3(2, 3.2, 9), box: new THREE.Box3(new THREE.Vector3(-56, -0.2, -22.2), new THREE.Vector3(56, 30, 22.2)) },   // Old Town's
+    nav: { area: { minX: -58.5, maxX: 58.5, minZ: -44.5, maxZ: 44.5 }, opts: {} },
     update(camera, dt) { for (const c of containers) c.update(dt); },
   };
 }

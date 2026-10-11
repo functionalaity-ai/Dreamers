@@ -133,7 +133,8 @@ export class BRHud {
     this.frame++;
     if (input.pressed('KeyM')) this.mapOpen = !this.mapOpen;
     const st = drop.state(p);
-    const air = st !== 'landed';
+    const air = g.aloft(p);
+    const call = (k, d) => (typeof drop[k] === 'function' ? drop[k](p) : d);
     // top bar
     $('br-alive').textContent = g.alive();
     $('br-kills').textContent = p.stats.kills;
@@ -159,9 +160,17 @@ export class BRHud {
     // airborne readout
     $('br-air').hidden = !air || !p.alive;
     if (air) {
-      $('br-alt').textContent = Math.round(drop.altitude ?? p.body.p.y);
-      $('br-spd').textContent = Math.round(drop.speed ?? p.body.v.length());
-      $('br-jump').hidden = st !== 'plane';
+      $('br-alt').textContent = Math.round(call('altitude', p.body.p.y));
+      $('br-spd').textContent = Math.round(call('speed', p.body.v.length()));
+      const canJump = call('canJump', st === 'plane'), canDeploy = call('canDeploy', false);
+      const hint = $('br-jump');
+      hint.hidden = st !== 'plane' && !canDeploy;
+      hint.classList.toggle('go', !!(canJump || canDeploy));
+      const key = st === 'plane' ? (canJump ? 'jump' : 'wait') : 'deploy';
+      if (hint.dataset.k !== key) {
+        hint.dataset.k = key;
+        hint.innerHTML = key === 'jump' ? 'Press <kbd>Space</kbd> / <kbd>F</kbd> to jump' : key === 'wait' ? 'Jump opens over the map' : '<kbd>Space</kbd> Open parachute';
+      }
     }
     this.inventory(p);
     this.prompt(g, p, air);
