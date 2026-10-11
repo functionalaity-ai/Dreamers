@@ -31,12 +31,12 @@ function grass(B, size) {
     shade: /* glsl */`
       void shade(vec2 uv, vec4 F, float cav, out vec3 alb, out float rough, out float metal) {
         float g = fbm(uv, 180.0, 3);
-        vec3 green = mix(lin(vec3(0.33, 0.36, 0.17)), lin(vec3(0.46, 0.43, 0.22)), smoothstep(-0.3, 0.3, F.w));
-        vec3 straw = lin(vec3(0.55, 0.48, 0.3));
-        vec3 c = mix(green, straw, smoothstep(0.0, 0.4, fbm(uv + 1.3, 9.0, 4)) * 0.6);
+        vec3 green = mix(lin(vec3(0.3, 0.4, 0.15)), lin(vec3(0.42, 0.47, 0.2)), smoothstep(-0.3, 0.3, F.w));
+        vec3 straw = lin(vec3(0.55, 0.5, 0.3));
+        vec3 c = mix(green, straw, smoothstep(0.0, 0.4, fbm(uv + 1.3, 9.0, 4)) * 0.35);
         c *= 0.8 + 0.4 * (g + 0.5);
         vec3 soil = lin(vec3(0.3, 0.24, 0.18)) * (0.85 + 0.3 * fbm(uv, 90.0, 2));
-        c = mix(c, soil, F.y * 0.85);
+        c = mix(c, soil, F.y * 0.6);
         c = mix(c, lin(vec3(0.5, 0.48, 0.44)), F.z);
         c *= 1.0 - cav * 0.4;
         alb = c;

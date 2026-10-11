@@ -227,19 +227,19 @@ export function outerLand(scene, mats, bounds, rnd) {
   group.name = 'brOuter';
   const R = 1600;
   const ring = [];
-  // a ground slab round the map (the map's own ground covers the middle)
-  const g = new THREE.PlaneGeometry(2 * R, 2 * R, 1, 1);
-  g.rotateX(-Math.PI / 2); g.translate(0, -0.09, 0);
-  const uv = g.attributes.uv; const p = g.attributes.position;
-  for (let i = 0; i < uv.count; i++) uv.setXY(i, p.getX(i), p.getZ(i));
-  const ground = new THREE.Mesh(g, W.grass);
-  ground.receiveShadow = true;
-  group.add(ground);
+  // ground round the map (four slabs that stop at its edge, so they never fight its own ground)
+  const b = bounds, slabs = [[-R, -R, R, b.minZ], [-R, b.maxZ, R, R], [-R, b.minZ, b.minX, b.maxZ], [b.maxX, b.minZ, R, b.maxZ]].map(([x0, z0, x1, z1]) => {
+    const q = new THREE.PlaneGeometry(x1 - x0, z1 - z0); q.rotateX(-Math.PI / 2); q.translate((x0 + x1) / 2, -0.04, (z0 + z1) / 2);
+    const u = q.attributes.uv, pp = q.attributes.position; for (let i = 0; i < u.count; i++) u.setXY(i, pp.getX(i), pp.getZ(i));
+    return q;
+  });
   // field strips just outside the map in the soil colour, to break the grass up
   const strips = [];
   for (let i = 0; i < 40; i++) {
-    const a = rnd() * Math.PI * 2, d = 260 + rnd() * 500, w = 60 + rnd() * 120, l = 40 + rnd() * 90;
-    const b = new THREE.PlaneGeometry(w, l); b.rotateX(-Math.PI / 2); b.rotateY(Math.round(rnd() * 4) * Math.PI / 2); b.translate(Math.cos(a) * d, -0.07, Math.sin(a) * d);
+    const a = rnd() * Math.PI * 2, d = 330 + rnd() * 500, w = 60 + rnd() * 120, l = 40 + rnd() * 90;
+    const cx = Math.cos(a) * d, cz = Math.sin(a) * d, hm = Math.max(w, l) / 2;
+    if (Math.abs(cx) < bounds.maxX + 10 + hm && Math.abs(cz) < bounds.maxZ + 10 + hm) continue;
+    const b = new THREE.PlaneGeometry(w, l); b.rotateX(-Math.PI / 2); b.rotateY(Math.round(rnd() * 4) * Math.PI / 2); b.translate(cx, -0.02, cz);
     const u = b.attributes.uv, q = b.attributes.position; for (let k = 0; k < u.count; k++) u.setXY(k, q.getX(k), q.getZ(k));
     strips.push(b);
   }
@@ -266,6 +266,7 @@ export function outerLand(scene, mats, bounds, rnd) {
     gg.computeBoundingSphere();
     const m = new THREE.Mesh(gg, mat); m.receiveShadow = true; return m;
   };
+  group.add(mk(slabs, W.grass));
   group.add(mk(strips, W.soil));
   const treeMat = new THREE.MeshStandardMaterial({ color: 0x3b4a26, roughness: 0.95, flatShading: true, name: 'treeLine' });
   group.add(mk(ring, treeMat));

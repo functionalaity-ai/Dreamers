@@ -71,8 +71,9 @@ export function buildBRMap(physics, materials, scene, opts = {}) {
   const mark = (name, x, z) => landmarks.push({ name, x, z });
 
   // --- ground: dry grass everywhere, the streets on top ---------------------------------------------
-  B.solid(BR_BOUNDS.minX, -0.08, BR_BOUNDS.minZ, BR_BOUNDS.maxX, -0.01, BR_BOUNDS.maxZ, 'grass', null, { shadow: false });
-  B.proxyBox(BR_BOUNDS.minX, -0.08, BR_BOUNDS.minZ, BR_BOUNDS.maxX, -0.01, BR_BOUNDS.maxZ, 'grass');
+  // (the grass sits 4 cm under the street surfaces, its proxy 30 cm: enough depth precision at range)
+  B.solid(BR_BOUNDS.minX, -0.1, BR_BOUNDS.minZ, BR_BOUNDS.maxX, -0.04, BR_BOUNDS.maxZ, 'grass', null, { shadow: false });
+  B.proxyBox(BR_BOUNDS.minX, -0.4, BR_BOUNDS.minZ, BR_BOUNDS.maxX, -0.3, BR_BOUNDS.maxZ, 'grass');
   const S = new Streets(B);
   S.add(-210, -20, -52, -13, { name: 'Northern Street' }); S.add(52, -20, 210, -13);
   S.add(-210, 13, -52, 20, { name: 'Southern Street' }); S.add(52, 13, 210, 20);
@@ -307,6 +308,9 @@ export function buildBRMap(physics, materials, scene, opts = {}) {
     landmarks, hints: B.hints, indoor: B.indoor, lights: B.lights.slice(), signs: B.signs, points: B.points, spawns: B.spawns,
     regions, lod, builder: B, kit, outer, containerRoot: cRoot,
     renderer: opts.renderer || null,
+    // the reflection probe for this map: its box must hold every reflecting surface (the town's
+    // box is only Old Town's square; outside it the box projection turns dark)
+    probe: { position: new THREE.Vector3(2, 6, 9), box: new THREE.Box3(new THREE.Vector3(BR_BOUNDS.minX - 2, -0.2, BR_BOUNDS.minZ - 2), new THREE.Vector3(BR_BOUNDS.maxX + 2, 90, BR_BOUNDS.maxZ + 2)) },
     // coarser bounce-light bake for a map this size (see bakeBounce)
     bake: { step: 4, layers: 4, rays: 12, albedoCell: 2, albedoRoots: B.parts.map((p) => p.proxy).concat([outer]) },
     // the nav graph at a sensible resolution for 420 m (see NavGraph.build)

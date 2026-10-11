@@ -80,7 +80,7 @@ function ruinStorey(B, s, y, H, mat, rnd, ctx) {
       else if (side === 's') B.solid(a, y, s.z1 - T, a + len, y + h, s.z1, mat, 'brick');
       else if (side === 'w') B.solid(s.x0, y, a, s.x0 + T, y + h, a + len, mat, 'brick');
       else B.solid(s.x1 - T, y, a, s.x1, y + h, a + len, mat, 'brick');
-      if (!gap && h > 1.4 && rnd() < 0.35 && ctx.atlas) soot(ctx, s, side, a + len / 2, y + h - 0.6, 1.6, 1.4);
+      if (!gap && h > 1.4 && rnd() < 0.35 && ctx.atlas) soot(ctx, s, side, a + len / 2, y + h * 0.55, Math.min(1.6, len), h * 0.8);
       a += len;
     }
   }
@@ -394,7 +394,8 @@ export function lootBuilding(ctx, s) {
       if (p) ctx.place(ctx.cs.add('crate', p.x + p.inward[0] * 0.3, top, p.z + p.inward[1] * 0.3, p.yaw, 1 + (rnd() < 0.35 ? 1 : 0)), s);
     }
     if (ctx.atlas) {
-      for (const side of ['n', 's', 'e', 'w']) for (const f in breaches[side]) for (const b of breaches[side][f]) soot(ctx, s, side, b.c, +f * H + Math.min(H, b.y1) + 0.2, b.w + 1.2, 1.6);
+      // soot over the blown sections, kept on the wall that is left above them
+      for (const side of ['n', 's', 'e', 'w']) for (const f in breaches[side]) for (const b of breaches[side][f]) if (b.y1 < H - 0.4 && +f < intact) soot(ctx, s, side, b.c, +f * H + (b.y1 + H) / 2, b.w + 0.8, H - b.y1 - 0.1);
       ctx.atlas.flat('soot', (s.x0 + s.x1) / 2, 0.004, (s.z0 + s.z1) / 2 + (s.z1 - s.z0) / 2 + 1.4, 0, Math.min(8, s.x1 - s.x0), 3.4, 3, [1, 1, 1, 0.7]);
     }
   } else if (s.roof === 'tile') {
