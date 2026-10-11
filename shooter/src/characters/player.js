@@ -40,6 +40,9 @@ export class Player {
     this.pts = makePoints();
     this.lastShift = -9;
     this.sprintT = -9;
+    // Battle royale drop (game/drop.js): while true the Drop owns this player (body, camera and
+    // a third-person body) and update() does nothing; the Drop clears it on touchdown.
+    this.airborne = false;
   }
 
   get ws() { return this.weapons[this.cur]; }
@@ -115,7 +118,7 @@ export class Player {
   update(dt, input, settings) {
     const g = this.game;
     const vm = g.vm;
-    if (!this.alive) return;
+    if (!this.alive || this.airborne) return;
     // Look
     const sens = 0.0022 * settings.sens * (vm.adsT > 0.5 ? settings.adsSens * (this.ws.stats.scoped ? 0.55 : 0.85) : 1);
     this.yaw -= input.mouse.dx * sens;

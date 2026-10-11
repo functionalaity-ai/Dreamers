@@ -83,6 +83,66 @@ function mulberry(seed) {
 const quatOf = (x, y, z, out = new THREE.Quaternion()) => out.setFromEuler(_e.set(x, y, z, 'YXZ'));
 const ONE = new THREE.Vector3(1, 1, 1);
 
+// Skydiving poses (see Humanoid.pose). Torso and legs as euler angles per bone (the right-hand
+// rule above: +x tips an upward bone back and swings a downward one forward); the hands as
+// targets in the chest's frame (x right, y up, z back), reached by two-bone IK with the elbow
+// pulled toward `pole`. Leg z angles are for the left leg (mirrored for the right).
+const POSES = {
+  freefall: {
+    spine: [0.2, 0, 0], chest: [0.14, 0, 0], neck: [0.32, 0, 0], head: [0.42, 0, 0],
+    thigh: [-0.12, 0, -0.2], shin: [-1.45, 0, 0], foot: [0.35, 0, 0],
+    hand: [-0.5, 0.46, 0.1], pole: [-1, -0.7, 0.35],
+  },
+  dive: {
+    spine: [0.02, 0, 0], chest: [0, 0, 0], neck: [0.22, 0, 0], head: [0.3, 0, 0],
+    thigh: [-0.03, 0, -0.04], shin: [-0.08, 0, 0], foot: [-0.75, 0, 0],
+    hand: [-0.33, -0.42, 0.16], pole: [-0.3, 0, 1],
+  },
+  canopy: {
+    spine: [-0.06, 0, 0], chest: [0.02, 0, 0], neck: [0.04, 0, 0], head: [-0.12, 0, 0],
+    thigh: [0.32, 0, -0.06], shin: [-0.42, 0, 0], foot: [-0.3, 0, 0],
+    hand: [-0.25, 0.6, 0.03], pole: [-1, -0.25, 0.35],
+  },
+};
+
+function poseTargets(name, T, o) {
+  const out = poseTargets.out || (poseTargets.out = {});
+  const lean = o.lean || 0, legs = o.legs || 0;
+  const q = (n, x, y, z) => quatOf(x, y, z, out[n] || (out[n] = new THREE.Quaternion()));
+  q('hips', 0, 0, 0);
+  q('spine', T.spine[0], T.spine[1], T.spine[2] + lean * 0.12);
+  q('chest', T.chest[0], T.chest[1], T.chest[2] + lean * 0.08);
+  q('neck', T.neck[0], T.neck[1], -lean * 0.1);
+  q('head', T.head[0], T.head[1], -lean * 0.1);
+  for (const [key, sx] of [['L', 1], ['R', -1]]) {
+    // legs: under canopy, `legs` brings the knees up and the feet together for the landing
+    q('thigh' + key, T.thigh[0] + legs * 0.45, T.thigh[1], (T.thigh[2] + legs * 0.04) * sx + lean * 0.08);
+    q('shin' + key, T.shin[0] - legs * 0.55, 0, 0);
+    q('foot' + key, T.foot[0] + legs * 0.2, 0, 0);
+    // arms: IK from the shoulder to the hand target, in the chest's frame
+    const tog = key === 'L' ? o.toggleL || 0 : o.toggleR || 0;
+    const sh = _v.copy(REST[B['arm' + key]]).sub(REST[B.chest]);
+    const hand = _v2.set(T.hand[0] * sx, T.hand[1], T.hand[2]);
+    if (name === 'canopy') hand.add(_v4.set(-0.06 * sx * tog, -0.82 * tog, -0.1 * tog));
+    const pole = _v3.set(T.pole[0] * sx, T.pole[1], T.pole[2]).normalize();
+    const to = hand.sub(sh);
+    const d = Math.max(0.08, Math.min(ARM_UP + ARM_LO - 0.002, to.length()));
+    to.normalize();
+    const A = Math.acos(Math.max(-1, Math.min(1, (ARM_UP * ARM_UP + d * d - ARM_LO * ARM_LO) / (2 * ARM_UP * d))));
+    const w = pole.addScaledVector(to, -pole.dot(to));
+    if (w.lengthSq() < 1e-6) w.set(0, -1, 0);
+    w.normalize();
+    const elbow = _v4.copy(sh).addScaledVector(to, Math.cos(A) * ARM_UP).addScaledVector(w, Math.sin(A) * ARM_UP);
+    const dirU = elbow.clone().sub(sh).normalize();
+    const dirF = sh.addScaledVector(to, d).sub(elbow).normalize();
+    const qU = (out['arm' + key] || (out['arm' + key] = new THREE.Quaternion())).setFromUnitVectors(DOWN, dirU);
+    const qF = _q.setFromUnitVectors(DOWN, dirF);
+    (out['fore' + key] || (out['fore' + key] = new THREE.Quaternion())).copy(qU).invert().multiply(qF);
+    q('hand' + key, name === 'dive' ? 0.2 : -0.2, 0, 0);
+  }
+  return out;
+}
+
 export class Humanoid {
   constructor(material, faction, seed) {
     this.group = new THREE.Group();
@@ -395,6 +455,31 @@ export class Humanoid {
       b['fore' + key].rotation.set(0.5 * k, 0, 0);
       b['hand' + key].rotation.set(0, 0, 0);
     }
+  }
+
+  // Skydiving poses for the drop (game/drop.js), used in place of update() while airborne:
+  //   'freefall' belly to earth in a box arch: arms out with the elbows bent, knees bent, head up
+  //   'dive'     head down: arms swept back along the body, legs straight, toes pointed
+  //   'canopy'   hanging in the harness with the hands up on the toggles and the legs hanging
+  // k eases every bone from where it is toward the pose (1 snaps), so calls stack:
+  // pose('freefall', 1); pose('dive', 0.4) is a 40% dive. o: { toggleL, toggleR (0..1, hands
+  // pulled down on the toggles), legs (0..1, knees up and together for landing), lean (-1..1,
+  // side lean) }. Laying the body flat or upright is the caller's job (the group's transform);
+  // the weapon is hidden, and the next update() snaps straight back into the normal pose.
+  pose(name, k = 1, o = {}) {
+    const b = this.b, T = POSES[name];
+    if (!T) return;
+    const P = poseTargets(name, T, o);
+    for (const n in P) {
+      if (k >= 1) b[n].quaternion.copy(P[n]);
+      else b[n].quaternion.slerp(P[n], k);
+    }
+    b.hips.position.copy(REST[B.hips]);
+    for (const n of ['neck', 'armL', 'armR']) b[n].position.copy(REST[B[n]]).sub(REST[B.chest]);
+    this.gunPivot.visible = false;
+    this.settled = false;
+    this.facePitch = undefined;
+    this.group.updateMatrixWorld(true);
   }
 
   reset() {
