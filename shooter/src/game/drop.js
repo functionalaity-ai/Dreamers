@@ -72,6 +72,9 @@ export class Drop {
   }
 
   // --- public queries ------------------------------------------------------------------------
+  // the plane, for the map screen: is it still flying, and where it is
+  get flying() { return !!this.plane; }
+  get pos() { return this.plane ? this.plane.group.position : null; }
   state(c) { const r = this.riders.get(c); return r ? r.state : 'landed'; }
   canJump(c) { const r = this.riders.get(c); return !!(r && r.state === 'plane' && this.plane && this.plane.overMap); }
   canDeploy(c) { const r = this.riders.get(c); return !!(r && r.state === 'freefall' && r.pull < 0 && this.agl(r) < DEPLOY_MAX); }

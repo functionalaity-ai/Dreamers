@@ -18,7 +18,8 @@ export class Bot {
     this.team = o.team;
     this.isBot = true;
     this.lane = o.lane;
-    this.h = new Humanoid(game.mats.char[o.team], o.team, o.seed);
+    const faction = o.faction || o.team;   // the uniform; team can be a free-for-all id
+    this.h = new Humanoid(game.mats.char[faction], faction, o.seed);
     game.scene.add(this.h.group);
     this.weapon = new WeaponState(o.primary, o.att);
     const gun = buildGun(o.primary, this.weapon.stats.att, game.mats.gun, { shadows: true });

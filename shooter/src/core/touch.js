@@ -22,6 +22,9 @@ const ICONS = {
   swap: svg('<path d="M4 8.5h14l-3.5-3.5M20 15.5H6l3.5 3.5"/>'),
   board: svg('<path d="M5 7h14M5 12h14M5 17h14"/>'),
   pause: svg('<path d="M9 6v12M15 6v12"/>'),
+  interact: svg('<path d="M4 9.5l8-4.5 8 4.5v8L12 22l-8-4.5zM4 9.5l8 4.5 8-4.5M12 14v8"/>'),
+  heal: svg('<path d="M9.5 4h5v5.5H20v5h-5.5V20h-5v-5.5H4v-5h5.5z"/>'),
+  map: svg('<path d="M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2zM9 4v14M15 6v14"/>'),
 };
 // [action, label for screen readers, icon or text]
 const BUTTONS = [
@@ -29,12 +32,15 @@ const BUTTONS = [
   ['jump', 'Jump', ICONS.jump], ['crouch', 'Crouch (hold for prone)', ICONS.crouch], ['reload', 'Reload (hold for mag check)', ICONS.reload],
   ['frag', 'Throw frag', ICONS.frag], ['swap', 'Switch weapon', ICONS.swap], ['mode', 'Fire mode', '<span>MODE</span>'],
   ['board', 'Scoreboard', ICONS.board], ['pause', 'Pause', ICONS.pause],
+  // Battle Royale only (shown by css/br.css): loot, heal (hold: armor plate), map
+  ['interact', 'Interact, loot', ICONS.interact], ['heal', 'Heal (hold for an armor plate)', ICONS.heal], ['map', 'Map', ICONS.map],
 ];
 
 export class TouchControls {
   constructor(input, opts = {}) {
     this.input = input;
     this.onPause = opts.onPause || (() => {});
+    this.proneKey = 'KeyZ';     // Battle Royale moves prone off Z (its armor-plate key)
     const root = document.createElement('div');
     root.id = 'touch';
     root.hidden = true;
@@ -183,6 +189,8 @@ export class TouchControls {
       case 'mode': inp.justPressed.add('KeyB'); break;
       case 'board': this.board = !this.board; el.classList.toggle('on', this.board); this.root.classList.toggle('board-on', this.board); break;
       case 'pause': this.onPause(); break;
+      case 'interact': inp.justPressed.add('KeyE'); break;
+      case 'map': inp.justPressed.add('KeyM'); break;
       default: break;
     }
   }
@@ -197,6 +205,7 @@ export class TouchControls {
     }
     // reload fires on release, so holding it can ask for a mag check instead
     if (r.act === 'reload' && !r.held) inp.justPressed.add('KeyR');
+    if (r.act === 'heal' && !r.held) inp.justPressed.add('KeyH');
   }
 
   // Once per frame before the game reads input: re-assert held states (the game may reset
@@ -216,7 +225,8 @@ export class TouchControls {
     for (const r of this.touches.values()) {
       if (r.kind !== 'btn' || r.held || now - r.t0 < HOLD * 1000) continue;
       r.held = true;
-      if (r.act === 'crouch') inp.justPressed.add('KeyZ');
+      if (r.act === 'crouch') inp.justPressed.add(this.proneKey);
+      if (r.act === 'heal') inp.justPressed.add('KeyZ');
       if (r.act === 'reload') inp.justPressed.add('KeyT');
     }
   }
