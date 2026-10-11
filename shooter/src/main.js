@@ -27,7 +27,11 @@ const store = {
 };
 const SETTINGS_KEY = 'iron-meridian-settings-v1', LOADOUTS_KEY = 'iron-meridian-loadouts-v1';
 // The mode is picked at boot: the menu switches it by setting this and reloading the page.
-const MODE = (() => { try { return window.sessionStorage.getItem('im-mode') === 'br' ? 'br' : 'tdm'; } catch (e) { return 'tdm'; } })();
+const MODE = (() => {
+  const h = (window.location.hash || '').slice(1);
+  if (h === 'br' || h === 'tdm') return h;
+  try { return window.sessionStorage.getItem('im-mode') === 'br' ? 'br' : 'tdm'; } catch (e) { return 'tdm'; }
+})();
 const TIPS = [
   'Interior walls are drywall. Bullets go through them; brick and concrete stop them.',
   'Tactical reloads keep a round in the chamber: 30 + 1.',

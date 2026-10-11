@@ -28,7 +28,10 @@ export class Menus {
     $('clicktoplay').addEventListener('click', () => app.resume());
     // Mode switch: Team Deathmatch <-> Battle Royale (each builds its own map, so the page reloads)
     $('mode-switch').addEventListener('click', () => {
-      try { window.sessionStorage.setItem('im-mode', app.br ? 'tdm' : 'br'); } catch (e) { /* storage unavailable */ }
+      const next = app.br ? 'tdm' : 'br';
+      try { window.sessionStorage.setItem('im-mode', next); } catch (e) { /* storage unavailable: the address carries it */ }
+      // the hash survives the reload even where storage is blocked (an embedded page)
+      try { window.location.hash = next === 'br' ? 'br' : 'tdm'; } catch (e) { /* ignore */ }
       window.location.reload();
     });
     if (app.br) {
