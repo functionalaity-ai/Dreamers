@@ -153,6 +153,30 @@ Three loadout slots (Rifleman, Marksman and Breacher) are saved in the browser.
 
 **Match.** Team deathmatch, 4 v 4. The first team to 30 kills wins, or the leading team when the 8-minute clock runs out. It includes respawns with spawn protection, a kill feed, damage direction arcs, hit markers, a compass, a scoreboard, a death cam that shows who killed you, and an end-of-match screen. Your kills pop up under the crosshair with the name and points. Quick kills chain into double, triple and multi-kill medals. Matches open on a title card and close on Victory or Defeat.
 
+**Battle Royale.** Pick *Battle Royale* on the main menu (it reloads into the mode; *Team Deathmatch* switches back). Sixteen players, every one for themselves, on **the Outskirts**: a 420 × 420 m map, about 14 times Old Town's area, with Old Town (opened up) at its centre.
+- **The map:** eight districts on a street grid: Lipki, Market Quarter, Zarya Estate, Polyclinic and North Fields, Rail Yard, Church & School, Sadovaya and the Petrol Station & Farms. They're built from the same buildings, materials and props as Old Town. There are 65 buildings and 61 of them are enterable, with floors, stairs and furnished rooms. About a third are bombed out: collapsed top storeys, blown-out walls, fallen slabs, climbable rubble and scorched plaster. Each region switches to a cheap stand-in model beyond about 155 m, so the whole map stays light even from the plane.
+- **The drop:** everyone starts in a twin-turboprop transport crossing the map at 420 m with its ramp open. Jump with Space or F when the jump light turns green. You freefall at about 55 m/s (W dives head-down, faster), open a nine-cell ram-air canopy with Space or F below 400 m (it opens itself at 140 m), and steer it: A/D turn, S brakes, W speeds up. Flare with Space just before landing. Roofs are fair game. The camera is third-person in the air and first-person on the ground. Bots jump and steer for their own landing spots.
+- **Loot:** about 330 containers, all with doors or drawers that open: fridges, kitchen cabinets, dressers, wardrobes, medicine cabinets, crates, lockers and desks. There's also loose loot on floors and in the streets, and rare items are likelier in ruins, on upper floors and in industrial buildings. You land with only the P9 Warden and a spare magazine. Items:
+  - bandages (+15 HP, up to 75), first-aid kits (to 100), painkillers and energy drinks (heal over time)
+  - armour plates (+50, carry 3), frag grenades
+  - 5.56, 9 mm and 12-gauge ammo
+  - the Kestrel, Bastion and Warden with random attachments
+  Look at a container and press E to search it, E again to take everything, F to take or swap its gun. Heals and plates take a few seconds and are interrupted by sprinting, firing or taking damage.
+- **The zone:** six phases over about 12 minutes. The next circle is shown in advance, damage outside it rises with each phase, and a glowing wall marks the edge.
+- **HUD:** players alive, kills, the zone timer, a minimap, a full map (M) with the flight line and zones, the inventory bar, altitude and speed while airborne, and a placement screen at the end ("#1 Victory" or "You placed #7 of 16").
+- **Bots:** they land, loot the containers near them, heal when hurt, follow the zone and fight everyone. A dead player leaves a crate of their gear.
+
+| Key | Battle Royale |
+| --- | --- |
+| Space / F | Jump from the plane · open the canopy · flare |
+| E | Search a container · pick up · take all |
+| F | Take or swap the gun in an open container |
+| H / 4 | Use the best heal |
+| Z | Armour plate (prone moves to X) |
+| M | Map |
+
+On a touch screen, Interact, Heal (hold for a plate) and Map buttons appear in Battle Royale.
+
 ## Project layout
 
 ```
@@ -169,6 +193,8 @@ src/world/               Old Town layout, facades and windows, carved stonework 
 src/weapons/             gun models, edge wear, weapon state, ballistics, first-person viewmodel and animations
 src/characters/          operator body, skeleton and animation, hitboxes, bot AI, player controller
 src/game/game.js         match rules, spawning, damage, grenades, noise and callouts
+src/game/br.js           Battle Royale match (with brbot.js, loot.js, zone.js, drop.js: plane, freefall, canopy)
+src/world/br/            the Outskirts map: districts, houses and ruins, streets, loot containers, regional LOD
 src/ui/                  HUD and gun silhouettes, menus, gunsmith turntable, loading-screen key art
 vendor/three/            Three.js r160 and the add-ons used
 ```
