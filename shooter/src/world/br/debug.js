@@ -15,9 +15,9 @@ import { buildBRMap, BR_BOUNDS } from './brmap.js';
 const log = (t) => { const el = document.getElementById('log'); if (el) el.textContent = t; };
 
 async function boot() {
-  const q = new URLSearchParams(location.search);
+  const q = new window.URLSearchParams(window.location.search);
   let key = q.get('preset');
-  if (!key) { try { key = (JSON.parse(localStorage.getItem('iron-meridian-settings-v1')) || {}).preset; } catch (e) { key = null; } }
+  if (!key) { try { key = (JSON.parse(localStorage.getItem('iron-meridian-settings-v1')) || {}).preset; } catch (err) { console.warn(err); key = null; } }
   const preset = PRESETS[key] || PRESETS.medium;
   const R = new Renderer(document.getElementById('view'));
   linkProbe(R.probe.uniforms);
