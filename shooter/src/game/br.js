@@ -440,11 +440,12 @@ export class BRGame extends Game {
 
   playerTurn(dt, input, settings) {
     const p = this.player, inv = p.inv;
-    for (const w of p.weapons) if (w) w.reserve = inv.ammo[CALIBRE[w.id]];
-    p.frags = inv.items.frag;
     tickBoost(p, dt);
     this.interact(input);
     this.handleUse(dt, input);
+    // the guns' reserves are views of the calibre pools (looting may just have changed them)
+    for (const w of p.weapons) if (w) w.reserve = inv.ammo[CALIBRE[w.id]];
+    p.frags = inv.items.frag;
     // empty weapon slots can't be switched to
     if (input.mouse.wheel && !p.weapons[1 - p.cur]) input.mouse.wheel = 0;
     if (input.pressed('Digit1') && !p.weapons[0]) input.consume('Digit1');
