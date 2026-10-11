@@ -59,7 +59,7 @@ export class Drop {
     this.sens = 1;                     // mouse sensitivity (the match can copy settings.sens)
     this.onLand = () => {};
     this.time = 0;
-    this.cam = { yaw: 0.55, pitch: -0.32, off: new THREE.Vector3(), ready: false, lookYaw: 0, idle: 0 };
+    this.cam = { yaw: 0.5, pitch: -0.3, off: new THREE.Vector3(), ready: false, lookYaw: 0, idle: 0 };
     this.chutes = [];                  // collapsing canopies left on the ground
     this.scheme = 0;
     this._tmp = [];
@@ -335,9 +335,9 @@ export class Drop {
     if (r.pull >= 0) return;
     r.pull = 0;
     r.heading = r.yaw + (Math.random() - 0.5) * 0.25;
-    // the player's canopy is black and red; the bots' cycle through the other schemes
-    const bots = SCHEMES.map((s, i) => i).filter((i) => i !== 1);
-    r.chute = new Parachute({ scheme: r.c === this.game.player ? 1 : bots[this.scheme++ % bots.length] });
+    // the player's canopy is navy, white and yellow; the bots' cycle through the other schemes
+    const bots = SCHEMES.map((s, i) => i).filter((i) => i !== 2);
+    r.chute = new Parachute({ scheme: r.c === this.game.player ? 2 : bots[this.scheme++ % bots.length] });
     r.chute.group.visible = false;
     this.scene.add(r.chute.group);
     r.tog.L = r.tog.R = 0.45;   // the brakes are set on the pack: released once flying
@@ -498,9 +498,9 @@ export class Drop {
     const ch = r.chute;
     ch.group.position.copy(r.chuteAt);
     ch.group.quaternion.copy(r.chuteQ);
-    ch.update(dt, { bag: 1, pc: 1 - smooth(r.landT / 1.5) * 0.6, k: 1, slider: 1, brakeL: 0, brakeR: 0, collapse: smooth(r.landT / 2.2), shoulderL: null, shoulderR: null, handL: null, handR: null });
-    if (r.landT > 3.2) ch.group.position.y -= (r.landT - 3.2) * 1.2;
-    if (r.landT > 4.5) { ch.dispose(); r.chute = null; }
+    ch.update(dt, { bag: 1, pc: 1 - smooth(r.landT / 1.5) * 0.8, k: 1, slider: 1, brakeL: 0, brakeR: 0, collapse: smooth(r.landT / 1.8), shoulderL: null, shoulderR: null, handL: null, handR: null });
+    if (r.landT > 3.6) ch.group.position.y -= (r.landT - 3.6) * 1.2;
+    if (r.landT > 5) { ch.dispose(); r.chute = null; }
   }
 
   // --- bodies ---------------------------------------------------------------------------------------
@@ -569,7 +569,7 @@ export class Drop {
       if (!this.plane) return;
       // orbit the aircraft: behind and above by default, the map below
       C.yaw -= mdx * sens; C.pitch = clamp(C.pitch - mdy * sens, -1.2, 0.35);
-      const D = 44;
+      const D = 38;
       const P = this.plane.group;
       const off = _v.set(-Math.cos(C.yaw) * Math.cos(C.pitch) * D, -Math.sin(C.pitch) * D + 3, Math.sin(C.yaw) * Math.cos(C.pitch) * D);
       cam.position.copy(P.localToWorld(off));
@@ -589,9 +589,9 @@ export class Drop {
       if (C.idle > 1.5) C.lookYaw *= Math.exp(-dt * 1.2);
     } else C.lookYaw *= Math.exp(-dt * 3);
     C.pitch = clamp(C.pitch - mdy * sens, -1.3, 0.2);
-    const pitch = C.pitch * (1 - canopy) + (C.pitch * 0.5 - 0.02) * canopy;
+    const pitch = C.pitch * (1 - canopy) + clamp(C.pitch * 0.6 - 0.22, -1.0, 0.1) * canopy;
     const yaw = r.yaw + C.lookYaw;
-    const D = 6.2 + 3.4 * canopy;
+    const D = 4.6 + 5.0 * canopy;
     const target = _v2.copy(r.p).add(_v3.set(0, 0.2 + 2.6 * canopy, 0));
     const f = fwdOf(yaw, new THREE.Vector3());
     const want = new THREE.Vector3().addScaledVector(f, -Math.cos(pitch) * D).add(_v.set(0, -Math.sin(pitch) * D + 0.6, 0));

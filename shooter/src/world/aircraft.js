@@ -62,8 +62,9 @@ function camo(x, y, z) {
   const v = Math.sin(x * 0.31 + Math.sin(z * 0.37 + 1.3) * 1.7) + Math.sin(z * 0.43 + y * 0.6 + x * 0.12) * 0.8 + Math.sin(x * 0.9 - z * 0.7) * 0.25;
   return v > 0.35 ? 0 : v > -0.6 ? 1 : 2;
 }
-const CAMO = [new THREE.Color(0x3f4836), new THREE.Color(0x5d6352), new THREE.Color(0x4c5446)].map((c) => c.convertSRGBToLinear());
-const BELLY = new THREE.Color(0x7d827c).convertSRGBToLinear();
+// (THREE.Color takes hex as sRGB and stores it linear, as vertex colours want)
+const CAMO = [new THREE.Color(0x56603f), new THREE.Color(0x787d68), new THREE.Color(0x646d52)];
+const BELLY = new THREE.Color(0x9a9e98);
 function paint(x, y, z, belly) {
   const c = CAMO[camo(x, y, z)].clone();
   return belly > 0 ? c.lerp(BELLY, Math.min(1, belly)) : c;
@@ -117,7 +118,7 @@ function buildFuselage() {
   const ths = samples(-Math.PI / 2, Math.PI * 1.5, 72, [-Math.PI / 2 - RAMP.half, -Math.PI / 2 + RAMP.half, ...PANES.flatMap((p) => [p[2], p[3]])]);
   const skin = new Geo(), glass = new Geo(), dome = new Geo(), lining = new Geo();
   const p = new THREE.Vector3();
-  const white = new THREE.Color(1, 1, 1), lin = new THREE.Color(0x4a5043).convertSRGBToLinear();
+  const white = new THREE.Color(1, 1, 1), lin = new THREE.Color(0x4a5043);
   const grid = (geo, inset, keep, color, flip) => {
     const at = geo.pos.length / 3, m = ths.length;
     for (const x of xs) {
@@ -211,7 +212,7 @@ function blade() {
   const foil = airfoil(6, 0.03);
   const p = new THREE.Vector3();
   const N = 10, R0 = 0.42, R1 = 2.75;
-  const black = new THREE.Color(0x111214), tip = new THREE.Color(0xd8b020).convertSRGBToLinear();
+  const black = new THREE.Color(0x111214), tip = new THREE.Color(0xd8b020);
   for (let i = 0; i <= N; i++) {
     const f = i / N, r = R0 + (R1 - R0) * f;
     const chord = 0.3 + 0.2 * Math.sin(Math.PI * Math.min(1, f * 1.3)) - 0.12 * f * f;
@@ -239,7 +240,7 @@ function panelTexture() {
   const cv = document.createElement('canvas');
   cv.width = cv.height = S;
   const g = cv.getContext('2d');
-  g.fillStyle = '#d6d6d6'; g.fillRect(0, 0, S, S);
+  g.fillStyle = '#e4e4e4'; g.fillRect(0, 0, S, S);
   let seed = 7;
   const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
   for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(${rnd() > 0.5 ? '255,255,255' : '40,40,40'},${0.03 + rnd() * 0.05})`; g.fillRect(rnd() * S, rnd() * S, 6 + rnd() * 50, 2 + rnd() * 30); }
@@ -286,7 +287,7 @@ function discTexture() {
   const g = cv.getContext('2d');
   const gr = g.createRadialGradient(S / 2, S / 2, S * 0.08, S / 2, S / 2, S / 2);
   gr.addColorStop(0, 'rgba(20,20,20,0)'); gr.addColorStop(0.2, 'rgba(20,20,20,0.6)'); gr.addColorStop(0.85, 'rgba(25,25,25,0.35)');
-  gr.addColorStop(0.9, 'rgba(200,170,40,0.45)'); gr.addColorStop(0.98, 'rgba(200,170,40,0.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  gr.addColorStop(0.9, 'rgba(160,140,60,0.2)'); gr.addColorStop(0.98, 'rgba(160,140,60,0.1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
   g.fillStyle = gr; g.fillRect(0, 0, S, S);
   const t = new THREE.CanvasTexture(cv);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -311,7 +312,7 @@ export function aircraftMaterials(mats) {
     skin: new THREE.MeshStandardMaterial({ vertexColors: true, map: panel, bumpMap: panel, bumpScale: 0.9, roughness: 0.68, metalness: 0.2, envMapIntensity: 0.6 }),
     glass: new THREE.MeshStandardMaterial({ color: 0x0b1116, metalness: 0.9, roughness: 0.07, envMapIntensity: 1.3 }),
     radome: new THREE.MeshStandardMaterial({ color: 0x2c302b, roughness: 0.55, metalness: 0.05 }),
-    lining: new THREE.MeshStandardMaterial({ vertexColors: true, map: quiltTexture(), roughness: 0.95, metalness: 0 }),
+    lining: new THREE.MeshStandardMaterial({ vertexColors: true, map: quiltTexture(), roughness: 0.95, metalness: 0, emissive: 0x2a0503, emissiveIntensity: 1 }),
     floor: new THREE.MeshStandardMaterial({ color: 0x2e302c, roughness: 0.7, metalness: 0.6 }),
     metal: new THREE.MeshStandardMaterial({ color: 0x55585a, roughness: 0.45, metalness: 0.9 }),
     exhaust: new THREE.MeshStandardMaterial({ color: 0x1d1a17, roughness: 0.7, metalness: 0.7 }),
@@ -386,7 +387,7 @@ export class Aircraft {
       const tip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), z > 0 ? M.green : M.red);
       tip.position.set(3.3 - 0.06 * 20 - 0.6, 2.42 + 13.7 * 0.035, 20.05 * z);
       this.model.add(tip);
-      this.model.add(this.glow(tip.position, z > 0 ? 0x40ff70 : 0xff3020, 0.9));
+      this.model.add(this.glow(tip.position, z > 0 ? 0x40ff70 : 0xff3020, 0.55));
     }
     add(pod([[3.6, 2.35, 0, 0.05, 0.3], [3.0, 2.55, 0, 0.28, 0.9], [-0.8, 2.62, 0, 0.32, 1.0], [-2.6, 2.5, 0, 0.12, 0.6], [-3.4, 2.4, 0, 0.04, 0.2]], 18), M.skin);
     // nacelles, intakes, exhausts, spinners and propellers
@@ -450,7 +451,7 @@ export class Aircraft {
     lamp.position.z = -1.3;
     this.model.add(lamp);
     this.jumpLamp2 = lamp;
-    this.holdGlow = this.glow(new THREE.Vector3(RAMP.hinge - 0.4, FLOOR + 1.9, 0), 0xff1808, 6.5, 0.35);
+    this.holdGlow = this.glow(new THREE.Vector3(RAMP.hinge - 0.3, FLOOR + 1.9, 0), 0xff1808, 2.2, 0.3);
     this.model.add(this.holdGlow);
     // a serial on the fin
     try {
@@ -506,7 +507,7 @@ export class Aircraft {
     this.jumpGreen.material = green ? this.M.green : this.M.offG;
     this.jumpRed.material = this.jumpLamp2.material = green ? this.M.off : this.M.red;
     this.holdGlow.material.color.setHex(green ? 0x20ff40 : 0xff1808);
-    this.holdGlow.material.opacity = green ? 0.25 : 0.35;
+    this.holdGlow.material.opacity = green ? 0.22 : 0.3;
   }
 
   update(dt) {

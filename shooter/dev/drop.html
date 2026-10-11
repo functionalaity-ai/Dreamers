@@ -106,7 +106,7 @@
     }
     const game = { scene, R, mats, physics, bounds: BOUNDS, audio, player, camera: R.camera, showViewmodel() {} };
     const drop = new Drop(game);
-    window.__drop = drop; window.__R = R; window.__bots = bots; window.__player = player; window.__game = game;
+    window.__THREE = THREE; window.__drop = drop; window.__R = R; window.__bots = bots; window.__player = player; window.__game = game;
     const log = [];
     window.__log = log;
     drop.onLand = (c, info) => log.push({ who: c.name, t: +drop.time.toFixed(1), at: info.point.toArray().map((v) => +v.toFixed(1)), vSpeed: +info.vSpeed.toFixed(2), hSpeed: +info.hSpeed.toFixed(2), flared: info.flared, roof: info.roof });

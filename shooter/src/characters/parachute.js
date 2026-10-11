@@ -167,7 +167,7 @@ function buildCanopy(colors) {
   const cellColor = (ci) => {
     const half = colors.length;
     const k = ci < half ? ci : CELLS - 1 - ci;
-    return C.setHex(colors[Math.min(half - 1, Math.max(0, k))]).convertSRGBToLinear().clone();
+    return C.setHex(colors[Math.min(half - 1, Math.max(0, k))]).clone();   // sRGB hex, stored linear
   };
   for (let ci = 0; ci < CELLS; ci++) {
     const color = cellColor(ci);
@@ -308,12 +308,14 @@ export class Parachute {
     const k = clamp01(S.k), col = clamp01(S.collapse);
     const bundled = Math.max(1 - k, col);
     const inf = this.canopy.morphTargetInfluences;
-    inf[0] = bundled;
+    inf[0] = Math.max(1 - k, col * 0.55);
     inf[1] = clamp01(S.brakeL) * (1 - bundled);
     inf[2] = clamp01(S.brakeR) * (1 - bundled);
     // collapse: the canopy falls forward (downwind) and settles onto the ground
+    // (the lines go slack as the canopy settles: the rig shortens and tips over)
     const ce = smooth(col);
-    this.rig.rotation.x = -ce * 1.45;
+    this.rig.rotation.x = -ce * 1.5;
+    this.rig.scale.set(1 + ce * 0.15, 1 - ce * 0.62, 1 - ce * 0.4);
     this.rig.position.set(0, -ce * 1.3, 0);
     const lineStretch = S.bag >= 1;
     this.canopy.visible = lineStretch;
@@ -325,7 +327,7 @@ export class Parachute {
     // pilot chute: trails the canopy's top (or the bag) on its bridle, inflating as it goes
     const top = lineStretch ? this.shapePoint(0, 0.4, 1, new THREE.Vector3()) : bagPos.clone();
     const pcK = smooth(S.pc);
-    const trail = lineStretch ? _b.set(0, 0.55 + 0.45 * (1 - k), 1 - (1 - k) * 0.9).normalize() : _b.set(0, 1, 0);
+    const trail = lineStretch ? _b.set(0, 0.55 + 0.45 * (1 - k) + 0.45 * ce, 1 - (1 - k) * 0.9 - 1.4 * ce).normalize() : _b.set(0, 1, 0);
     const bridle = lineStretch ? 2.4 : 0.3 + 2.1 * smooth(S.pc * 1.2);
     const pcPos = top.clone().addScaledVector(trail, bridle);
     if (!lineStretch && S.bag <= 0) pcPos.set(0, 0.25 + 2.2 * smooth(S.pc), 0.25 + 0.3 * smooth(S.pc));
