@@ -168,12 +168,12 @@ class BoxGrid {
 // --- albedo grid ----------------------------------------------------------------------------
 // 1 m cells from y = -1 (the ground's own top face sits just below 0).
 class AlbedoGrid {
-  constructor(x0, z0, nx, nz, ny) {
-    Object.assign(this, { x0, z0, nx, nz, ny, y0: -1 });
+  constructor(x0, z0, nx, nz, ny, cell = 1) {
+    Object.assign(this, { x0, z0, nx, nz, ny, y0: -1, k: 1 / cell });
     this.acc = new Float32Array(nx * ny * nz * 4);
   }
   index(x, y, z) {
-    const ix = Math.floor(x - this.x0), iy = Math.floor(y - this.y0), iz = Math.floor(z - this.z0);
+    const k = this.k, ix = Math.floor((x - this.x0) * k), iy = Math.floor((y - this.y0) * k), iz = Math.floor((z - this.z0) * k);
     if (ix < 0 || iy < 0 || iz < 0 || ix >= this.nx || iy >= this.ny || iz >= this.nz) return -1;
     return ((iz * this.ny + iy) * this.nx + ix) * 4;
   }
@@ -374,20 +374,27 @@ class LightVolume {
 export async function bakeBounce(R, game, preset, onProgress) {
   if (!R.r.capabilities.isWebGL2) return null;
   const T0 = now();
-  const Q = QUALITY[preset && preset.name] || QUALITY.High;
+  // A map may ask for a coarser bake (the big map: wider probe spacing, fewer layers and rays, a
+  // coarser albedo grid splatted from its proxies). Old Town has no such request.
+  const O = (game.map && game.map.bake) || {};
+  const Q = Object.assign({}, QUALITY[preset && preset.name] || QUALITY.High);
+  if (O.step) Q.step = O.step;
+  if (O.layers) Q.layers = O.layers;
+  if (O.rays) Q.rays = Math.min(Q.rays, O.rays);
+  const AC = O.albedoCell || 1;
   const ph = game.physics;
   const G = new BoxGrid(ph);
   const progress = (t) => { if (onProgress) onProgress(Math.min(1, t)); };
 
   // Albedo: the world's merged meshes and the window kit.
-  const roots = [game.map.group, R.scene.getObjectByName('windows')].filter(Boolean);
+  const roots = (O.albedoRoots || [game.map.group, R.scene.getObjectByName('windows')]).filter(Boolean);
   const meshes = [];
   for (const root of roots) root.traverse((o) => { if ((o.isMesh || o.isInstancedMesh) && o.material && !Array.isArray(o.material)) meshes.push(o); });
   const maps = new Set();
   for (const m of meshes) if (m.material.map) maps.add(m.material.map);
   const means = textureMeans(R.r, maps);
   const Tm = now();
-  const A = new AlbedoGrid(ph.minX, ph.minZ, Math.ceil(ph.maxX - ph.minX), Math.ceil(ph.maxZ - ph.minZ), 41);
+  const A = new AlbedoGrid(ph.minX, ph.minZ, Math.ceil((ph.maxX - ph.minX) / AC), Math.ceil((ph.maxZ - ph.minZ) / AC), Math.ceil(41 / AC), AC);
   let seed = 7;
   const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
   let tris = 0, t = now();

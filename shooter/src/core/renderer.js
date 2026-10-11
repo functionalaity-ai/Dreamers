@@ -207,9 +207,11 @@ export class Renderer {
   // the sun's shadow map (colour and depth) and only what can move (characters, swaying trees,
   // effects) is drawn on top: the same shadow map, without re-drawing millions of triangles.
   // freezeStatic also stops the per-frame matrix updates under the town's groups.
+  // Roots flagged userData.dynamic (the big map's loot containers) are left out.
   freezeStatic(roots) {
     const list = [];
     for (const root of roots) {
+      if (root.userData && root.userData.dynamic) continue;
       root.updateMatrixWorld(true);
       root.matrixWorldAutoUpdate = false;
       root.traverse((o) => { if (o.isMesh && !(o.material && SWAY.test(o.material.name))) list.push(o); });
@@ -218,6 +220,20 @@ export class Renderer {
     this.staticCast = new Array(list.length);
     this.staticSet = new Set(list);
     this.shadowCacheOK = false;
+  }
+
+  // The big map: the sun's shadow box (the same size as over the town) follows `center`, snapped
+  // to a 32 m grid so the cached static shadow is redrawn only when the snap moves.
+  followShadow(center) {
+    const sun = this.sun, sx = Math.round(center.x / 32) * 32, sz = Math.round(center.z / 32) * 32;
+    if (this._shadowAt && this._shadowAt.x === sx && this._shadowAt.z === sz) return false;
+    this._shadowAt = { x: sx, z: sz };
+    sun.target.position.set(sx, 0, sz);
+    sun.position.copy(SUN_DIR).multiplyScalar(140).add(sun.target.position);
+    sun.target.updateMatrixWorld();
+    sun.updateMatrixWorld();
+    this.shadowCacheOK = false;
+    return true;
   }
 
   installShadowCache() {

@@ -77,6 +77,10 @@ export class Builder {
 //   stair: { x, z, toRoof },                           (stairwell's min corner)
 //   inner: [{ axis: 'x'|'z', at, from, to, floors: [..], doors: [centres] }],
 //   roof: 'flat' | 'parapet', furnish(B, floor, y)
+//   breach(side, floor) → [{ c, w, y0, y1 }]           (optional: blown-out wall sections, no trim)
+//   holes(floor) → [{ x0, z0, x1, z1 }]                (optional: collapsed parts of the slab above)
+//   openTop: true                                      (optional: the top slab is an exposed floor
+//                                                       reached by the stairs; no parapet, no bulkhead)
 // }
 export function building(B, s) {
   const H = s.H || 3.4, t = s.wallT || 0.3, slab = 0.22;
@@ -96,6 +100,7 @@ export function building(B, s) {
     const winY0 = y0 + 0.95, winY1 = y0 + 2.45;
     const ops = { n: [], s: [], e: [], w: [] };
     if (f === 0) for (const d of s.doors || []) ops[d.side].push({ c: d.c, w: d.w || 1.3, y0: y0 - 1, y1: y0 + (d.h || 2.3), door: true });
+    if (s.breach) for (const side of ['n', 's', 'e', 'w']) for (const b of s.breach(side, f) || []) ops[side].push({ c: b.c, w: b.w, y0: y0 + (b.y0 || 0) - (f === 0 && !b.y0 ? 1 : 0), y1: y0 + (b.y1 || H), breach: true });
     const spacing = s.windowSpacing || 2.8;
     const addWindows = (side, a0, a1) => {
       const n = Math.max(1, Math.floor((a1 - a0 - 1) / spacing));
@@ -118,6 +123,7 @@ export function building(B, s) {
     // Window and door trim on the outside faces, plus nav hints at doors.
     for (const side of ['n', 's', 'e', 'w']) {
       for (const o of ops[side]) {
+        if (o.breach) continue;
         trimOpening(B, s, side, o, t, s.trim || 'trim');
         if (o.window && B.kit) {
           const f = side === 'n' ? { axis: 'x', p: s.z0, out: -1 } : side === 's' ? { axis: 'x', p: s.z1, out: 1 } : side === 'w' ? { axis: 'z', p: s.x0, out: -1 } : { axis: 'z', p: s.x1, out: 1 };
@@ -130,13 +136,16 @@ export function building(B, s) {
       }
     }
     // Floor slab above this storey (with the stairwell hole), or the roof.
-    const roofLevel = f === floors - 1;
-    const hole = (!roofLevel || st.toRoof) ? sw : null;
-    slabWithHole(B, s.x0, s.z0, s.x1, s.z1, y1 - slab, y1, hole, roofLevel ? 'concrete' : (s.floorMat || 'woodFloor'), roofLevel ? 'concrete' : 'concrete');
+    const roofLevel = f === floors - 1, up = st.toRoof || s.openTop;
+    const hole = (!roofLevel || up) ? sw : null;
+    const extra = s.holes ? s.holes(f) || [] : [];
+    const slabMat = roofLevel && !s.openTop ? 'concrete' : (s.floorMat || 'woodFloor');
+    if (extra.length) slabWithHoles(B, s.x0, s.z0, s.x1, s.z1, y1 - slab, y1, hole, extra, slabMat);
+    else slabWithHole(B, s.x0, s.z0, s.x1, s.z1, y1 - slab, y1, hole, slabMat, 'concrete');
     // Interior floor finish on the ground storey
     if (f === 0) B.solid(s.x0 + t, 0, s.z0 + t, s.x1 - t, 0.02, s.z1 - t, s.groundFloorMat || 'woodFloor', null, { shadow: false });
     // Stairs up from this storey
-    if (!roofLevel || st.toRoof) stairs(B, sw, y0, H, STEP_RISE, STEP_RUN);
+    if (!roofLevel || up) stairs(B, sw, y0, H, STEP_RISE, STEP_RUN);
     // Interior walls (drywall: bullets go through)
     for (const w of s.inner || []) {
       if (w.floors && w.floors.indexOf(f) === -1) continue;
@@ -165,7 +174,7 @@ export function building(B, s) {
     B.solid(s.x1 - 0.02, y - thick, s.z0, s.x1 + 0.18, y, s.z1, s.trim || 'trim', null);
   }
   // Roof parapet (waist-high cover) when the roof is reachable
-  if (st.toRoof) {
+  if (st.toRoof && !s.openTop) {
     const p = 1.05, pt = 0.25;
     B.solid(s.x0, top, s.z0, s.x1, top + p, s.z0 + pt, mats[1], 'brick');
     B.solid(s.x0, top, s.z1 - pt, s.x1, top + p, s.z1, mats[1], 'brick');
@@ -216,6 +225,30 @@ function slabWithHole(B, x0, z0, x1, z1, y0, y1, hole, mat, phys) {
   B.solid(hole.x0 + 1.2, y1, hole.z1 - 0.05, hole.x1, y1 + 1.0, hole.z1, 'darkMetal', 'metal');
   // Between the flights only: the landing below needs full headroom.
   B.solid(hole.x0 + 1.2, y1, hole.z0 + 0.3, hole.x0 + 1.3, y1 + 1.0, hole.z1 - 1.25, 'darkMetal', 'metal');
+}
+
+// A slab with the stairwell hole (and its railing) plus other holes: the slab is cut into strips
+// between every hole edge, and the strips clear of all holes are laid (merged along x).
+function slabWithHoles(B, x0, z0, x1, z1, y0, y1, stair, holes, mat) {
+  const all = (stair ? [stair] : []).concat(holes).map((h) => ({ x0: Math.max(x0, h.x0), x1: Math.min(x1, h.x1), z0: Math.max(z0, h.z0), z1: Math.min(z1, h.z1) })).filter((h) => h.x1 > h.x0 && h.z1 > h.z0);
+  const xs = [...new Set([x0, x1, ...all.flatMap((h) => [h.x0, h.x1])])].sort((a, b) => a - b);
+  const zs = [...new Set([z0, z1, ...all.flatMap((h) => [h.z0, h.z1])])].sort((a, b) => a - b);
+  for (let j = 0; j < zs.length - 1; j++) {
+    let run = null;
+    for (let i = 0; i < xs.length - 1; i++) {
+      const cx = (xs[i] + xs[i + 1]) / 2, cz = (zs[j] + zs[j + 1]) / 2;
+      const open = all.some((h) => cx > h.x0 && cx < h.x1 && cz > h.z0 && cz < h.z1);
+      if (!open && run === null) run = xs[i];
+      if ((open || i === xs.length - 2) && run !== null) {
+        B.solid(run, y0, zs[j], open ? xs[i] : xs[i + 1], y1, zs[j + 1], mat, 'concrete');
+        run = null;
+      }
+    }
+  }
+  if (stair) {
+    B.solid(stair.x0 + 1.2, y1, stair.z1 - 0.05, stair.x1, y1 + 1.0, stair.z1, 'darkMetal', 'metal');
+    B.solid(stair.x0 + 1.2, y1, stair.z0 + 0.3, stair.x0 + 1.3, y1 + 1.0, stair.z1 - 1.25, 'darkMetal', 'metal');
+  }
 }
 
 // U-shaped stairs: flight A climbs +z on the x0 side, landing, flight B climbs -z on the x1 side.
