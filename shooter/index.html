@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/br.css">
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/addons/": "./vendor/three/addons/" } }</script>
 </head>
 <body>
@@ -72,7 +73,8 @@
       <div class="brand big">IRON<br>MERIDIAN</div>
       <div class="op">OPERATION · OLD TOWN</div>
       <nav class="menu-nav">
-        <button class="mbtn primary" data-go="deploy">Deploy <small>Team Deathmatch · 4 v 4 with bots</small></button>
+        <button class="mbtn primary" data-go="deploy">Deploy <small id="deploy-sub">Team Deathmatch · 4 v 4 with bots</small></button>
+        <button class="mbtn mode-switch" id="mode-switch">Battle Royale <small>Switch mode · 16 players, last one standing</small></button>
         <button class="mbtn" data-go="loadouts">Loadouts &amp; Gunsmith</button>
         <button class="mbtn" data-go="settings">Settings</button>
         <button class="mbtn" data-go="controls">Controls</button>

@@ -42,7 +42,7 @@ export class HUD {
     $('limit').textContent = 'FIRST TO ' + MATCH.scoreLimit;
     this.killer = null;
     // the player's own guns, drawn with this loadout's attachments
-    if (this.icons) for (const w of this.g.player.weapons) this.icons.render(w.id, w.stats.att);
+    if (this.icons) for (const w of this.g.player.weapons) if (w) this.icons.render(w.id, w.stats.att);
     this.refreshAmmo();
   }
 

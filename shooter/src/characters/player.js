@@ -125,7 +125,7 @@ export class Player {
     this.handleMove(dt, input);
     this.handleWeapon(dt, input);
     // Regenerate health after a pause
-    if (g.time - this.lastHurt > MATCH.regenDelay && this.health < 100) this.health = Math.min(100, this.health + MATCH.regenRate * dt);
+    if (!g.noRegen && g.time - this.lastHurt > MATCH.regenDelay && this.health < 100) this.health = Math.min(100, this.health + MATCH.regenRate * dt);
     this.updateCamera(dt);
     vm.update(dt, {
       adsTarget: input.mouse.right && !this.mantle,
@@ -149,7 +149,7 @@ export class Player {
       } else if (this.stance === 'crouch') { if (canStand(PLAYER.height)) this.stance = 'stand'; }
       else this.stance = 'crouch';
     }
-    if (input.pressed('KeyZ')) {
+    if (input.pressed(this.game.proneKey || 'KeyZ')) {
       if (this.stance === 'prone') { if (canStand(PLAYER.crouchHeight)) this.stance = 'crouch'; }
       else if (this.body.grounded) this.stance = 'prone';
     }

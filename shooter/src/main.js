@@ -5,7 +5,9 @@ import { Materials } from './core/materials.js';
 import { Audio } from './core/audio.js';
 import { Input } from './core/input.js';
 import { Game } from './game/game.js';
+import { BRGame } from './game/br.js';
 import { HUD } from './ui/hud.js';
+import { BRHud } from './ui/brhud.js';
 import { Menus } from './ui/menus.js';
 import { Studio } from './ui/studio.js';
 import { Humanoid } from './characters/humanoid.js';
@@ -24,6 +26,8 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
 };
 const SETTINGS_KEY = 'iron-meridian-settings-v1', LOADOUTS_KEY = 'iron-meridian-loadouts-v1';
+// The mode is picked at boot: the menu switches it by setting this and reloading the page.
+const MODE = (() => { try { return window.sessionStorage.getItem('im-mode') === 'br' ? 'br' : 'tdm'; } catch (e) { return 'tdm'; } })();
 const TIPS = [
   'Interior walls are drywall. Bullets go through them; brick and concrete stop them.',
   'Tactical reloads keep a round in the chamber: 30 + 1.',
@@ -39,6 +43,14 @@ const SPRINT_TIP = {
 
 class App {
   async boot() {
+    this.br = MODE === 'br';
+    if (this.br) {
+      document.documentElement.classList.add('br');
+      const sub = document.querySelector('.load-sub');
+      if (sub && sub.firstChild) sub.firstChild.textContent = 'Building the Outskirts · ';
+      const lm = document.querySelector('.ld-mode');
+      if (lm) lm.innerHTML = 'Battle Royale <i></i> The Outskirts';
+    }
     // Phones and tablets get thumb controls instead of pointer lock (also switched on by a first touch).
     this.touchMode = false;
     if (isTouchDevice()) this.enableTouch();
@@ -76,7 +88,10 @@ class App {
     step(0.72, 'streets and buildings'); await frame();
     this.audio = new Audio();
     this.audio.setVolume(this.settings.volume);
-    this.game = new Game(this.R, this.mats, this.audio);
+    if (this.br) {
+      this.game = new BRGame(this.R, this.mats, this.audio);
+      this.game.preset = preset;
+    } else this.game = new Game(this.R, this.mats, this.audio);
     this.game.load();
     this.R.vol.setIndoor(this.game.map.indoor);
     // bounce light, baked once the town exists (and before the reflections, which then show it)
@@ -91,13 +106,15 @@ class App {
     step(0.9, 'operators'); await frame();
     this.hud = new HUD(this.game, this.settings);
     this.game.hud = this.hud;
-    const banner = this.hud.matchOver.bind(this.hud);
+    if (this.br) { this.brhud = new BRHud(this.game, this.hud); this.game.brhud = this.brhud; }
+    const banner = this.br ? (r) => this.brhud.matchOver(r) : this.hud.matchOver.bind(this.hud);
     this.hud.matchOver = (w) => { banner(w); this.matchOver(w); };
     this.studio = new Studio(this.R, this.mats);
     this.studio.bind($('gunsmith'));
     this.input = new Input(canvas);
     this.input.onUnlock = () => { if (this.mode === 'playing') this.pause(); };
     this.touch = new TouchControls(this.input, { onPause: () => this.pause() });
+    if (this.br) this.touch.proneKey = this.game.proneKey;
     this.menus = new Menus(this);
     this.buildLineup();
     this.game.vm.setScopeRes(preset.scopeRes);
@@ -204,7 +221,9 @@ class App {
     const R = this.R;
     R.applyPreset(PRESETS[this.settings.preset]);
     const hide = this.game.characters.map((c) => c.h ? c.h.group : null).filter(Boolean);
-    R.captureProbe(new THREE.Vector3(2, 3.2, 9), new THREE.Box3(new THREE.Vector3(-56, -0.2, -22.2), new THREE.Vector3(56, 30, 22.2)), hide);
+    const spot = this.game.probeSpot;
+    if (spot) R.captureProbe(spot.pos, spot.box, hide);
+    else R.captureProbe(new THREE.Vector3(2, 3.2, 9), new THREE.Box3(new THREE.Vector3(-56, -0.2, -22.2), new THREE.Vector3(56, 30, 22.2)), hide);
     for (const m of SHARED_PROBE_MATS) { m.envMap = R.probe.texture; m.needsUpdate = true; }
     SHARED.probeOn.value = 1;
   }
@@ -217,6 +236,7 @@ class App {
   // Three operators at low ready, posed by the fountain for the menu backdrop.
   buildLineup() {
     this.lineup = [];
+    if (this.br) return; // Battle Royale's menu flies over the map instead
     const spots = [[-2.6, 6.2, 2.75], [-1.2, 6.9, 3.05], [0.1, 6.3, 3.4]];
     spots.forEach((s, i) => {
       const h = new Humanoid(this.mats.char.msg, 'msg', 101 + i * 37);
@@ -356,6 +376,7 @@ class App {
     this.menuT = (this.menuT || 0) + dt;
     const t = this.menuT * 0.05;
     const cam = this.R.camera;
+    if (this.game.menuView) { this.game.menuView(cam, this.menuT); this.game.showViewmodel(false); this.audio.setListener(cam); return; }
     cam.position.set(-1.3 + Math.sin(t) * 1.6, 1.55 + Math.sin(t * 1.7) * 0.08, 10.8 + Math.cos(t) * 0.8);
     cam.fov = 48;
     cam.updateProjectionMatrix();

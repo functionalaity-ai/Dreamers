@@ -26,6 +26,19 @@ export class Menus {
     $('again').addEventListener('click', () => app.deploy());
     $('to-menu').addEventListener('click', () => app.toMenu());
     $('clicktoplay').addEventListener('click', () => app.resume());
+    // Mode switch: Team Deathmatch <-> Battle Royale (each builds its own map, so the page reloads)
+    $('mode-switch').addEventListener('click', () => {
+      try { window.sessionStorage.setItem('im-mode', app.br ? 'tdm' : 'br'); } catch (e) { /* storage unavailable */ }
+      window.location.reload();
+    });
+    if (app.br) {
+      $('deploy-sub').textContent = 'Battle Royale · 16 players';
+      $('mode-switch').innerHTML = 'Team Deathmatch <small>Switch mode · 4 v 4 in Old Town</small>';
+      document.querySelector('#menu .op').textContent = 'OPERATION · THE OUTSKIRTS';
+      document.querySelector('#menu .brief p').textContent = 'Sixteen operators, one plane, no teams. Jump where you like, search the houses for guns, armor and medical kits, and stay inside the zone as it closes. Last one standing wins.';
+      const lo = document.querySelector('[data-go="loadouts"]');
+      if (lo) lo.hidden = true;
+    }
   }
 
   show(name, isBack) {
@@ -54,6 +67,11 @@ export class Menus {
   }
 
   renderMenuLoadout() {
+    if (this.app.br) {
+      $('menu-loadout').innerHTML = '<h3>Drop kit</h3><div class="lo-sum"><div class="w"><span>Sidearm</span><b>P9 Warden</b><em>One spare magazine</em></div>' +
+        '<div class="w"><span>Gear</span><b>Nothing else</b><em>Loot guns, armor plates, heals and ammo</em></div></div>';
+      return;
+    }
     const lo = this.app.loadout();
     $('menu-loadout').innerHTML = '<h3>Loadout · ' + esc(lo.name) + '</h3><div class="lo-sum">' +
       ['primary', 'secondary'].map((slot) => {
@@ -190,17 +208,19 @@ export class Menus {
       ['Sights', 'Aim down sights (tap on, tap off)'], ['Jump', 'Jump · vault and mantle ledges'],
       ['Crouch', 'Tap: crouch, or slide while sprinting · hold: prone'], ['Reload', 'Tap: reload · hold: mag check'],
       ['Frag', 'Throw frag'], ['Swap', 'Switch weapon'], ['Mode', 'Fire mode'], ['☰', 'Scoreboard'], ['II', 'Pause'],
-    ] : [
+    ].concat(this.app.br ? [['Interact', 'Search a container, pick up, take all'], ['Heal', 'Tap: best heal · hold: armor plate'], ['Map', 'Map'], ['Jump', 'Jump from the plane']] : []) : [
       ['W A S D', 'Move'], ['Mouse', 'Look'], ['Left click', 'Fire'], ['Right click (hold)', 'Aim down sights'],
       ['Shift (hold)', 'Sprint — double-tap for tactical sprint'], ['C / Ctrl', 'Crouch — while sprinting: slide'], ['Z', 'Prone'],
       ['Q / E (hold)', 'Lean left / right'], ['Space', 'Jump · vault and mantle ledges'], ['R', 'Reload (tactical keeps one in the chamber)'],
       ['T', 'Mag check'], ['B', 'Fire mode'], ['1 / 2 / wheel', 'Switch weapon'], ['G', 'Throw frag'], ['Tab (hold)', 'Scoreboard'], ['Esc', 'Pause'],
-    ];
+    ].concat(this.app.br ? [['Space / F', 'Jump from the plane'], ['E', 'Search a container · pick up · take all'], ['F', 'Take or swap the weapon in a container'],
+      ['H / 4', 'Use the best heal'], ['Z', 'Armor plate (prone moves to X)'], ['M', 'Map']] : []);
     $('keys').innerHTML = rows.map((r) => '<kbd>' + esc(r[0]) + '</kbd><span>' + esc(r[1]) + '</span>').join('');
   }
 
   renderOver(winner) {
     const g = this.app.game;
+    if (this.app.brhud) { this.app.brhud.renderOver(); this.show('over'); return; }
     const won = winner === g.player.team;
     $('over-title').textContent = winner === 'draw' ? 'Draw' : won ? 'Victory' : 'Defeat';
     $('over-sub').textContent = (winner === 'draw' ? 'Time ran out with the score level.' : FACTIONS[winner].name + ' takes Old Town.') + '  MSG ' + g.scores.msg + ' – ' + g.scores.volk + ' Volk';
