@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drop test</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #111; overflow: hidden; font: 13px/1.4 system-ui, sans-serif; color: #eee; }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud { position: fixed; left: 12px; top: 10px; background: rgba(0,0,0,0.45); padding: 8px 10px; border-radius: 4px; white-space: pre; font-family: ui-monospace, monospace; }
+    #help { position: fixed; right: 12px; bottom: 10px; background: rgba(0,0,0,0.45); padding: 8px 10px; border-radius: 4px; max-width: 360px; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "../vendor/three/three.module.js", "three/addons/": "../vendor/three/addons/" } }</script>
+</head>
+<body>
+  <canvas id="view" tabindex="-1"></canvas>
+  <div id="hud">loading…</div>
+  <div id="help">Click to start (captures the mouse). <b>Aboard:</b> Space/F jump when the light is green, mouse orbits.
+    <b>Freefall:</b> mouse turns, W dive, S slow, A/D slide, Space/F open (below 400 m). <b>Canopy:</b> A/D toggles, S brakes,
+    W front risers, Space flare. R restarts. URL: <code>?town</code> lands on Old Town, <code>?bots=12</code>.</div>
+  <script type="module">
+    // Battle royale drop test bench: a flat field with a few blocks to land on (or Old Town with
+    // ?town), the transport flying across it, the player and bots dropping (game/drop.js).
+    import * as THREE from 'three';
+    import { Renderer, SUN_DIR } from '../src/core/renderer.js';
+    import { Materials } from '../src/core/materials.js';
+    import { Audio } from '../src/core/audio.js';
+    import { Input } from '../src/core/input.js';
+    import { Physics } from '../src/core/physics.js';
+    import { PRESETS } from '../src/config.js';
+    import { SHARED, linkProbe } from '../src/core/shaderlib.js';
+    import { cloudTexture } from '../src/core/sky.js';
+    import { Humanoid } from '../src/characters/humanoid.js';
+    import { Drop } from '../src/game/drop.js';
+
+    const q = new URLSearchParams(location.search);
+    const hud = document.getElementById('hud');
+    const saved = (() => { try { return JSON.parse(localStorage.getItem('iron-meridian-settings-v1')) || {}; } catch (e) { return {}; } })();
+    const preset = PRESETS[q.get('preset') || saved.preset] || PRESETS.medium;
+    const canvas = document.getElementById('view');
+    const R = new Renderer(canvas);
+    linkProbe(R.probe.uniforms);
+    SHARED.sunDirW.value.copy(SUN_DIR);
+    SHARED.sunColorW.value.copy(R.sun.color).multiplyScalar(R.sun.intensity);
+    SHARED.ambW.value.setRGB(0.55, 0.62, 0.75);
+    hud.textContent = 'baking materials…';
+    const mats = await new Materials(preset, R.r).build();
+    R.setClouds(cloudTexture(mats.baker));
+    R.applyPreset(preset);
+    const audio = new Audio();
+    const BOUNDS = { minX: -210, minZ: -210, maxX: 210, maxZ: 210 };
+    const physics = new Physics(BOUNDS.minX - 10, BOUNDS.minZ - 10, BOUNDS.maxX + 10, BOUNDS.maxZ + 10);
+    const scene = R.scene;
+
+    // A patchwork of fields with tracks, so height and speed read from the air.
+    function fieldTexture() {
+      const S = 1024, cv = document.createElement('canvas');
+      cv.width = cv.height = S;
+      const g = cv.getContext('2d');
+      let seed = 3;
+      const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+      const cols = ['#5d6a3a', '#6f7444', '#7b6f47', '#56633a', '#8a7d52', '#4f5d35', '#6a6a3f'];
+      for (let y = 0; y < S; y += 64) for (let x = 0; x < S; x += 64) {
+        const w = 64 * (1 + Math.floor(rnd() * 2)), h = 64;
+        g.fillStyle = cols[Math.floor(rnd() * cols.length)];
+        g.fillRect(x, y, w, h);
+        g.strokeStyle = 'rgba(0,0,0,0.08)';
+        for (let i = 0; i < 64; i += 4) { g.beginPath(); if (rnd() > 0.5) { g.moveTo(x, y + i); g.lineTo(x + w, y + i); } else { g.moveTo(x + i, y); g.lineTo(x + i, y + h); } g.stroke(); }
+      }
+      g.strokeStyle = '#9b8f73'; g.lineWidth = 5;
+      for (const p of [[0, 300, S, 340], [420, 0, 470, S], [0, 760, S, 700]]) { g.beginPath(); g.moveTo(p[0], p[1]); g.lineTo(p[2], p[3]); g.stroke(); }
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      return t;
+    }
+    let town = null;
+    if (q.has('town')) {
+      const { buildOldTown } = await import('../src/world/oldtown.js');
+      town = buildOldTown(physics, mats, scene);
+    }
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: fieldTexture(), roughness: 0.95 }));
+    ground.position.y = town ? -0.06 : 0;
+    ground.receiveShadow = true;
+    scene.add(ground);
+    if (!town) {
+      // concrete blocks: roofs to land on
+      const blocks = [[30, -40, 18, 14, 12], [-50, 30, 14, 22, 18], [80, 60, 24, 12, 7], [-20, -90, 10, 10, 25], [0, 10, 16, 16, 9], [120, -20, 20, 30, 14]];
+      for (const [x, z, w, d, h] of blocks) {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats.world.panelPlinth || mats.world.concrete);
+        m.position.set(x, h / 2, z);
+        m.castShadow = m.receiveShadow = true;
+        scene.add(m);
+        physics.add(x - w / 2, 0, z - d / 2, x + w / 2, h, z + d / 2, 'concrete');
+      }
+    }
+    // Player stand-in (the drop borrows an operator for its body) and bots with operator bodies.
+    const player = { name: 'You', team: 'msg', isBot: false, alive: true, body: { p: new THREE.Vector3(), v: new THREE.Vector3(), grounded: true }, eye: new THREE.Vector3(), yaw: 0, pitch: 0, weapons: [] };
+    const nBots = +(q.get('bots') || 6);
+    const bots = [];
+    for (let i = 0; i < nBots; i++) {
+      const team = i % 2 ? 'volk' : 'msg';
+      const h = new Humanoid(mats.char[team], team, 11 + i * 7919);
+      scene.add(h.group);
+      bots.push({ name: 'Bot' + i, team, isBot: true, alive: true, h, body: { p: new THREE.Vector3(), v: new THREE.Vector3(), grounded: true }, eye: new THREE.Vector3(), yaw: 0, pitch: 0 });
+    }
+    const game = { scene, R, mats, physics, bounds: BOUNDS, audio, player, camera: R.camera, showViewmodel() {} };
+    const drop = new Drop(game);
+    window.__drop = drop; window.__R = R; window.__bots = bots; window.__player = player; window.__game = game;
+    const log = [];
+    window.__log = log;
+    drop.onLand = (c, info) => log.push({ who: c.name, t: +drop.time.toFixed(1), at: info.point.toArray().map((v) => +v.toFixed(1)), vSpeed: +info.vSpeed.toFixed(2), hSpeed: +info.hSpeed.toFixed(2), flared: info.flared, roof: info.roof });
+    function start() {
+      const a = new THREE.Vector3(-210, 420, -40), b = new THREE.Vector3(210, 420, 50);
+      for (const bt of bots) drop.plan(bt, { x: -150 + Math.random() * 300, z: -150 + Math.random() * 300 });
+      drop.begin({ a, b }, [player, ...bots]);
+    }
+    window.__start = start;
+    start();
+    // the borrowed first-person view after landing: stand where you landed and look around
+    const input = new Input(canvas);
+    input.enabled = true;
+    canvas.addEventListener('click', () => { audio.unlock(); input.lock(); });
+    window.__input = input;
+    let last = performance.now();
+    window.__mode = 'run';
+    function frame(t) {
+      requestAnimationFrame(frame);
+      if (window.__mode !== 'run') return;
+      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      if (input.pressed('KeyR')) start();
+      drop.update(dt, input);
+      if (drop.state(player) === 'landed') {
+        player.yaw -= input.mouse.dx * 0.0022; player.pitch = Math.max(-1.4, Math.min(1.4, player.pitch - input.mouse.dy * 0.0022));
+        R.camera.position.set(player.body.p.x, player.body.p.y + 1.66, player.body.p.z);
+        R.camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+        R.camera.fov = 80; R.camera.updateProjectionMatrix();
+      }
+      for (const bt of bots) if (drop.state(bt) === 'landed') { bt.h.group.position.copy(bt.body.p); bt.h.group.rotation.set(0, bt.yaw, 0); bt.h.update(dt, { speed: 0, aimPitch: -0.1 }); }
+      R.render();
+      input.endFrame();
+      const st = drop.state(player);
+      hud.textContent = `state   ${st}\naltitude ${drop.altitude(player).toFixed(0)} m\nAGL      ${drop.distanceToGround(player).toFixed(0)} m\nspeed    ${drop.speed(player).toFixed(1)} m/s\ndescent  ${drop.verticalSpeed(player).toFixed(1)} m/s\nload     ${drop.gLoad(player).toFixed(1)} g` +
+        (st === 'plane' ? (drop.canJump(player) ? '\n[Space] JUMP — green light' : '\nred light: stand by') : '') + (drop.canDeploy(player) ? '\n[Space] open canopy' : '');
+    }
+    requestAnimationFrame(frame);
+    window.__ready = true;
+  </script>
+</body>
+</html>
