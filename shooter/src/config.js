@@ -124,6 +124,14 @@ export const PRESETS = {
   ultra: { name: 'Ultra', pixelRatio: 2, shadowSize: 4096, softShadows: true, ao: true, aoRes: 1, bloom: true, aa: 'smaa', anisotropy: 16, scopeRes: 1024, textureSize: 2048, volumetric: { steps: 64, scale: 0.5 }, dust: 5000, vmShadows: true, parallax: 16 },
 };
 
+// Touch devices: High/Ultra keep bloom, soft shadows and sharper textures, but drop the effects
+// that choke phone GPUs (full-res AO, 4K shadows every frame, 64-step fog) and scale resolution
+// down automatically when frames run slow.
+export const PHONE_TUNE = {
+  high: { pixelRatio: 1.25, shadowSize: 2048, softShadows: false, ao: false, bloom: true, aa: 'fxaa', anisotropy: 4, scopeRes: 384, textureSize: 1024, volumetric: { steps: 20, scale: 0.4 }, dust: 1000, vmShadows: false, windowShadows: false, parallax: 6, shadowEvery: 2, adaptive: true },
+  ultra: { pixelRatio: 1.5, shadowSize: 2048, softShadows: true, ao: true, aoRes: 0.5, bloom: true, aa: 'fxaa', anisotropy: 8, scopeRes: 512, textureSize: 1024, volumetric: { steps: 28, scale: 0.4 }, dust: 1500, vmShadows: false, windowShadows: false, parallax: 8, shadowEvery: 2, adaptive: true },
+};
+
 export const DEFAULT_SETTINGS = {
   preset: 'high', fov: 90, sens: 1, adsSens: 0.8, invertY: false, volume: 0.8,
   ammoDisplay: 'numeric', showFps: false, difficulty: 'regular', superSample: 1,

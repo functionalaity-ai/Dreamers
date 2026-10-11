@@ -12,7 +12,7 @@ import { Menus } from './ui/menus.js';
 import { Studio } from './ui/studio.js';
 import { Humanoid } from './characters/humanoid.js';
 import { buildGun, bakeGun } from './weapons/gunmodels.js';
-import { PRESETS, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
+import { PRESETS, PHONE_TUNE, DEFAULT_SETTINGS, DEFAULT_LOADOUTS } from './config.js';
 import { SHARED, SHARED_PROBE_MATS, linkProbe } from './core/shaderlib.js';
 import { SUN_DIR } from './core/renderer.js';
 import { cloudTexture } from './core/sky.js';
@@ -63,7 +63,8 @@ class App {
     $('load-tip').textContent = tips[Math.floor(Math.random() * tips.length)];
     const saved = store.get(SETTINGS_KEY, {});
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
-    if (!saved.preset && this.touchMode) this.settings.preset = 'mobile';
+    // phones keep their chosen preset, but High/Ultra swap in phone-tuned settings (see PHONE_TUNE)
+    if (this.touchMode) for (const k in PHONE_TUNE) Object.assign(PRESETS[k], PHONE_TUNE[k]);
     if (!PRESETS[this.settings.preset]) this.settings.preset = 'high';
     if (![1, 1.5, 2].includes(this.settings.superSample)) this.settings.superSample = 1;
     if (typeof this.settings.loadout !== 'number') this.settings.loadout = 0;
@@ -357,7 +358,8 @@ class App {
         g.effects.update(dt, R.camera);
       }
       this.renderScope();
-      R.render();
+      // menus don't need a full-rate 3D backdrop: draw it every third frame so taps land immediately
+      if (this.mode !== 'menu' || (this.menuFrame = ((this.menuFrame || 0) + 1) % 3) === 0) R.render();
     }
     this.input.endFrame();
     requestAnimationFrame((tt) => this.loop(tt));
