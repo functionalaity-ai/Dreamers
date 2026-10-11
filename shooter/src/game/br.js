@@ -254,10 +254,10 @@ export class BRGame extends Game {
 
   // --- combat --------------------------------------------------------------------------------
   onHit(char, dmg, info) {
-    const wasAlive = char.alive;
+    const wasAlive = char.alive, hp = char.health;
     const dealt = char.takeDamage(dmg, info);
     if (dealt <= 0) return;
-    if (info.attacker) { info.attacker.stats.hits++; info.attacker.stats.dmg = (info.attacker.stats.dmg || 0) + dealt; }
+    if (info.attacker) { info.attacker.stats.hits++; info.attacker.stats.dmg = (info.attacker.stats.dmg || 0) + Math.min(dealt, hp); }
     if (char === this.player && this.use) { this.use = null; this.hud.notice('Interrupted'); }
     if (char.heal) char.heal = null;
     this.effects.bloodHit(info.point, info.dir);
@@ -465,7 +465,7 @@ export class BRGame extends Game {
       this.zone.update(dt, this.camera, landed && p.alive && !this.zone.inside(p.body.p));
       this.timeLeft = Math.max(0, ZONE_TOTAL - (this.time - this.t0));
     } else this.zone.update(0, this.camera, false);
-    if (drop.state(p) === 'plane' && p.alive && (input.pressed('Space') || input.pressed('KeyF'))) { drop.jump(p); input.consume('Space'); input.consume('KeyF'); }
+    if (drop.state(p) === 'plane' && p.alive && (input.pressed('Space') || input.pressed('KeyF'))) { drop.jump(p); input.consume('Space'); input.consume('KeyF'); if (this.brhud) this.brhud.jumped(); }
     if (drop.active) drop.update(dt, input);
     if (landed && p.alive && this.state === 'playing') this.playerTurn(dt, input, settings);
     else if (!p.alive) this.deathCam(dt);

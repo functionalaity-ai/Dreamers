@@ -40,9 +40,9 @@ html.br #protect { display: none !important; }
 #br-use b { position: absolute; top: 84px; white-space: nowrap; font-size: 15px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; }
 
 #br-inv { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: stretch; gap: 2px; font-variant-numeric: tabular-nums; }
-#br-inv .it { background: var(--panel); padding: 4px 9px 3px; display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+#br-inv .it { background: var(--panel); padding: 3px 6px 2px; display: flex; flex-direction: column; align-items: center; min-width: 46px; }
 #br-inv .it b { font-family: var(--mono); font-size: 17px; font-weight: 600; line-height: 1.1; }
-#br-inv .it span { font-size: 11px; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+#br-inv .it span { font-size: 10px; letter-spacing: 0.06em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
 #br-inv .it kbd { font-size: 10px; padding: 0 3px; margin: 0 0 0 2px; }
 #br-inv .it i { width: 14px; height: 4px; margin-bottom: 2px; background: #d8d4c8; }
 #br-inv .it.medkit i, #br-inv .it.bandage i { background: #e05a4a; }
@@ -53,11 +53,17 @@ html.br #protect { display: none !important; }
 #br-inv .it.a556 i { background: #d9b56a; } #br-inv .it.a9mm i { background: #9fc4e8; } #br-inv .it.a12g i { background: #d5574a; }
 #br-inv .it.none { opacity: 0.45; }
 #br-inv .it.cur { box-shadow: inset 0 -2px 0 var(--accent); }
-#br-inv .it.gun { justify-content: center; min-width: 0; }
-#br-inv .it.gun span { color: var(--fg); font-size: 12px; }
-#br-inv .sep { width: 8px; }
+#br-inv .sep { width: 6px; }
+@media (max-width: 1100px) { #br-inv { bottom: calc(118px + env(safe-area-inset-bottom, 0px)); } }
+/* the two weapon slots, above the weapon panel */
+#br-slots { position: absolute; right: 18px; bottom: calc(204px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 2px; }
+#br-slots div { background: var(--panel); padding: 3px 10px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+#br-slots div.cur { box-shadow: inset 0 -2px 0 var(--accent); }
+#br-slots div.none { color: var(--muted); }
+@media (max-height: 520px) { #br-slots { bottom: calc(176px + env(safe-area-inset-bottom, 0px)); } }
+.touch #br-slots { display: none; }
 
-#br-air { position: absolute; right: 200px; top: 40%; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+#br-air { position: absolute; right: 16px; top: calc(196px + env(safe-area-inset-top, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 #br-air .rd { background: var(--panel); padding: 4px 12px; display: flex; align-items: baseline; gap: 6px; }
 #br-air .rd b { font-family: var(--mono); font-size: 26px; font-weight: 600; }
 #br-air .rd small { color: var(--muted); font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -76,7 +82,7 @@ html.br #protect { display: none !important; }
 #br-map .lg.next { border-color: #fff; border-top-style: dashed; }
 #br-map .lg.path { border-color: #ffd27a; border-top-style: dashed; }
 
-#br-loot { position: fixed; z-index: 13; left: calc(50% + 70px); top: 38%; min-width: 230px; max-width: 320px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); padding: 8px 10px; backdrop-filter: blur(6px); font-family: var(--font); color: var(--fg); }
+#br-loot { position: fixed; z-index: 13; left: calc(50% + 120px); top: 36%; min-width: 230px; max-width: 320px; background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--accent); padding: 8px 10px; backdrop-filter: blur(6px); font-family: var(--font); color: var(--fg); }
 #br-loot h4 { margin: 0 0 6px; font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 #br-loot ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 #br-loot li { display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: rgba(233, 230, 220, 0.05); font-size: 16px; cursor: pointer; border-left: 2px solid #d8d4c8; }
@@ -109,6 +115,6 @@ html.br #touch .tb.interact, html.br #touch .tb.heal, html.br #touch .tb.map { d
 .touch #br-inv .it b { font-size: 13px; }
 .touch #br-inv .it span { font-size: 9px; }
 .touch #br-inv .it kbd { display: none; }
-.touch #br-air { right: 50%; transform: translateX(50%); top: 30%; align-items: center; }
+.touch #br-air { top: calc(176px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); }
 .touch #br-loot { left: auto; right: calc(80px + env(safe-area-inset-right, 0px)); top: 22%; }
-@media (max-width: 760px) { #br-inv .it.gun { display: none; } #br-air { right: 16px; } }
+

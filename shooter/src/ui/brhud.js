@@ -32,6 +32,7 @@ export class BRHud {
       <div id="br-prompt" hidden></div>
       <div id="br-use" hidden><svg viewBox="0 0 60 60"><circle class="trk" cx="30" cy="30" r="26"/><circle class="val" id="br-use-ring" cx="30" cy="30" r="26"/></svg><span id="br-use-t"></span><b id="br-use-name"></b></div>
       <div id="br-inv"></div>
+      <div id="br-slots"></div>
       <div id="br-air" hidden><div class="rd"><b id="br-alt">0</b><small>m altitude</small></div><div class="rd"><b id="br-spd">0</b><small>m/s</small></div><div class="hint" id="br-jump">Press <kbd>Space</kbd> / <kbd>F</kbd> to jump</div></div>
       <div id="br-map" hidden><div class="frame"><canvas id="br-map-c"></canvas><div class="mhead"><b>The Outskirts</b><span id="br-map-sub"></span></div><div class="mfoot" id="br-map-foot"></div></div></div>`;
     $('hud').appendChild(root);
@@ -67,6 +68,7 @@ export class BRHud {
   }
 
   landed() { this.mapOpen = false; }
+  jumped() { this.mapOpen = false; }
 
   // --- the map, drawn once ---------------------------------------------------------------------
   buildStatic() {
@@ -168,7 +170,7 @@ export class BRHud {
     if (this.frame % 2 === 0) this.drawMini(p, z, air);
     const showMap = this.mapOpen && g.state !== 'over';
     $('br-map').hidden = !showMap;
-    if (showMap) this.drawBig(p, z, st);
+    if (showMap && (this.frame % 3 === 0 || this.frame - (this.bigFrame || -9) > 3)) { this.bigFrame = this.frame; this.drawBig(p, z, st); }
   }
 
   inventory(p) {
@@ -182,8 +184,8 @@ export class BRHud {
       return '<div class="it ' + k + (n ? '' : ' none') + '"><i></i><b>' + n + '</b><span>' + label + (kb ? ' <kbd>' + kb + '</kbd>' : '') + '</span></div>';
     }).join('');
     h += '<div class="sep"></div>' + Object.keys(AMMO).map((c) => '<div class="it ammo a' + c + (c === cal ? ' cur' : '') + (inv.ammo[c] ? '' : ' none') + '"><i></i><b>' + inv.ammo[c] + '</b><span>' + (c === '556' ? '5.56' : c === '9mm' ? '9 mm' : '12 ga') + '</span></div>').join('');
-    h += '<div class="sep"></div>' + p.weapons.map((w, i) => '<div class="it gun' + (i === p.cur ? ' cur' : '') + (w ? '' : ' none') + '"><span><kbd>' + (i + 1) + '</kbd> ' + (w ? esc(WEAPONS[w.id].name) : (i === 0 ? 'Primary · empty' : 'Empty')) + '</span></div>').join('');
     $('br-inv').innerHTML = h;
+    $('br-slots').innerHTML = p.weapons.map((w, i) => '<div class="' + (i === p.cur ? 'cur' : '') + (w ? '' : ' none') + '"><kbd>' + (i + 1) + '</kbd>' + (w ? esc(WEAPONS[w.id].name) : 'Empty') + '</div>').join('');
   }
 
   prompt(g, p, air) {

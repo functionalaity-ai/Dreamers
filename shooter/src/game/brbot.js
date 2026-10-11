@@ -18,6 +18,7 @@ export class BRBot extends Bot {
     this.heal = null;
     this.looted = 0;
     this.boost = 0;
+    this.visited = new Set();   // containers, crates and pickups already gone through
   }
 
   // Hold a different gun (rebuilds the third-person model).
@@ -51,6 +52,7 @@ export class BRBot extends Bot {
     this.boost = 0;
     this.heal = null;
     this.looted = 0;
+    this.visited.clear();
     this.lootTarget = null;
     this.direct = false;
     this.landT = null;
@@ -96,6 +98,7 @@ export class BRBot extends Bot {
   // --- looting --------------------------------------------------------------------------------
   lootFrom(src) {
     const L = this.game.loot;
+    this.visited.add(src);
     if (src.kind === 'pickup') {
       const left = this.take(src.item, (old) => L.addPickup(old, src.pos));
       if (left === 0) L.removePickup(src); else if (left > 0) src.item.n = left;

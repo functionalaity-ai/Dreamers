@@ -437,7 +437,11 @@ export class LootWorld {
   nearestFor(bot, radius, want) {
     const p = bot.body.p;
     let best = null, bestD = radius;
-    const ok = (ref) => { const c = this.claims.get(ref); return !c || c === bot || !c.alive; };
+    const ok = (ref) => {
+      if (bot.visited && bot.visited.has(ref)) return false;
+      const c = this.claims.get(ref);
+      return !c || c === bot || !c.alive;
+    };
     const check = (ref, d) => { if (d < bestD && ok(ref)) { bestD = d; best = ref; } };
     for (const c of this.containers) if (!c.looted && (!c.opened || (c.items && c.items.length))) check(c, c.pos.distanceTo(p) + Math.abs(c.pos.y - p.y) * 3);
     for (const b of this.boxes) check(b, b.pos.distanceTo(p));

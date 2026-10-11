@@ -108,13 +108,13 @@ void main() {
   float ribs = smoothstep(0.93, 1.0, fract(u * 0.125)) * 0.35;
   float shimmer = 0.5 + 0.5 * sin(u * 0.05 + y * 0.03 + uTime * 0.8);
   float foot = exp(-max(0.0, y) * 0.12);
-  float high = exp(-max(0.0, y) * 0.004);
+  float high = exp(-max(0.0, y) * 0.0025);
   float lines = max(bands, ribs);
-  vec3 blue = vec3(0.22, 0.55, 1.35), red = vec3(1.35, 0.28, 0.2);
-  vec3 col = mix(blue, red, uRed) * (0.55 + 0.6 * lines + 0.25 * shimmer + 1.4 * foot);
+  vec3 blue = vec3(0.3, 0.75, 2.0), red = vec3(2.0, 0.4, 0.3);
+  vec3 col = mix(blue, red, uRed) * (1.1 + 1.3 * lines + 0.5 * shimmer + 0.9 * foot);
   // fade out right in front of the camera so walking through it doesn't flash the screen
   float near = smoothstep(1.5, 9.0, distance(vW, uCam));
-  float a = uAlpha * (0.32 + 0.5 * lines + 0.6 * foot) * high * near;
+  float a = uAlpha * (0.42 + 0.45 * lines + 0.35 * foot) * high * near;
   gl_FragColor = vec4(col, clamp(a, 0.0, 0.85));
 }`;
 
@@ -125,7 +125,7 @@ export class Zone extends ZoneLogic {
     const geo = new THREE.CylinderGeometry(1, 1, 1, 160, 1, true).translate(0, 0.5, 0);
     this.mat = new THREE.ShaderMaterial({
       vertexShader: WALL_VS, fragmentShader: WALL_FS, transparent: true, depthWrite: false, side: THREE.DoubleSide,
-      uniforms: { uTime: { value: 0 }, uR: { value: 1 }, uRed: { value: 0 }, uAlpha: { value: 0.55 }, uCam: { value: new THREE.Vector3() } },
+      uniforms: { uTime: { value: 0 }, uR: { value: 1 }, uRed: { value: 0 }, uAlpha: { value: 0.6 }, uCam: { value: new THREE.Vector3() } },
     });
     this.wall = new THREE.Mesh(geo, this.mat);
     this.wall.frustumCulled = false;

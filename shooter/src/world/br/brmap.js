@@ -48,6 +48,7 @@ export function buildBRMap(physics, materials, scene) {
     group: ot.group, bounds: BR_BOUNDS, containers, groundLoot, buildings, roads, landmarks,
     hints: ot.hints, indoor: ot.indoor, lights: ot.lights, signs: ot.signs, points: ot.points,
     spawns: { msg: [], volk: [] },
+    probe: { pos: [2, 3.2, 9], box: [[-56, -0.2, -22.2], [56, 30, 22.2]] },   // Old Town's reflection probe
     update(camera, dt) { for (const c of containers) c.update(dt); },
   };
 }

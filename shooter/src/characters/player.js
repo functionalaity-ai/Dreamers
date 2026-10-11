@@ -276,7 +276,7 @@ export class Player {
 
   handleWeapon(dt, input) {
     const g = this.game, vm = g.vm;
-    for (const w of this.weapons) w.update(dt);
+    for (const w of this.weapons) if (w) w.update(dt);   // a slot can be empty (Battle Royale)
     const ws = this.ws;
     // Switch weapons
     let sw = -1;
