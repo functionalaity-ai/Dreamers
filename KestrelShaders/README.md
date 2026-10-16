@@ -127,10 +127,10 @@ Renders of a procedural test scene from the development harness (`tools/render_t
 Mesa software renderer). These are **not in-game screenshots**: they show the look of the
 lighting, sky, water and post-processing.
 
-![Day, MEDIUM profile](docs/images/preview_day.png)
-![Sunset](docs/images/preview_sunset.png)
-![Night](docs/images/preview_night.png)
-![Rain](docs/images/preview_rain.png)
+![Day, MEDIUM profile](docs/images/preview_day.jpg)
+![Sunset](docs/images/preview_sunset.jpg)
+![Night](docs/images/preview_night.jpg)
+![Rain](docs/images/preview_rain.jpg)
 
 ## Documentation
 

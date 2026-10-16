@@ -138,15 +138,20 @@ void main() {
 #ifdef PROGRAM_WATER
 	if (id == ID_WATER) {
 		vec3 worldPos = worldPosWrapped(playerPos);
-		bool top = geoNPlayer.y > 0.5;
+		// Use the face's own normal (not the viewer-facing one) to find the top surface,
+		// so the surface is recognised from below too.
+		bool top = viewToPlayerDir(normalize(vNormal)).y > 0.5;
 		bool fromBelow = isEyeInWater == 1;
-		vec3 nPlayer;
+		vec3 nPlayer = geoNPlayer;
+		if (top) {
 	#ifdef KS_WATER_FULL
-		nPlayer = top ? waterWaveNormal(worldPos.xz, WATER_WAVE_OCTAVES, dist) : geoNPlayer;
+			nPlayer = waterWaveNormal(worldPos.xz, WATER_WAVE_OCTAVES, dist);
 	#else
-		nPlayer = top ? waterSimpleNormal(worldPos.xz) : geoNPlayer;
+			nPlayer = waterSimpleNormal(worldPos.xz);
 	#endif
-		if (fromBelow) nPlayer = -nPlayer;
+			// Seen from below, the shading normal faces down toward the viewer.
+			if (fromBelow) nPlayer = -nPlayer;
+		}
 		vec3 n = normalize(playerToViewDir(nPlayer));
 		float NdotV = clamp01(dot(n, V));
 		vec3 tint = srgbToLinear(vColor.rgb);

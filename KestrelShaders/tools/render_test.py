@@ -498,7 +498,7 @@ class Renderer:
             "near": 0.05, "far": float(a.far),
             "frameCounter": jit_frame, "frameTime": 1.0 / 30.0, "frameTimeCounter": 10.0 + jit_frame / 30.0,
             "worldTime": 6000, "worldDay": 1, "moonPhase": 0,
-            "rainStrength": a.rain, "wetness": a.rain, "thunderStrength": 0.0, "isEyeInWater": 0,
+            "rainStrength": a.rain, "wetness": a.rain, "thunderStrength": 0.0, "isEyeInWater": a.eye_in,
             "eyeBrightnessSmooth": (0, 240 if a.world == "world0" else 0), "eyeAltitude": float(cam[1]),
             "nightVision": 0.0, "blindness": 0.0, "darknessFactor": 0.0, "screenBrightness": 0.5,
             "fogColor": {"world0": (0.7, 0.8, 1.0), "world-1": (0.33, 0.08, 0.05), "world1": (0.06, 0.04, 0.08)}[a.world],
@@ -681,6 +681,7 @@ def main():
     ap.add_argument("--frames", type=int, default=6)
     ap.add_argument("--sky-angle", type=float, default=0.10, help="0 = noon, 0.25 = sunset")
     ap.add_argument("--rain", type=float, default=0.0)
+    ap.add_argument("--eye-in", type=int, default=0, help="isEyeInWater: 1 water, 2 lava, 3 powder snow")
     ap.add_argument("--camera", type=float, nargs=3, default=[0.3, 68.62, -6.4])
     ap.add_argument("--yaw", type=float, default=180.0, help="degrees, 180 looks toward +z")
     ap.add_argument("--pitch", type=float, default=-8.0)
