@@ -17,8 +17,8 @@ python3 tools/package.py          # dist/KestrelShaders-<version>.zip
 
 Install glslang with `apt-get install glslang-tools` (or your platform's package).
 
-At release, `check_pack.py` passed, and `validate_glsl.py` compiled and linked 10,736
-program pairs across 90 configurations with no errors or warnings.
+At release, `check_pack.py` passed, and `validate_glsl.py` compiled and linked 11,466
+program pairs across 90 configurations and 5 vendor macro sets with no errors or warnings.
 
 ### Render harness (optional)
 
@@ -34,6 +34,8 @@ python3 tools/render_test.py --profile LOW --sky-angle 0.235 --out sunset.png
 python3 tools/render_test.py --world world-1 --out nether.png
 python3 tools/render_test.py --set DEBUG_VIEW=6 --out shadows.png
 python3 tools/render_test.py --pan 1.0 --frames 12 --out taa_motion.png
+python3 tools/render_test.py --eye-in 1 --camera 0.3 61.5 -6.4 --eye-sky 200 --out underwater.png
+python3 tools/render_test.py --eye-sky 0 --eye-altitude 12 --out cave_fog.png
 ```
 
 It doesn't cover Iris's reversed-Z rewrite, the hand projection, entities, glint, text or
@@ -93,6 +95,21 @@ sign text, block outline and fishing line, particles, breaking cracks.
 - No NaN squares (Debug View 11).
 - No glint z-fighting; glint visible on enchanted gear.
 - No sun in caves; shadows stop at the shadow distance without a hard edge.
+- Caves by day: no bright haze; deep water and flooded caves are dark; caustics only where
+  sky light reaches.
+- Under water, looking up: waves on the surface, the sky and shore inside Snell's window,
+  mirror-like reflection outside it.
+- F5 and multiplayer: other players flash red when hit and don't trail when they move.
+- Mining a wall up close and looking at the floor: no dark halo around the held item.
+- Debug View 4 on the empty hand outdoors: the arm reads as one material (blending is off).
+- A labPBR pack (for example one made for BSL or Complementary): relief lit from the sun's
+  side; a pack with only `_n` maps keeps metal and polished blocks shiny.
+- Pistons pushing stained glass or slime stay translucent while moving.
+- Block-break particles in dense fog or under water look as fogged as the blocks around
+  them (draw order, KNOWN_ISSUES.md).
+- Thunderstorm: lightning flashes the sky and the ground; dragon death rays are purple.
+- Darkness (near a Warden) pulses the light; Blindness doesn't turn the screen white.
+- Brightness slider: Moody darkens caves, Bright lifts them.
 - Each profile's fps against the README table, with the fallback rule applied.
 
 ### Mac extra checks

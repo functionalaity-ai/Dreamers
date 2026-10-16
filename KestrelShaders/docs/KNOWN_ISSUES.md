@@ -13,10 +13,25 @@
   when Mojang removes OpenGL; Iris's successor (Aperture) doesn't load this pack format.
 - **No Distant Horizons or Voxy support.**
 - **OptiFine is unsupported and untested.**
-- **TAA ghosting on fast-moving entities.** Iris provides no motion vectors. Entities and
-  the hand use a higher blend weight to limit it.
+- **TAA ghosting on fast-moving entities.** Iris provides no motion vectors. Entities,
+  players and the hand use a higher blend weight to limit it.
+- **Rain and snow streaks look faint with TAA.** Weather writes no material tag, so it gets
+  the normal history weight.
+- **Particle draw order is up to vanilla.** Iris 1.11.6 ignores `particles.ordering`. Opaque
+  particles tag themselves so the deferred passes skip them if they come first; translucent
+  particles drawn before the deferred passes (not expected) would be fogged twice. Check:
+  distant block-break particles in thick fog should look like the blocks around them.
+- **OpenGL 3.3-only drivers** (none of the target GPUs) can't switch blending off per buffer,
+  so semi-transparent entity parts there may show wrong AO or reflections.
 - **Opaque reflections use last frame's image:** one frame of lag, possible ghosting on fast
   camera turns, and the held item can briefly appear in puddle reflections.
+- **Patterns tied to world position can pop when you cross a multiple of 4096 blocks** on
+  the x or z axis (water waves, plant sway phase). Clouds and the ripple, caustic and noise
+  scrolls are seamless; time-based animation is seamless at every hourly wrap.
+- **Contact-hardening shadows (PCSS, HIGH) are slightly anisotropic**: the penumbra search
+  uses the radial texel size of the distorted shadow map.
+- **Caves have almost no fog** by design (DECISIONS.md); distant cave walls fade to dark at
+  the render-distance edge.
 - **Water refraction and water reflections see only opaque geometry**, not entities or
   particles behind the water.
 - **Modded dimensions use the Overworld programs.** A skyless modded dimension still gets

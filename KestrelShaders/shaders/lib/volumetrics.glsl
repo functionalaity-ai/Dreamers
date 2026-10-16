@@ -29,7 +29,8 @@ float shaftLightVisibility() {
 }
 
 #ifdef KS_VL_SHADOWMAP
-// Returns in-scattered radiance (rgb) and transmittance (a) from the camera to playerEnd.
+// Returns the in-scattered radiance (rgb) from the camera to playerEnd. Alpha is 1: the fog
+// pass already applied the haze's extinction to the scene.
 vec4 marchLightShafts(vec3 playerEnd, float noise) {
 	float dist = min(length(playerEnd), shadowDistance * 0.95);
 	vec3 dir = playerEnd / max(length(playerEnd), 1e-4);
@@ -48,15 +49,22 @@ vec4 marchLightShafts(vec3 playerEnd, float noise) {
 		vec3 sc = playerToShadowClip(p);
 		vec3 coord = distortShadowClip(sc) * 0.5 + 0.5;
 		float vis = 1.0;
-		if (all(greaterThan(coord, vec3(0.0))) && all(lessThan(coord, vec3(1.0))))
+		if (all(greaterThan(coord, vec3(0.0))) && all(lessThan(coord, vec3(1.0)))) {
+	#ifdef KS_COLORED_SHADOWS
+			// With coloured shadows, shadowtex0 holds the water surface too: under water, march
+			// against the opaque-only map or every sample is shadowed.
+			vis = water ? texture(KS_SHADOW_CMP1, coord) : texture(KS_SHADOW_CMP0, coord);
+	#else
 			vis = texture(KS_SHADOW_CMP0, coord);
+	#endif
+		}
 		float stepT = exp(-sigma * dt);
 		scatter += T * vis * (1.0 - stepT);
 		T *= stepT;
 	}
 	vec3 lightE = lightIrradiance() * shaftLightVisibility();
 	vec3 tint = water ? vec3(0.35, 0.85, 1.0) : vec3(1.0);
-	return vec4(lightE * tint * (scatter * phase), T);
+	return vec4(lightE * tint * (scatter * phase), 1.0);
 }
 #endif
 

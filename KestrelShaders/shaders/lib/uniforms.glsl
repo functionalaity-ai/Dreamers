@@ -50,6 +50,7 @@ uniform float eyeAltitude;
 uniform float nightVision;
 uniform float blindness;
 uniform float darknessFactor;
+uniform float darknessLightFactor;
 uniform float screenBrightness;
 
 uniform vec3 fogColor;

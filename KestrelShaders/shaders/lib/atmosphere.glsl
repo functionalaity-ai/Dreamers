@@ -193,7 +193,8 @@ vec3 skyLutDirection(vec2 uv) {
 }
 vec2 skyLutCoord(vec3 dirSunFrame) {
 	float el = asin(clamp(dirSunFrame.y, -1.0, 1.0));
-	float az = atan(abs(dirSunFrame.z), dirSunFrame.x);
+	// atan(0, 0) is undefined: straight up or down, any azimuth is right.
+	float az = (abs(dirSunFrame.z) + abs(dirSunFrame.x)) > 1e-7 ? atan(abs(dirSunFrame.z), dirSunFrame.x) : 0.0;
 	float v = 0.5 + 0.5 * sign(el) * sqrt(abs(el) / HALF_PI);
 	return vec2(az / PI, v);
 }

@@ -42,9 +42,13 @@ layout(location = 0) out vec4 outColor;
 void main() {
 #ifdef PROGRAM_LIGHTNING
 	// POSITION_COLOR geometry: no texture. A lightning channel is far brighter than the sky,
-	// so it reads as a blinding flash and blooms even at daytime exposure.
+	// so it reads as a blinding flash and blooms even at daytime exposure. The dragon's death
+	// rays share this program: their saturated purple gets a gentler gain so it stays purple.
 	vec4 baseColor = vColor;
-	vec3 color = srgbToLinear(baseColor.rgb) * 2000.0;
+	vec3 lin = srgbToLinear(baseColor.rgb);
+	float mx = maxOf(lin);
+	float sat = (mx - minOf(lin)) / max(mx, 1e-4);
+	vec3 color = lin * mix(2000.0, 3.0, smoothstep(0.3, 0.7, sat));
 	outColor = vec4(sanitizeHDR(color), baseColor.a);
 #else
 	vec4 baseColor = texture(gtexture, vTexcoord) * vColor;

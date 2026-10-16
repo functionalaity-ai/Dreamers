@@ -84,9 +84,11 @@ vec3 viewToScreen(vec3 viewPos) {
 	vec4 clip = gbufferProjection * vec4(viewPos, 1.0);
 	return (clip.xyz / clip.w) * 0.5 + 0.5;
 }
+// View distance along -z for a depth-buffer value. Uses the projection itself: Minecraft's
+// far plane is several times the render distance ('far'), so near/far would be wrong.
 float linearizeDepth(float depth) {
 	float z = depth * 2.0 - 1.0;
-	return 2.0 * near * far / max(far + near - z * (far - near), 1e-5);
+	return gbufferProjection[3][2] / min(z + gbufferProjection[2][2], -1e-6);
 }
 
 vec3 viewToPlayer(vec3 viewPos) {

@@ -10,8 +10,9 @@ Iris runs the programs in this order every frame (from `IrisRenderingPipeline`):
 4. opaque gbuffers: terrain, block entities, entities, sky; then `depthtex2` is copied and
    the solid hand is drawn
 5. `depthtex1` copy, then `deferred` (AO, half res) and `deferred2` (compose)
-6. translucent gbuffers: water, glass, translucent entities and text, particles (after
-   deferred), weather, translucent held items
+6. translucent gbuffers: water, glass, translucent entities (players included) and text,
+   translucent particles, weather, translucent held items. Vanilla decides where opaque
+   particles go (Iris 1.11.6 ignores `particles.ordering`); they may draw with step 4
 7. `composite` (light shafts, half res), `composite1` (apply), `composite2` (AA + exposure),
    `composite3` (bloom atlas, half res)
 8. `final`
@@ -42,6 +43,18 @@ screen data:
 All translucents, water included, are forward-shaded and blended, so particles, rain and
 held items drawn later blend correctly on top.
 
+Programs that light and fog themselves (opaque particles, translucent entities) write
+material code `MAT_FORWARD` into colortex1, with blending off for that buffer. If vanilla
+draws them before the deferred passes, `deferred` and `deferred2` leave those pixels alone
+instead of fogging them twice; TAA treats them as moving. Per-buffer blend overrides need
+OpenGL 4.0 (`KS_BUFFER_BLEND`); every target GPU has it, macOS included (4.1).
+
+AO takes its occluders from `depthtex2`, the depth before the hand was drawn, so the held
+item doesn't darken nearby walls. Each half-resolution texel of AO and light shafts is
+computed at full-resolution pixel `2q+1` with `texelFetch` (colortex samplers filter
+linearly, which would average material codes and normals), and the upsamplers use the same
+positions.
+
 ### Units
 
 All linear HDR values are in **Kestrel units: 1.0 = 1000 cd/m²**.
@@ -56,7 +69,7 @@ All linear HDR values are in **Kestrel units: 1.0 = 1000 cd/m²**.
 | Full emissive block (glowstone) | ~0.5–0.8 |
 | Lava | ~2–3 |
 | Nether ambient radiance | ~0.02 |
-| Minimum ambient irradiance (caves) | 0.002 |
+| Minimum ambient irradiance (caves) | 0.002 (× 0.25–4 with the Brightness slider) |
 | Sun disc | ≤ 20000 (clamped) |
 
 **Exposure:** `EV100 = log2(L_avg[cd/m²] · 100 / 12.5)`, multiplier
@@ -70,7 +83,7 @@ Nether). Brightening adapts at rate 2.4/s, darkening at 0.9/s, and EV100 is clam
 | Buffer | Format | Size | Contents | Written by | Clear |
 |---|---|---|---|---|---|
 | colortex0 | R11F_G11F_B10F | full | linear HDR scene | gbuffers, deferred2, composite1 | yes (0) |
-| colortex1 | RGBA8 | full | block light, sky light, material code (0 = no data), ambient fraction | opaque lit gbuffers (LOW+) | yes (0) |
+| colortex1 | RGBA8 | full | block light, sky light, material code (0 = no data), ambient fraction | opaque lit gbuffers (LOW+); material tag from opaque particles, translucent entities and the translucent hand | yes (0) |
 | colortex2 | RG16 | full | octahedral view normal | opaque lit gbuffers (LOW+) | yes (0) |
 | colortex3 | RGBA8 | full | F0 (sRGB), smoothness | opaque lit gbuffers (Opaque Reflections) | yes (0) |
 | colortex4 | R11F_G11F_B10F | full | opaque scene before fog (water refraction/SSR) | deferred2 (Advanced Water) | no |
@@ -120,14 +133,19 @@ Auto mode uses `s = clamp(TargetHeight / viewHeight, 0.5, 1)`.
 | 40 / 41 / 42 | metals / polished / snow | F0 = albedo / glossy / SSS |
 
 colortex1.b material codes: 0 none, 1 generic, 2 foliage, 3 metal, 4 polished, 5 emissive,
-6 lava, 7 entity, 8 hand, 9 snow.
+6 lava, 7 entity, 8 hand, 9 snow, 10 forward (lit and fogged by its own program).
+
+Metals (ID 40, or labPBR F0 ≥ 230) have no diffuse: the albedo tints their reflection. Every
+surface's environment reflection includes the light of nearby blocks, which is what keeps
+metals visible indoors.
 
 ## Sampler budget
 
 Distinct samplers per program, counted from the preprocessed source plus the samplers Iris
 injects (`iris_overlay`, inline `glintTexture`). Mac vendor set, world0; the macOS limit is 16
 and the pack's rule is 12. A labPBR resource pack adds 2 to the terrain, entity and hand
-programs.
+programs. With the hardware-sampler feature (the raw `shadowtex0` for PCSS) and a labPBR pack,
+HIGH reaches 11 in `gbuffers_entities` and `gbuffers_hand` on Windows and Linux.
 
 | Program | POTATO | LOW | MEDIUM | HIGH |
 |---|---|---|---|---|
@@ -135,7 +153,7 @@ programs.
 | composite1 | – | 3 | 3 | 3 |
 | composite2 | – | 6 | 6 | 6 |
 | composite3 | 1 | 1 | 1 | 1 |
-| deferred | – | 4 | 4 | 4 |
+| deferred | – | 5 | 5 | 5 |
 | deferred2 | 4 | 7 | 9 | 9 |
 | final | 4 | 4 | 4 | 4 |
 | gbuffers_terrain / _solid / _cutout / block | 3 | 4 | 4 | 6 |

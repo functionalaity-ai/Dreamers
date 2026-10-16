@@ -72,6 +72,13 @@
 #if defined(IRIS_FEATURE_SEPARATE_HARDWARE_SAMPLERS)
 	#define KS_HW_SAMPLERS 1
 #endif
+// Per-buffer blend overrides (shaders.properties) exist on OpenGL 4.0+. Programs drawn with
+// blending write G-buffer data only when they do.
+#ifdef MC_GL_VERSION
+	#if MC_GL_VERSION >= 400 && defined(KS_GBUFFER_DATA)
+		#define KS_BUFFER_BLEND 1
+	#endif
+#endif
 
 // ---------------------------------------------------------------- Mac cost clamps
 // Options are never redefined; these effective values clamp the heaviest settings on Apple GPUs

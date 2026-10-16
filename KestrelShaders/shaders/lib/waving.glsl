@@ -3,8 +3,8 @@
 // Requires: common, uniforms, space, material.
 
 float windTime() {
-	// frameTimeCounter wraps at 3600 s; every period below divides 3600 evenly enough that the
-	// wrap is a sub-millimetre jump.
+	// frameTimeCounter wraps at 3600 s; every frequency below goes through KS_LOOP_W, so the
+	// wrap does not make plants or water jump.
 	return frameTimeCounter;
 }
 
@@ -16,14 +16,14 @@ vec3 waveOffset(int id, vec3 worldPos, bool isTop) {
 	if (strength <= 0.0) return vec3(0.0);
 	float t = windTime();
 	vec3 p = worldPos;
-	float gust = 0.6 + 0.4 * sin(t * 0.35 + p.x * 0.05 + p.z * 0.04);
+	float gust = 0.6 + 0.4 * sin(t * KS_LOOP_W(0.35) + p.x * 0.05 + p.z * 0.04);
 	if (id == ID_LEAVES) {
-		float w = sin(t * 1.7 + p.x * 0.9 + p.y * 0.7) + 0.6 * sin(t * 2.9 + p.z * 1.3);
-		float w2 = sin(t * 1.3 + p.z * 0.8 + p.y * 0.5);
+		float w = sin(t * KS_LOOP_W(1.7) + p.x * 0.9 + p.y * 0.7) + 0.6 * sin(t * KS_LOOP_W(2.9) + p.z * 1.3);
+		float w2 = sin(t * KS_LOOP_W(1.3) + p.z * 0.8 + p.y * 0.5);
 		return vec3(w, w2 * 0.5, w2) * (0.018 * strength * gust);
 	}
 	if (id == ID_VINES) {
-		float w = sin(t * 1.5 + p.x * 0.6 + p.y * 1.1 + p.z * 0.6);
+		float w = sin(t * KS_LOOP_W(1.5) + p.x * 0.6 + p.y * 1.1 + p.z * 0.6);
 		return vec3(w, 0.0, w * 0.7) * (0.025 * strength * gust);
 	}
 	// Two-block plants: the seam between halves moves by the same amount on both halves.
@@ -32,8 +32,8 @@ vec3 waveOffset(int id, vec3 worldPos, bool isTop) {
 	else if (id == ID_PLANT_TALL_LOWER) amp = isTop ? 0.045 : 0.0;
 	else amp = isTop ? 0.07 : 0.0;
 	if (amp <= 0.0) return vec3(0.0);
-	float w = sin(t * 2.1 + p.x * 0.7 + p.z * 0.5) + 0.5 * sin(t * 3.3 + p.x * 1.4 - p.z * 0.9);
-	float w2 = sin(t * 1.8 + p.z * 0.75 - p.x * 0.3);
+	float w = sin(t * KS_LOOP_W(2.1) + p.x * 0.7 + p.z * 0.5) + 0.5 * sin(t * KS_LOOP_W(3.3) + p.x * 1.4 - p.z * 0.9);
+	float w2 = sin(t * KS_LOOP_W(1.8) + p.z * 0.75 - p.x * 0.3);
 	return vec3(w, 0.0, w2) * (amp * strength * gust);
 #else
 	return vec3(0.0);
@@ -44,8 +44,8 @@ vec3 waveOffset(int id, vec3 worldPos, bool isTop) {
 float waterVertexWave(vec3 worldPos) {
 #ifdef WAVING_WATER
 	float t = windTime();
-	return (sin(t * 1.4 + worldPos.x * 0.8 + worldPos.z * 0.6) +
-	        sin(t * 1.1 - worldPos.x * 0.5 + worldPos.z * 0.9)) * 0.012;
+	return (sin(t * KS_LOOP_W(1.4) + worldPos.x * 0.8 + worldPos.z * 0.6) +
+	        sin(t * KS_LOOP_W(1.1) - worldPos.x * 0.5 + worldPos.z * 0.9)) * 0.012;
 #else
 	return 0.0;
 #endif

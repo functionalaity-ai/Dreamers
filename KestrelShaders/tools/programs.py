@@ -7,6 +7,7 @@ GBUFFERS = {
     "gbuffers_textured": "gbuffers_simple",
     "gbuffers_textured_lit": "gbuffers_simple",
     "gbuffers_particles": "gbuffers_simple",
+    "gbuffers_particles_translucent": "gbuffers_simple",
     "gbuffers_damagedblock": "gbuffers_simple",
     "gbuffers_weather": "gbuffers_simple",
     "gbuffers_skybasic": "gbuffers_sky",

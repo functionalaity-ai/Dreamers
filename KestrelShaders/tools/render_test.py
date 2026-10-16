@@ -462,7 +462,8 @@ class Renderer:
         W, H = self.W, self.H
         cam = np.array(a.camera, dtype=np.float64) + np.array(a.move) * self.frame
         view = rot_x(-a.pitch) @ rot_y(-(a.yaw + a.pan * self.frame))
-        proj = perspective(70.0, W / H, 0.05, a.far)
+        # Minecraft's far plane is four times the render distance (GameRenderer.getDepthFar).
+        proj = perspective(70.0, W / H, 0.05, a.far * 4.0)
         # Shadow model-view exactly like Iris: Rx(90) Rz(-skyAngle*360) Rx(sunPathRotation).
         sky_angle = a.sky_angle
         spr = float(self.opt("sunPathRotation", "-35.0"))
@@ -499,7 +500,8 @@ class Renderer:
             "frameCounter": jit_frame, "frameTime": 1.0 / 30.0, "frameTimeCounter": 10.0 + jit_frame / 30.0,
             "worldTime": 6000, "worldDay": 1, "moonPhase": 0,
             "rainStrength": a.rain, "wetness": a.rain, "thunderStrength": 0.0, "isEyeInWater": a.eye_in,
-            "eyeBrightnessSmooth": (0, 240 if a.world == "world0" else 0), "eyeAltitude": float(cam[1]),
+            "eyeBrightnessSmooth": (a.eye_block, a.eye_sky if a.world == "world0" else 0),
+            "eyeAltitude": float(cam[1] if a.eye_altitude is None else a.eye_altitude),
             "nightVision": 0.0, "blindness": 0.0, "darknessFactor": 0.0, "screenBrightness": 0.5,
             "fogColor": {"world0": (0.7, 0.8, 1.0), "world-1": (0.33, 0.08, 0.05), "world1": (0.06, 0.04, 0.08)}[a.world],
             "skyColor": (0.47, 0.65, 1.0),
@@ -688,6 +690,9 @@ def main():
     ap.add_argument("--pan", type=float, default=0.0, help="yaw change per frame (degrees)")
     ap.add_argument("--move", type=float, nargs=3, default=[0.0, 0.0, 0.0], help="camera move per frame")
     ap.add_argument("--far", type=float, default=192.0)
+    ap.add_argument("--eye-sky", type=int, default=240, help="eyeBrightnessSmooth.y (0 = underground)")
+    ap.add_argument("--eye-block", type=int, default=0, help="eyeBrightnessSmooth.x")
+    ap.add_argument("--eye-altitude", type=float, default=None, help="override eyeAltitude (fog tests)")
     ap.add_argument("--set", action="append", help="override an option, e.g. --set TAA=false")
     ap.add_argument("--out", default="/tmp/kestrel.png")
     ap.add_argument("--dump", action="store_true", help="also dump intermediate buffers")

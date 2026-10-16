@@ -1,6 +1,6 @@
 // Kestrel Shaders - BRDF and light assembly for forward-lit surfaces.
 // Diffuse: Lambert. Specular: GGX with height-correlated Smith visibility and Schlick
-// Fresnel, roughness clamped to avoid sun fireflies. All light in Kestrel units.
+// Fresnel. All light in Kestrel units.
 
 float ggxD(float NdotH, float a2) {
 	float d = (NdotH * a2 - NdotH) * NdotH + 1.0;
@@ -14,8 +14,9 @@ float smithGGXCorrelated(float NdotV, float NdotL, float a2) {
 
 // Direct specular term (already multiplied by NdotL).
 vec3 specularGGX(vec3 n, vec3 v, vec3 l, float roughness, vec3 f0) {
-	float r = max(roughness, 0.03);
-	float a = r * r;
+	// alpha >= 0.01 (roughly the sun's angular size) keeps the sun's highlight from turning
+	// into single-pixel fireflies that flicker with the TAA jitter.
+	float a = max(roughness * roughness, 0.01);
 	float a2 = a * a;
 	vec3 h = normalize(v + l);
 	float NdotL = clamp01(dot(n, l));
@@ -69,9 +70,18 @@ float skyLightCurve(float sky) {
 	return sky * sky;
 }
 
-// Minimum ambient so caves are dark but readable after eye adaptation.
+// Minimum ambient so caves are dark but readable after eye adaptation. The vanilla
+// Brightness slider scales it: Moody 0.25x, default 1x, Bright 4x.
 #define KS_MIN_AMBIENT_E 0.002
 #define KS_NIGHT_VISION_E 0.25
+float minAmbientE() {
+	return KS_MIN_AMBIENT_E * exp2(4.0 * (clamp01(screenBrightness) - 0.5)) + nightVision * KS_NIGHT_VISION_E;
+}
+
+// The Warden's Darkness effect pulses all light down, like vanilla's lightmap.
+float darknessLightScale() {
+	return 1.0 - 0.85 * clamp01(darknessLightFactor);
+}
 
 // Lightmap fallback: open sky is lit, anything under a roof is shadowed.
 float fakeShadow(float skylight) {

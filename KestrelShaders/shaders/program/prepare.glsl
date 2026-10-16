@@ -55,12 +55,26 @@ vec3 overcastRadiance(SkyContext c, vec3 dir) {
 	return vec3(0.82, 0.86, 0.92) * day * grad * mix(1.0, 0.55, thunderStrength);
 }
 
+// Lightning: the storm clouds light up while a bolt exists, flickering, brightest for a
+// close strike. Every sky colour and ambient term reads this LUT, so the whole frame flashes.
+float lightningFlash() {
+#ifdef IS_IRIS
+	if (lightningBoltPosition.w <= 0.0) return 0.0;
+	float d = length(lightningBoltPosition.xz);
+	float flicker = step(0.3, fract(sin(floor(frameTimeCounter * 18.0) * 12.9898) * 43758.5453));
+	return flicker / (1.0 + d * d * (1.0 / (128.0 * 128.0)));
+#else
+	return 0.0;
+#endif
+}
+
 vec3 skyModel(SkyContext c, vec3 dir, int steps) {
 	vec3 T;
 	vec3 L = integrateScattering(c.origin, dir, c.sunF, c.sunE, c.moonF, c.moonE, c.haze, steps, T);
 	L = mix(L, overcastRadiance(c, dir), c.rain * 0.85);
 	// Airglow and starlight floor so a moonless night is dark blue rather than black.
 	L += vec3(0.0005, 0.0007, 0.0012) * clamp01(dir.y + 0.2);
+	L += vec3(0.80, 0.86, 1.0) * (0.35 * lightningFlash()) * (0.4 + 0.6 * clamp01(dir.y + 0.3));
 	return max(L, vec3(0.0));
 }
 

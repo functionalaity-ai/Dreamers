@@ -43,6 +43,7 @@ eyeAltitude                 CommonUniforms
 nightVision                 CommonUniforms
 blindness                   CommonUniforms
 darknessFactor              CommonUniforms
+darknessLightFactor         CommonUniforms
 screenBrightness            CommonUniforms
 fogColor                    CommonUniforms
 skyColor                    CommonUniforms
@@ -67,6 +68,7 @@ specular                    IrisSamplers.addLevelSamplers (labPBR)
 noisetex                    IrisSamplers.addNoiseSampler
 depthtex0                   IrisSamplers.addWorldDepthSamplers / addCompositeSamplers
 depthtex1                   IrisSamplers.addWorldDepthSamplers / addCompositeSamplers
+depthtex2                   IrisSamplers.addWorldDepthSamplers / addCompositeSamplers (pre-hand depth)
 colortex0                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
 colortex1                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
 colortex2                   IrisSamplers.addRenderTargetSamplers (fullscreen only)

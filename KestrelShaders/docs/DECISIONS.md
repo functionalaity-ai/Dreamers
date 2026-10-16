@@ -48,6 +48,30 @@ Choices made while building the pack, especially where it departs from the build
   any exposure.
 - **Block light** uses a mix of `lm³` and inverse-square falloff, to get realistic pools of
   light that still reach a few blocks.
+- **Caves have almost no fog.** Underground (eye sky light 0) the height fog is off, the haze
+  is cut to 30%, and the fog colour is the light of nearby blocks instead of the sky. Real
+  cave air is clear; sky-coloured fog made torch-lit caves glow by day. The height fog stays
+  at its sea-level density below y = 62 instead of growing without bound.
+- **Underwater light follows the eye's sky light** (water dims sky light one level per block),
+  so deep water, flooded caves and aquifers are dark. Caustics need sky light on the surface.
+- **Metals have no diffuse**, and every environment reflection includes nearby block light
+  (an approximation of the lit room around the surface). Without that term a gold block in a
+  torch-lit room would be black.
+- **The hand gets its sky reflection forward-shaded** on every profile: deferred2 can't
+  reconstruct its position (it uses its own projection).
+- **Shadow-map light shafts add in-scattered light only.** The fog pass already applies the
+  haze's extinction; applying it again in the shaft pass darkened rainy scenes by 40%.
+- **Specular highlights use alpha ≥ 0.01** (about the sun's angular size), so the sun's glint
+  on water and polished blocks doesn't become single-pixel fireflies.
+- **Lightning lights up the sky** through the sky model while a bolt exists (flickering,
+  weaker with distance), so ambient light, clouds and fog flash together. Dragon death rays
+  share the lightning program; saturated colours get a gentle gain so they stay purple.
+- **The vanilla Brightness slider** scales the minimum ambient light (Moody 0.25×, default 1×,
+  Bright 4×). **Darkness** pulses all lighting down like vanilla's lightmap, and Blindness or
+  Darkness stop eye adaptation from brightening the blacked-out view.
+- **Animations loop seamlessly when `frameTimeCounter` wraps** every hour: frequencies and
+  scroll speeds go through `KS_LOOP_W` / `KS_LOOP_V`. Clouds use their own 65536-block wrap and
+  drift exactly one pattern period per hour.
 
 ## Pack format
 
@@ -62,8 +86,25 @@ Choices made while building the pack, especially where it departs from the build
 - **Internal macros always carry a value** (`#define KS_X 1`). Iris's option scanner would
   turn any value-less `#define` it sees referenced by `#ifdef` into a user option.
 - **Stub macros** (`DIM_*`, `STAGE_*`, `PROGRAM_*`) carry a value for the same reason.
-- **`gbuffers_particles_translucent` and `gbuffers_line` aren't shipped** (spec F25: Iris
-  widens lines itself only through `gbuffers_basic`).
+- **`gbuffers_line` isn't shipped** (spec F25: Iris widens lines itself only through
+  `gbuffers_basic`).
+- **`gbuffers_particles_translucent` is shipped**, unlike the spec says. Iris 1.11.6 sends
+  every translucent particle there (`IrisPipelines`: `TRANSLUCENT_PARTICLE` →
+  `PARTICLES_TRANS`), whatever `particles.ordering` says, and that key isn't applied anyway.
+  It's the plain forward particle program; `gbuffers_particles` (opaque particles) also tags
+  colortex1 with `MAT_FORWARD` so deferred2 never fogs them twice.
+- **Blend overrides.** `blend.gbuffers_hand = off`, and per-buffer `off` for colortex1–3 in
+  `gbuffers_entities` and `gbuffers_block`, and for colortex1 in the programs that tag it.
+  Vanilla blends every draw buffer with one mode, which mixed material codes and normals
+  (the arm is drawn with `entityTranslucent`). Per-buffer overrides need OpenGL 4.0, and Iris
+  rejects the whole file without them, so they sit behind `#if MC_GL_VERSION >= 400`, and the
+  shaders write the extra tags only under the matching `KS_BUFFER_BLEND`.
+- **`gbuffers_block` outputs the texture's alpha**, so translucent blocks moved by pistons stay
+  translucent.
+- **No `drynessHalflife`**: Iris 1.11.6 stores it into the *wetness* half-life (and keeps the
+  drying half-life at its 200 s default anyway).
+- **`shadowcolor0Clear` is off unless coloured shadows are on.** Iris always allocates
+  shadowcolor0 and would clear it every frame for nothing.
 - **TAA jitter uses the FSR2 phase rule** (8/s², clamped 8–32). `frameCounter` wraps at
   720720, which 32 doesn't divide, so the 32-phase sequence skips once every few hours.
   That's harmless.

@@ -147,6 +147,9 @@ VENDORS = {
             "glint": False, "hw": False, "labpbr": False},
     "nvidia": {"flags": ["MC_OS_LINUX", "MC_GL_VENDOR_NVIDIA", "MC_GL_RENDERER_GEFORCE"], "glsl": 460,
                "glint": True, "hw": False, "labpbr": True},
+    # An OpenGL 3.3-only driver: no per-buffer blending (KS_BUFFER_BLEND off).
+    "gl33": {"flags": ["MC_OS_WINDOWS", "MC_GL_VENDOR_INTEL", "MC_GL_RENDERER_INTEL"], "glsl": 330,
+             "glint": True, "hw": False, "labpbr": False},
 }
 
 
@@ -154,7 +157,7 @@ def iris_macros(vendor):
     v = VENDORS[vendor]
     lines = [
         "#define MC_VERSION 260300",
-        "#define MC_GL_VERSION %d" % (410 if v["glsl"] == 410 else 460),
+        "#define MC_GL_VERSION %d" % (v["glsl"] if v["glsl"] in (330, 410) else 460),
         "#define MC_GLSL_VERSION %d" % v["glsl"],
         "#define MC_MIPMAP_LEVEL 4",
         "#define IRIS_VERSION 11106",

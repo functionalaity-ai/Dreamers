@@ -1,5 +1,5 @@
 // Kestrel Shaders - composite (world0): light shafts at half resolution into colortex6
-// (rgb = in-scattered radiance, a = transmittance). Enabled by VOLUMETRIC_LIGHT.
+// (rgb = in-scattered radiance, a = 1). Enabled by VOLUMETRIC_LIGHT.
 // Program: PROGRAM_COMPOSITE.
 
 #include "/lib/settings.glsl"
@@ -31,10 +31,11 @@ layout(location = 0) out vec4 outVL;
 void main() {
 	vec4 result = vec4(0.0, 0.0, 0.0, 1.0);
 #ifdef KS_VL_ACTIVE
-	vec2 halfSize = max(floor(viewSize() * 0.5), vec2(1.0));
-	vec2 bufUV = gl_FragCoord.xy / halfSize;
+	// Each half-resolution texel stands for one full-resolution pixel (as in deferred_ao).
+	ivec2 fp = ivec2(gl_FragCoord.xy) * 2 + 1;
+	vec2 bufUV = (vec2(fp) + 0.5) * viewTexel();
 	vec2 sceneUV = bufToSceneUV(bufUV);
-	float depth = texture(depthtex0, bufUV).r;
+	float depth = texelFetch(depthtex0, fp, 0).r;
 	float noise = ignTemporal(gl_FragCoord.xy);
 	#ifdef KS_VL_SHADOWMAP
 	vec3 viewPos = screenToView(sceneUV, min(depth, 0.99999));

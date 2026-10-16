@@ -1,8 +1,8 @@
 // Kestrel Shaders - pack-wide buffer and shadow directives.
-// Iris reads these lines from the fragment source of shadowcomp, begin, prepare, gbuffers,
-// deferred and composite programs (never final or vertex shaders), after preprocessing with
-// comments kept. Every world folder is its own program set, so this file is included by an
-// always-enabled program in each folder (deferred2 and every opaque gbuffers program).
+// Iris reads these lines from the fragment sources of the programs that are present
+// (never from vertex shaders), after preprocessing with comments kept. Every world folder
+// is its own program set, so this file is included by an always-enabled program in each
+// folder (deferred2 and every opaque gbuffers program).
 //
 // Buffer plan (see docs/ARCHITECTURE.md):
 //   colortex0  R11F_G11F_B10F  full     linear HDR scene
@@ -45,9 +45,15 @@ const float entityShadowDistanceMul = 0.25;
 const bool shadowtex0Mipmap = false;
 const bool shadowtex1Mipmap = false;
 const bool shadowcolor0Mipmap = false;
+// Iris always allocates shadowcolor0; clear it only when coloured shadows use it.
+#ifdef KS_COLORED_SHADOWS
 const bool shadowcolor0Clear = true;
 const vec4 shadowcolor0ClearColor = vec4(1.0, 1.0, 1.0, 0.0);
+#else
+const bool shadowcolor0Clear = false;
+#endif
 const int noiseTextureResolution = 256;
 const float eyeBrightnessHalflife = 4.0;
+// No drynessHalflife: Iris 1.11.6 stores it into the wetness half-life, and the drying
+// half-life stays at its default of 200 s anyway.
 const float wetnessHalflife = 300.0;
-const float drynessHalflife = 200.0;

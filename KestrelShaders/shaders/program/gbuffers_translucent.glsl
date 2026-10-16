@@ -16,6 +16,11 @@
 #ifdef PROGRAM_WATER
 	#define KS_IS_TERRAIN 1
 #endif
+// Translucent entities (players included) and the translucent hand tag colortex1 so TAA and
+// the deferred passes know what they are (shaders.properties turns blending off for it).
+#if defined(KS_BUFFER_BLEND) && (defined(PROGRAM_ENTITIES_TRANSLUCENT) || defined(PROGRAM_HAND_WATER))
+	#define KS_WRITE_MATERIAL 1
+#endif
 
 // ============================================================================ vertex
 #ifdef STAGE_VERTEX
@@ -45,7 +50,9 @@ void main() {
 	if (vBlockId == ID_WATER) {
 		vec3 player = viewToPlayer(viewPos.xyz);
 		vec3 nPlayer = viewToPlayerDir(vNormal);
-		if (nPlayer.y > 0.5) {
+		// Iris computes terrain normals from the vertex order, so the reversed copy of the
+		// water top drawn for viewing from below faces down: displace both copies alike.
+		if (abs(nPlayer.y) > 0.5) {
 			player.y += waterVertexWave(worldPosWrapped(player));
 			viewPos.xyz = playerToView(player);
 		}
@@ -68,6 +75,9 @@ void main() {
 #include "/lib/clouds.glsl"
 
 uniform sampler2D gtexture;
+#ifdef PROGRAM_ENTITIES_TRANSLUCENT
+uniform vec4 entityColor;
+#endif
 #if defined(PROGRAM_WATER) && defined(KS_WATER_ADVANCED)
 	#define KS_WATER_FULL 1
 uniform sampler2D colortex4;
@@ -82,8 +92,15 @@ in vec3 vViewPos;
 in vec3 vNormal;
 flat in int vBlockId;
 
+#ifdef KS_WRITE_MATERIAL
+/* RENDERTARGETS: 0,1 */
+#else
 /* RENDERTARGETS: 0 */
+#endif
 layout(location = 0) out vec4 outColor;
+#ifdef KS_WRITE_MATERIAL
+layout(location = 1) out vec4 outData;
+#endif
 
 #if KS_SSR_STEPS >= 16
 	#define KS_SSR_REFINE 4
@@ -112,7 +129,7 @@ vec3 directLight(vec3 playerPos, vec3 geoNPlayer, float NdotL, float sky) {
 // Sky reflection with clouds, faded where the sky is not visible.
 vec3 skyReflection(vec3 Rp, float sky) {
 #ifdef KS_SKY_LUT
-	vec3 dir = normalize(vec3(Rp.x, max(Rp.y, 0.0), Rp.z));
+	vec3 dir = safeNormalize(vec3(Rp.x, max(Rp.y, 0.0), Rp.z));
 	vec3 c = skyRadiance(dir);
 	vec4 cl = sampleClouds(dir, 0);
 	c = c * cl.a + cl.rgb;
@@ -138,9 +155,9 @@ void main() {
 #ifdef PROGRAM_WATER
 	if (id == ID_WATER) {
 		vec3 worldPos = worldPosWrapped(playerPos);
-		// Use the face's own normal (not the viewer-facing one) to find the top surface,
-		// so the surface is recognised from below too.
-		bool top = viewToPlayerDir(normalize(vNormal)).y > 0.5;
+		// Horizontal faces carry the waves. geoNPlayer faces the viewer, so its sign turns the
+		// upward wave normal toward a viewer below the surface.
+		bool top = abs(geoNPlayer.y) > 0.5;
 		bool fromBelow = isEyeInWater == 1;
 		vec3 nPlayer = geoNPlayer;
 		if (top) {
@@ -149,24 +166,24 @@ void main() {
 	#else
 			nPlayer = waterSimpleNormal(worldPos.xz);
 	#endif
-			// Seen from below, the shading normal faces down toward the viewer.
-			if (fromBelow) nPlayer = -nPlayer;
+			nPlayer *= sign(geoNPlayer.y);
 		}
 		vec3 n = normalize(playerToViewDir(nPlayer));
 		float NdotV = clamp01(dot(n, V));
 		vec3 tint = srgbToLinear(vColor.rgb);
 		vec3 sigma = waterAbsorption(tint);
 
-		// Fresnel, with total internal reflection when looking up from below.
+		// Fresnel. From below, Schlick uses the cosine on the air side, which rises smoothly to
+		// total internal reflection at the edge of Snell's window.
 		float F = fresnelSchlick(NdotV, WATER_F0);
 		if (fromBelow) {
 			vec3 t = refractSafe(-V, n, 1.333);
-			F = dot(t, t) < 1e-6 ? 1.0 : F;
+			F = dot(t, t) < 1e-6 ? 1.0 : fresnelSchlick(abs(dot(t, n)), WATER_F0);
 		}
 
 		// Light reaching the water volume, used for its in-scattered colour.
 		vec3 Edir = directLight(playerPos, geoNPlayer, dot(geoN, Lv), sky);
-		vec3 Eamb = skyIrradiance(vec3(0.0, 1.0, 0.0)) * skyLightCurve(sky) + blockIrradiance(lm.x) + vec3(KS_MIN_AMBIENT_E);
+		vec3 Eamb = skyIrradiance(vec3(0.0, 1.0, 0.0)) * skyLightCurve(sky) + blockIrradiance(lm.x) + vec3(minAmbientE());
 		// Water-leaving radiance from scattering inside the volume: a few percent of the light.
 		vec3 inscatter = (Edir * clamp01(dot(Lv, upDirView())) * 0.016 + Eamb * 0.022) * vec3(0.10, 0.42, 0.50) * mix(vec3(1.0), tint * 2.0, 0.35);
 
@@ -177,7 +194,8 @@ void main() {
 		float d1 = texture(depthtex1, bufUV).r;
 		vec3 floorView = screenToView(sceneUV, d1);
 		float depthBehind = max(length(floorView) - dist, 0.0);
-		vec2 offset = n.xy * 0.035 * clamp01(depthBehind * 0.3) / (1.0 + dist * 0.03);
+		// Offset by the waves' tilt only, so calm water does not shift the image behind it.
+		vec2 offset = (n.xy - geoN.xy) * 0.035 * clamp01(depthBehind * 0.3) / (1.0 + dist * 0.03);
 		vec2 rUV = clampToRendered(bufUV + offset * renderScale(), viewSize());
 		float d1r = texture(depthtex1, rUV).r;
 		vec3 floorR = screenToView(bufToSceneUV(rUV), d1r);
@@ -244,6 +262,10 @@ void main() {
 	if (baseColor.a < alphaTestRef) discard;
 #endif
 	if (baseColor.a < 0.004) discard;
+#ifdef PROGRAM_ENTITIES_TRANSLUCENT
+	// Hurt and freeze flash (players render through this program).
+	baseColor.rgb = mix(baseColor.rgb, entityColor.rgb, entityColor.a);
+#endif
 	Surface s;
 	s.albedo = srgbToLinear(baseColor.rgb);
 	s.geoNormal = geoN;
@@ -265,18 +287,18 @@ void main() {
 #else
 	vec3 Esky = skyIrradiance(nPlayer);
 #endif
-	vec3 Eamb = Esky + blockIrradiance(lm.x) + heldLightIrradiance(vViewPos, s.normal) + vec3(KS_MIN_AMBIENT_E + nightVision * KS_NIGHT_VISION_E);
+	vec3 Elocal = blockIrradiance(lm.x) + heldLightIrradiance(vViewPos, s.normal) + vec3(minAmbientE());
+	vec3 Eamb = Esky + Elocal;
 	float NdotV = max(dot(s.normal, V), 1e-3);
 	vec3 Fenv = envBRDFApprox(s.f0, s.roughness, NdotV);
-	vec3 diffuse = s.albedo * RCP_PI * (Edir * clamp01(NdotL) + Eamb) * (1.0 - Fenv);
+	vec3 diffuse = s.albedo * RCP_PI * (Edir * clamp01(NdotL) + Eamb) * (1.0 - Fenv) * (1.0 - s.metalness);
 	vec3 spec = specularGGX(s.normal, V, Lv, s.roughness, s.f0) * Edir;
 	vec3 Rp = viewToPlayerDir(reflect(-V, s.normal));
-	spec += Fenv * skyReflection(Rp, sky);
+	spec += Fenv * (skyReflection(Rp, sky) + Elocal * RCP_PI);
 
-	vec3 color = diffuse + s.albedo * s.emission;
 	// Reflections are not attenuated by the surface's own transparency.
 	float alpha = baseColor.a;
-	color += spec / max(alpha, 0.25);
+	vec3 color = (diffuse + spec / max(alpha, 0.25)) * darknessLightScale() + s.albedo * s.emission;
 
 #if defined(IRIS_INLINE_GLINT) && (defined(PROGRAM_HAND_WATER) || defined(PROGRAM_ENTITIES_TRANSLUCENT))
 	if (mc_hasGlint()) {
@@ -289,5 +311,12 @@ void main() {
 	color = applyAtmosphere(color, playerPos, false);
 #endif
 	outColor = vec4(sanitizeHDR(color), alpha);
+#ifdef KS_WRITE_MATERIAL
+	#ifdef PROGRAM_HAND_WATER
+	outData = vec4(lm, encodeMaterial(MAT_HAND), 0.0);
+	#else
+	outData = vec4(lm, encodeMaterial(MAT_FORWARD), 0.0);
+	#endif
+#endif
 }
 #endif

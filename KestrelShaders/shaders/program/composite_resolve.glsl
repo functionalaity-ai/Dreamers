@@ -52,6 +52,9 @@ void main() {
 	float measuredEV = ev100FromLuminance(avgLum);
 	float key = 2.4 * (1.0 - smoothstep(5.0, 11.5, measuredEV));
 	float targetEV = clamp(measuredEV + key, KS_EV_MIN, KS_EV_MAX);
+	// Blindness and Darkness black out the view on purpose: do not adapt to the black.
+	float blind = clamp01(max(blindness, darknessFactor) * 4.0);
+	if (prevEV > 0.0) targetEV = mix(targetEV, max(targetEV, prevEV), blind);
 	if (prevEV <= 0.0 || isnan(prevEV) || isinf(prevEV)) {
 		vEV = targetEV;
 	} else {
@@ -94,7 +97,8 @@ void main() {
 	float s = renderScale();
 	vec2 jitter = taaJitterPx();
 	vec2 rp = gl_FragCoord.xy * s;
-	ivec2 center = ivec2(floor(rp - jitter));
+	// The sample in buffer pixel p shows the scene point at scaled position p + 0.5 - jitter.
+	ivec2 center = ivec2(floor(rp + jitter));
 	ivec2 maxP = max(ivec2(viewSize() * s) - 1, ivec2(0));
 
 	vec3 sum = vec3(0.0);
@@ -108,7 +112,7 @@ void main() {
 		for (int dx = -1; dx <= 1; dx++) {
 			ivec2 p = clamp(center + ivec2(dx, dy), ivec2(0), maxP);
 			vec3 t = toT(sanitizeHDR(texelFetch(colortex0, p, 0).rgb));
-			vec2 d = (vec2(p) + 0.5 + jitter - rp) / s;
+			vec2 d = (vec2(p) + 0.5 - jitter - rp) / s;
 			float w = exp(-2.29 * dot(d, d));
 			sum += t * w;
 			wsum += w;
@@ -127,7 +131,8 @@ void main() {
 	vec3 mean = m1 / 9.0;
 	vec3 sigma = sqrt(max(m2 / 9.0 - mean * mean, vec3(0.0)));
 
-	// Reprojection of the closest sample (depth dilation reduces edge ghosting).
+	// Depth dilation: this pixel moves with the closest sample of the 3x3 neighbourhood,
+	// which keeps foreground edges from ghosting.
 	vec2 closestSceneUV = (vec2(closestP) + 0.5 - jitter) / (viewSize() * s);
 	int code = MAT_GENERIC;
 	#ifdef KS_GBUFFER_DATA
@@ -138,10 +143,10 @@ void main() {
 		prevUV = outUV;
 	} else if (closestDepth >= 1.0) {
 		vec3 dirP = viewToPlayerDir(screenToView(closestSceneUV, 1.0));
-		prevUV = reprojectPlayer(normalize(dirP) * 4096.0).xy;
+		prevUV = outUV + reprojectPlayer(safeNormalize(dirP) * 4096.0).xy - closestSceneUV;
 	} else {
 		vec3 pp = viewToPlayer(screenToView(closestSceneUV, closestDepth));
-		prevUV = reprojectPlayer(pp).xy;
+		prevUV = outUV + reprojectPlayer(pp).xy - closestSceneUV;
 	}
 
 	bool valid = vHistoryValid > 0.5 && all(greaterThanEqual(prevUV, vec2(0.0))) && all(lessThanEqual(prevUV, vec2(1.0)));
@@ -153,7 +158,7 @@ void main() {
 		hist = yCoCgToRgb(hy);
 		float velocity = length((prevUV - outUV) * viewSize());
 		alpha = max(alpha, clamp01(velocity * 0.012));
-		if (code == MAT_ENTITY) alpha = max(alpha, 0.2);
+		if (code == MAT_ENTITY || code == MAT_FORWARD) alpha = max(alpha, 0.2);
 		if (code == MAT_HAND) alpha = max(alpha, 0.25);
 		result = fromT(mix(hist, current, alpha));
 	} else {

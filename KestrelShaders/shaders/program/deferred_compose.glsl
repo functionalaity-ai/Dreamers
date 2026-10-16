@@ -62,7 +62,8 @@ layout(location = 1) out vec4 outOpaque;
 // Depth-aware bilinear upsample of the half-resolution AO.
 float upsampleAO(vec2 bufUV, float linZ) {
 	vec2 halfSize = max(floor(viewSize() * 0.5), vec2(1.0));
-	vec2 p = bufUV * halfSize - 0.5;
+	// Half-resolution texel q holds full-resolution pixel 2q+1 (see deferred_ao).
+	vec2 p = (bufUV * viewSize() - 1.5) * 0.5;
 	vec2 base = floor(p);
 	vec2 f = p - base;
 	ivec2 maxQ = ivec2(halfSize * renderScale()) - 1;
@@ -122,6 +123,16 @@ void main() {
 		color = applyAtmosphere(skyC, dir * far, true);
 	} else {
 		// ---- Opaque surfaces.
+#ifdef KS_BUFFER_BLEND
+		// Opaque particles drawn before this pass already lit and fogged themselves.
+		if (decodeMaterial(texture(colortex1, bufUV).b) == MAT_FORWARD) {
+			outColor = vec4(sanitizeHDR(color), 1.0);
+	#ifdef KS_WATER_ADVANCED
+			outOpaque = vec4(sanitizeHDR(color), 1.0);
+	#endif
+			return;
+		}
+#endif
 #if DEBUG_VIEW == 6
 		// Raw shadow visibility from the gbuffers: no AO, reflections or fog on top.
 		outColor = vec4(color, 1.0);
@@ -136,8 +147,11 @@ void main() {
 		float ao = 1.0;
 		if (code != MAT_NONE) {
 	#ifdef SSAO
-			ao = upsampleAO(bufUV, -viewPos.z);
-			color *= 1.0 - data.a * (1.0 - ao);
+			// The hand's depth is not in this projection; it gets no AO.
+			if (code != MAT_HAND) {
+				ao = upsampleAO(bufUV, -viewPos.z);
+				color *= 1.0 - data.a * (1.0 - ao);
+			}
 	#endif
 	#ifdef KS_DEFERRED_SPEC
 			if (code != MAT_HAND) {
@@ -153,7 +167,7 @@ void main() {
 				vec3 Rp = viewToPlayerDir(R);
 				float sky = data.g;
 		#ifdef KS_SKY_LUT
-				vec3 rdir = normalize(vec3(Rp.x, max(Rp.y, 0.0), Rp.z));
+				vec3 rdir = safeNormalize(vec3(Rp.x, max(Rp.y, 0.0), Rp.z));
 				vec3 envSky = skyRadiance(rdir);
 				if (smoothness > 0.5) {
 					vec4 cl = sampleClouds(rdir, 0);
@@ -165,6 +179,8 @@ void main() {
 		#else
 				vec3 env = skyRadiance(Rp);
 		#endif
+				// Surroundings lit by block light reflect too (metals indoors).
+				env += (blockIrradiance(data.r) + vec3(minAmbientE())) * RCP_PI;
 		#ifdef KS_SSR_OPAQUE_ACTIVE
 				if (smoothness >= KS_SSR_MIN_SMOOTHNESS) {
 					float jitter = ignTemporal(gl_FragCoord.xy);
@@ -190,15 +206,23 @@ void main() {
 		}
 #endif
 
+		// The refraction copy is taken before caustics: from below, the water surface shows
+		// the world above it, which gets none.
+		opaque = color;
 #ifdef KS_CAUSTICS
 		// Light patterns on sunlit surfaces while the camera is under water.
 		if (isEyeInWater == 1) {
 			float c = waterCaustics(worldPosWrapped(playerPos));
 			float k = daylightFactor() * smoothstep(0.0, 4.0, length(playerPos)) * 0.5;
+	#ifdef KS_GBUFFER_DATA
+			// Only where sky light reaches (not in flooded caves or under overhangs).
+			k *= smoothstep(0.6, 1.0, data.g);
+	#else
+			k *= smoothstep(0.3, 0.9, float(eyeBrightnessSmooth.y) / 240.0);
+	#endif
 			color *= mix(1.0, c, k);
 		}
 #endif
-		opaque = color;
 		color = applyAtmosphere(color, playerPos, false);
 #if DEBUG_VIEW == 5 && defined(KS_GBUFFER_DATA)
 		color = vec3(ao);

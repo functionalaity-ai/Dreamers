@@ -31,7 +31,8 @@ void main() {
 	float depth = texture(depthtex0, bufUV).r;
 	float linZ = depth >= 1.0 ? far * 4.0 : linearizeDepth(depth);
 	vec2 halfSize = max(floor(viewSize() * 0.5), vec2(1.0));
-	vec2 p = bufUV * halfSize - 0.5;
+	// Half-resolution texel q holds full-resolution pixel 2q+1 (see composite_vl).
+	vec2 p = (bufUV * viewSize() - 1.5) * 0.5;
 	vec2 base = floor(p);
 	vec2 f = p - base;
 	ivec2 maxQ = max(ivec2(halfSize * renderScale()) - 1, ivec2(0));
@@ -41,8 +42,7 @@ void main() {
 		for (int i = 0; i < 2; i++) {
 			ivec2 q = clamp(ivec2(base) + ivec2(i, j), ivec2(0), maxQ);
 			vec4 v = texelFetch(colortex6, q, 0);
-			vec2 qUV = (vec2(q) + 0.5) / halfSize;
-			float qd = texture(depthtex0, qUV).r;
+			float qd = texelFetch(depthtex0, q * 2 + 1, 0).r;
 			float qz = qd >= 1.0 ? far * 4.0 : linearizeDepth(qd);
 			float wb = (i == 0 ? 1.0 - f.x : f.x) * (j == 0 ? 1.0 - f.y : f.y);
 			float wd = exp(-abs(qz - linZ) / max(0.08 * linZ, 0.05));

@@ -11,6 +11,14 @@
 // Largest value written to R11F_G11F_B10F/RGBA16F targets (format maxima are about 65000).
 #define KS_HDR_MAX 60000.0
 
+// frameTimeCounter wraps to 0 every 3600 s. Speeds passed through these macros complete a
+// whole number of cycles per hour, so the wrap is seamless (they fold to constants).
+//   KS_LOOP_W(w): angular frequency in rad/s, rounded to a multiple of 2*pi/3600.
+//   KS_LOOP_V(v): noise-texture scroll speed in texels/s, rounded to a multiple of 256/3600
+//                 (the noise texture repeats every 256 texels).
+#define KS_LOOP_W(w) (floor((w) * 572.957795 + 0.5) * 0.00174532925)
+#define KS_LOOP_V(v) (floor((v) * 14.0625 + 0.5) * 0.0711111111)
+
 float clamp01(float x) { return clamp(x, 0.0, 1.0); }
 vec2 clamp01(vec2 x) { return clamp(x, 0.0, 1.0); }
 vec3 clamp01(vec3 x) { return clamp(x, 0.0, 1.0); }

@@ -62,7 +62,8 @@ vec3 fxaaResolve(sampler2D tex, vec2 uv, vec2 texel) {
 	float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
 	if (lMax - lMin < max(0.05, lMax * 0.125)) return cM;
 
-	vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+	// FXAA 3.11 assumes north = -v; these taps put north at +v, so dir.y flips sign.
+	vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), -((lNW + lSW) - (lNE + lSE)));
 	float reduce = max((lNW + lNE + lSW + lSE) * 0.03125, 1.0 / 128.0);
 	float rcpMin = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
 	dir = clamp(dir * rcpMin, vec2(-8.0), vec2(8.0)) * texel;

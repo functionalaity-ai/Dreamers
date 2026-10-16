@@ -20,6 +20,9 @@
 #ifdef PROGRAM_ENTITIES
 	#define KS_IS_ENTITY 1
 #endif
+#ifdef PROGRAM_BLOCK
+	#define KS_IS_BLOCK 1
+#endif
 #if defined(MC_TEXTURE_FORMAT_LAB_PBR) && PBR_MODE == 1
 	#define KS_LABPBR 1
 #endif
@@ -50,9 +53,11 @@ void main() {
 	vTexcoord = (gl_TextureMatrix[0] * gl_MultiTexCoord0).xy;
 	vLmcoord = (gl_TextureMatrix[1] * gl_MultiTexCoord1).xy;
 	vColor = gl_Color;
-	vNormal = normalize(gl_NormalMatrix * gl_Normal);
+	vec3 n = gl_NormalMatrix * gl_Normal;
+	vNormal = dot(n, n) > 1e-6 ? normalize(n) : vec3(0.0, 0.0, 1.0);
 #ifdef KS_LABPBR
-	vTangent = vec4(normalize(gl_NormalMatrix * at_tangent.xyz), at_tangent.w < 0.0 ? -1.0 : 1.0);
+	// End portals and gateways have no tangent; the fragment shader rebuilds one.
+	vTangent = vec4(gl_NormalMatrix * at_tangent.xyz, at_tangent.w < 0.0 ? -1.0 : 1.0);
 #endif
 	vec4 viewPos = gl_ModelViewMatrix * gl_Vertex;
 	vBlockId = 0;
@@ -145,25 +150,36 @@ void main() {
 	{
 		vec4 sp = texture(specular, vTexcoord);
 		vec4 nm = texture(normals, vTexcoord);
-		float smoothness = sp.r;
-		s.roughness = 1.0 - smoothness;
-		float g = sp.g * 255.0;
-		if (g <= 229.5) s.f0 = vec3(sp.g);
-		else s.f0 = s.albedo;
-		float b = sp.b * 255.0;
-		if (g <= 229.5) {
-			s.porosity = b <= 64.5 ? b / 64.0 : 0.0;
-			s.sss = b > 64.5 ? (b - 65.0) / 190.0 : s.sss;
+		// Iris fills a missing _s map with 0 in every channel: keep the default material then.
+		if (any(greaterThan(sp, vec4(0.0)))) {
+			float smoothness = sp.r;
+			s.roughness = 1.0 - smoothness;
+			float g = sp.g * 255.0;
+			if (g <= 229.5) {
+				s.f0 = vec3(sp.g);
+				s.metalness = 0.0;
+			} else {
+				s.f0 = s.albedo;
+				s.metalness = 1.0;
+			}
+			float b = sp.b * 255.0;
+			if (g <= 229.5) {
+				s.porosity = b <= 64.5 ? b / 64.0 : 0.0;
+				s.sss = b > 64.5 ? (b - 65.0) / 190.0 : s.sss;
+			}
+			float e = sp.a * 255.0;
+			if (e < 254.5) s.emission = max(s.emission, sp.a * 1.6);
 		}
-		float e = sp.a * 255.0;
-		if (e < 254.5) s.emission = max(s.emission, sp.a * 1.6);
 		vec2 nxy = nm.rg * 2.0 - 1.0;
 		if (dot(nm.rgb, nm.rgb) > 0.01) {
 			vec3 tn = vec3(nxy, sqrt(clamp01(1.0 - dot(nxy, nxy))));
-			vec3 T = normalize(vTangent.xyz);
 			vec3 N = s.geoNormal;
-			T = normalize(T - N * dot(N, T));
-			vec3 B = cross(N, T) * vTangent.w;
+			vec3 T = vTangent.xyz - N * dot(N, vTangent.xyz);
+			if (dot(T, T) < 1e-8) T = abs(N.y) < 0.99 ? cross(N, vec3(0.0, 1.0, 0.0)) : cross(N, vec3(1.0, 0.0, 0.0));
+			T = normalize(T);
+			// Iris sets at_tangent.w so that cross(T, N) * w follows the texture's v axis
+			// (the convention labPBR packs are authored against).
+			vec3 B = cross(T, N) * vTangent.w;
 			s.normal = normalize(mat3(T, B, N) * tn);
 			s.ao = nm.b;
 		}
@@ -272,31 +288,36 @@ void main() {
 	vec3 Esky = skyIrradiance(nAmb);
 #endif
 	vec3 Eblock = blockIrradiance(lm.x) + heldLightIrradiance(vViewPos, s.normal);
-	vec3 Efloor = vec3(KS_MIN_AMBIENT_E + nightVision * KS_NIGHT_VISION_E);
+	vec3 Efloor = vec3(minAmbientE());
 	vec3 diffuseAmb = s.albedo * RCP_PI * (Esky + Eblock + Efloor) * s.ao;
 
 	float NdotV = max(dot(s.normal, V), 1e-3);
 	vec3 Fenv = envBRDFApprox(s.f0, s.roughness, NdotV);
-	vec3 kd = 1.0 - Fenv;
+	vec3 kd = (1.0 - Fenv) * (1.0 - s.metalness);
 
 	vec3 color = (diffuseDirect + diffuseAmb) * kd + specDirect;
 
-	// ---- Environment specular, forward (only when deferred reflections are off).
-#ifndef KS_DEFERRED_SPEC
+	// ---- Environment specular, forward (when deferred reflections are off, and always for
+	// the hand, which deferred2 cannot reconstruct).
+#if !defined(KS_DEFERRED_SPEC) || defined(KS_IS_HAND)
 	{
 		vec3 R = reflect(-V, s.normal);
 		vec3 Rp = viewToPlayerDir(R);
 	#ifdef KS_SKY_LUT
-		vec3 envSky = skyRadiance(normalize(vec3(Rp.x, max(Rp.y, -0.2), Rp.z)));
+		vec3 envSky = skyRadiance(safeNormalize(vec3(Rp.x, max(Rp.y, -0.2), Rp.z)));
 		vec3 envRough = skyIrradiance(nPlayer) * RCP_PI;
 		vec3 env = mix(envSky, envRough, clamp01(s.roughness * s.roughness * 1.5));
 		env *= smoothstep(0.55, 1.0, sky);
 	#else
 		vec3 env = skyRadiance(Rp);
 	#endif
+		// Surroundings lit by block light reflect too (this is what keeps metals visible
+		// indoors, where they have no diffuse).
+		env += (Eblock + Efloor) * RCP_PI;
 		color += Fenv * env * s.ao;
 	}
 #endif
+	color *= darknessLightScale();
 
 	// ---- Emission.
 	color += s.albedo * s.emission;
@@ -314,7 +335,13 @@ void main() {
 #endif
 
 	color = sanitizeHDR(color);
+#if defined(KS_IS_BLOCK) && (defined(KS_BUFFER_BLEND) || !defined(KS_GBUFFER_DATA))
+	// Translucent blocks moved by pistons draw through gbuffers_block with blending; the
+	// G-buffer targets have blending switched off in shaders.properties.
+	outColor = vec4(color, baseColor.a);
+#else
 	outColor = vec4(color, 1.0);
+#endif
 
 #ifdef KS_GBUFFER_DATA
 	int code = materialCodeForBlock(id);

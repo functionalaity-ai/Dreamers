@@ -17,7 +17,7 @@ float waterHeight(vec2 p, int octaves) {
 	for (int i = 0; i < 5; i++) {
 		if (i >= octaves) break;
 		float k = TAU / wavelength;
-		float w = sqrt(9.8 * k);
+		float w = KS_LOOP_W(sqrt(9.8 * k));
 		float phase = dot(dir, p) * k - w * t;
 		// exp(sin) - 1 gives sharper crests and wider troughs than a pure sine.
 		h += amp * (exp(sin(phase)) - 1.0);
@@ -42,8 +42,8 @@ vec3 waterWaveNormal(vec2 worldXZ, int octaves, float viewDist) {
 
 vec3 waterSimpleNormal(vec2 worldXZ) {
 	float t = frameTimeCounter;
-	vec2 a = worldXZ * 6.0 + vec2(t * 3.0, t * 1.7);
-	vec2 b = worldXZ * 9.0 - vec2(t * 2.1, -t * 2.6);
+	vec2 a = worldXZ * 6.0 + t * vec2(KS_LOOP_V(3.0), KS_LOOP_V(1.7));
+	vec2 b = worldXZ * 9.0 - t * vec2(KS_LOOP_V(2.1), -KS_LOOP_V(2.6));
 	float h0 = noiseSmooth(a) + noiseSmooth2(b);
 	float hx = noiseSmooth(a + vec2(1.0, 0.0)) + noiseSmooth2(b + vec2(1.0, 0.0));
 	float hz = noiseSmooth(a + vec2(0.0, 1.0)) + noiseSmooth2(b + vec2(0.0, 1.0));
@@ -53,10 +53,10 @@ vec3 waterSimpleNormal(vec2 worldXZ) {
 
 // Animated caustic pattern (0..~2) at a world position, for sunlit surfaces under water.
 float waterCaustics(vec3 worldPos) {
-	float t = frameTimeCounter * 0.9;
+	float t = frameTimeCounter;
 	vec2 p = worldPos.xz + worldPos.y * 0.25;
-	float a = noiseSmooth(p * 9.0 + vec2(t * 4.0, t * 2.3));
-	float b = noiseSmooth2(p * 7.0 - vec2(t * 3.1, -t * 3.7));
+	float a = noiseSmooth(p * 9.0 + t * vec2(KS_LOOP_V(3.6), KS_LOOP_V(2.07)));
+	float b = noiseSmooth2(p * 7.0 - t * vec2(KS_LOOP_V(2.79), -KS_LOOP_V(3.33)));
 	float c = 1.0 - abs(a - b) * 3.2;
 	return 0.35 + 1.6 * pow(clamp01(c), 6.0);
 }

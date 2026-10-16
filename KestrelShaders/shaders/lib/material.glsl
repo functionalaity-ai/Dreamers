@@ -31,6 +31,9 @@
 #define MAT_ENTITY 7
 #define MAT_HAND 8
 #define MAT_SNOW 9
+// Lit and fogged by its own gbuffers program (opaque particles, translucent entities): the
+// deferred passes leave it alone, TAA treats it as moving.
+#define MAT_FORWARD 10
 
 bool isFoliageId(int id) { return id >= ID_PLANT_SHORT && id <= ID_CROPS; }
 bool isWavingId(int id) { return id >= ID_PLANT_SHORT && id <= ID_CROPS; }
@@ -58,6 +61,7 @@ struct Surface {
 	float sss;        // subsurface / translucency amount 0..1
 	float porosity;   // how much rain darkens the surface 0..1
 	float ao;         // material AO 0..1
+	float metalness;  // 1 for metals: no diffuse, the albedo tints the reflection (f0)
 };
 
 // Default surface values for vanilla textures (no resource-pack PBR maps).
@@ -68,12 +72,14 @@ void defaultMaterial(int id, vec3 albedoLin, inout Surface s) {
 	s.sss = 0.0;
 	s.porosity = 0.5;
 	s.ao = 1.0;
+	s.metalness = 0.0;
 	if (isFoliageId(id)) {
 		s.roughness = 0.65;
 		s.sss = 0.6;
 		s.porosity = 0.15;
 	} else if (id == ID_METAL) {
 		s.f0 = albedoLin;
+		s.metalness = 1.0;
 		s.roughness = 0.38;
 		s.porosity = 0.0;
 	} else if (id == ID_POLISHED) {

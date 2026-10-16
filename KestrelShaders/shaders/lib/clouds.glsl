@@ -12,8 +12,28 @@ float cloudDeckHeight() {
 #endif
 }
 
-vec2 cloudWind() {
-	return vec2(frameTimeCounter * 1.2, frameTimeCounter * 0.35);
+// Cloud patterns repeat every 65536 blocks, and the wind moves each layer exactly one
+// pattern period per hour, so neither the camera-position wrap nor frameTimeCounter's
+// 3600 s wrap makes the clouds jump.
+vec2 cloudWorldXZ(vec3 playerPos) {
+#ifdef IS_IRIS
+	ivec2 ci = cameraPositionInt.xz;
+	ivec2 cw = ci - (ci / 65536) * 65536;
+	return playerPos.xz + vec2(cw) + cameraPositionFract.xz;
+#else
+	return playerPos.xz + mod(cameraPosition.xz, 65536.0);
+#endif
+}
+
+// Cumulus: 17 noise periods per 65536 blocks; wind 65536/17 blocks per hour (~1.07 b/s).
+#define KS_CUMULUS_SCALE 0.06640625
+vec2 cumulusWind() {
+	return vec2(frameTimeCounter * (65536.0 / 17.0 / 3600.0), 0.0);
+}
+// Cirrus: 3 x 9 noise periods per 65536 blocks, stretched along x; wind ~6.07 b/s.
+#define KS_CIRRUS_SCALE vec2(0.01171875, 0.03515625)
+vec2 cirrusWind() {
+	return vec2(frameTimeCounter * (65536.0 / 3.0 / 3600.0), 0.0);
 }
 
 float cloudCoverage() {
@@ -21,9 +41,10 @@ float cloudCoverage() {
 }
 
 // Cumulus density at a world xz position (0..1). noiseSmooth has 8-texel features, so a
-// scale of 0.066 gives ~120-block clouds for the base octave.
+// scale of ~0.066 gives ~120-block clouds for the base octave. Octaves double exactly, so
+// they repeat with the base pattern.
 float cumulusDensity(vec2 xz, int octaves) {
-	vec2 p = (xz + cloudWind()) * 0.066;
+	vec2 p = (xz + cumulusWind()) * KS_CUMULUS_SCALE;
 	float n = 0.0;
 	float amp = 0.55;
 	float sum = 0.0;
@@ -31,7 +52,7 @@ float cumulusDensity(vec2 xz, int octaves) {
 		if (i >= octaves) break;
 		n += amp * noiseSmooth(p);
 		sum += amp;
-		p = p * 2.03 + vec2(17.0, 43.0);
+		p = p * 2.0 + vec2(17.0, 43.0);
 		amp *= 0.5;
 	}
 	n /= sum;
@@ -41,8 +62,8 @@ float cumulusDensity(vec2 xz, int octaves) {
 
 // Streaky high cirrus from the coarse (16-texel) channel, stretched along x.
 float cirrusDensity(vec2 xz) {
-	vec2 p = (xz + cloudWind() * 2.0) * vec2(0.012, 0.035);
-	float n = noiseSmooth2(p) * 0.65 + noiseSmooth2(p * 3.1 + 11.0) * 0.35;
+	vec2 p = (xz + cirrusWind()) * KS_CIRRUS_SCALE;
+	float n = noiseSmooth2(p) * 0.65 + noiseSmooth2(p * 3.0 + 11.0) * 0.35;
 	return clamp01((n - 0.55) * 2.6) * (1.0 - rainStrength * 0.7);
 }
 
@@ -74,7 +95,7 @@ vec4 sampleClouds(vec3 dir, int quality) {
 		if (dir.y * dy > 0.0) {
 			float t = dy / dir.y;
 			if (t < 12000.0) {
-				vec2 xz = worldPosWrapped(dir * t).xz;
+				vec2 xz = cloudWorldXZ(dir * t);
 				int oct = quality > 0 ? 4 : 2;
 				float d = cumulusDensity(xz, oct);
 				if (d > 0.002) {
@@ -97,7 +118,7 @@ vec4 sampleClouds(vec3 dir, int quality) {
 		float dy = h - camY;
 		if (dir.y > 0.0 && dy > 0.0) {
 			float t = dy / dir.y;
-			vec2 xz = worldPosWrapped(dir * t).xz;
+			vec2 xz = cloudWorldXZ(dir * t);
 			float d = cirrusDensity(xz);
 			if (d > 0.002) {
 				vec3 L = cloudLighting(d * 0.3, d * 0.15, dot(dir, Lp), 1.2);
@@ -119,7 +140,7 @@ float cloudShadow(vec3 playerPos) {
 	float y = playerPos.y + eyeAltitude;
 	if (y > h || Lp.y <= 0.05) return 1.0;
 	float t = (h - y) / Lp.y;
-	vec2 xz = worldPosWrapped(playerPos + Lp * t).xz;
+	vec2 xz = cloudWorldXZ(playerPos + Lp * t);
 	float d = cumulusDensity(xz, 2);
 	return 1.0 - 0.8 * smoothstep(0.0, 0.6, d);
 }
