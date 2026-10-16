@@ -20,6 +20,16 @@ Install glslang with `apt-get install glslang-tools` (or your platform's package
 At release, `check_pack.py` passed, and `validate_glsl.py` compiled and linked 11,466
 program pairs across 90 configurations and 5 vendor macro sets with no errors or warnings.
 
+### Setup bundle
+
+`python3 tools/build_setup.py` builds `dist/KestrelShaders-Setup-<version>.zip` (the
+installers are rendered from `tools/setup/`, with the profiles taken from
+`shaders.properties`). `python3 tools/test_setup.py` runs the macOS installer end to end
+against a local fake of the Fabric meta and Modrinth APIs, with Node.js standing in for
+macOS's JavaScript for Automation: fresh install, update, a corrupted download and a bad
+profile name. The Windows PowerShell installer mirrors the same steps; run it once on a real
+Windows machine before relying on it.
+
 ### Render harness (optional)
 
 `tools/render_test.py` renders a procedural test scene through the real programs on a

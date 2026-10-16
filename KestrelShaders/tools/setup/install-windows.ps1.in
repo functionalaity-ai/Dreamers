@@ -1,0 +1,268 @@
+# Kestrel Shaders @VERSION@ - one-click setup for the official Minecraft Launcher on Windows.
+#
+# Creates a "Kestrel Shaders" installation with its own game folder, so your other
+# installations and mods are untouched:
+#   1. Fabric loader for Minecraft @MC_VERSION@ (the launcher fetches the rest on first start)
+#   2. Sodium and Iris, the newest Modrinth builds for @MC_VERSION@ (checksums verified)
+#   3. Kestrel Shaders, switched on, with a quality profile you pick
+#
+# Double-click "Install on Windows.bat", or run in PowerShell:
+#   powershell -ExecutionPolicy Bypass -File install-windows.ps1 [POTATO|LOW|MEDIUM|HIGH]
+# Run it again any time to update Fabric, Sodium and Iris.
+
+param([string]$Choice = "")
+
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+$McVersion = "@MC_VERSION@"
+$Pack = "@PACK@"
+$ProfileKey = "kestrel-shaders"
+$ProfileName = "Kestrel Shaders"
+$UA = "functionalaity-ai/KestrelShaders-Setup/@VERSION@"
+$Here = Split-Path -Parent $MyInvocation.MyCommand.Path
+$McDir = if ($env:KESTREL_MC_DIR) { $env:KESTREL_MC_DIR } else { Join-Path $env:APPDATA ".minecraft" }
+$Instance = Join-Path $McDir "kestrel-shaders"
+$FabricMeta = if ($env:KESTREL_FABRIC_META) { $env:KESTREL_FABRIC_META } else { "https://meta.fabricmc.net" }
+$ModrinthApi = if ($env:KESTREL_MODRINTH_API) { $env:KESTREL_MODRINTH_API } else { "https://api.modrinth.com" }
+$Utf8 = New-Object System.Text.UTF8Encoding($false)
+$Tmp = Join-Path ([IO.Path]::GetTempPath()) ("kestrel-setup-" + [Guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Path $Tmp | Out-Null
+
+$ProfileOptions = @{
+@PROFILE_TABLE@
+}
+
+function Say([string]$Text) { Write-Host $Text }
+
+function Fail([string]$Text) {
+	Write-Host ""
+	Write-Host "Setup stopped: $Text" -ForegroundColor Red
+	Write-Host "Your other installations, mods and worlds are untouched. Fix the problem and run this again."
+	Remove-Item -Recurse -Force -LiteralPath $Tmp -ErrorAction SilentlyContinue
+	exit 1
+}
+
+# Anything unexpected (a malformed download, a full disk) ends with the same clear message.
+trap { Fail ("unexpected error: " + $_.Exception.Message) }
+
+function Fetch([string]$Url, [string]$OutFile) {
+	for ($i = 1; $i -le 3; $i++) {
+		try {
+			Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -UserAgent $UA -TimeoutSec 60
+			return $true
+		} catch {
+			if ($i -eq 3) { return $false }
+			Start-Sleep -Seconds (2 * $i)
+		}
+	}
+}
+
+function Read-JsonFile([string]$Path) {
+	return ([IO.File]::ReadAllText($Path) -replace "^\uFEFF", "") | ConvertFrom-Json
+}
+
+function Write-TextFile([string]$Path, [string]$Text) {
+	[IO.File]::WriteAllText($Path, $Text, $Utf8)
+}
+
+# Newest release (else newest build) from a Modrinth version list.
+function Select-ModrinthVersion($List) {
+	$all = @($List | Where-Object { $_ })
+	if ($all.Count -eq 0) { return $null }
+	# ISO timestamps sort as strings (PowerShell 5.1); PowerShell 7 parses them as dates.
+	$sorted = @($all | Sort-Object -Property date_published -Descending)
+	$release = $sorted | Where-Object { $_.version_type -eq "release" } | Select-Object -First 1
+	if ($release) { return $release }
+	return $sorted[0]
+}
+
+Say "Kestrel Shaders @VERSION@ setup"
+Say "==============================="
+
+if (-not (Test-Path -LiteralPath (Join-Path $Here $Pack))) { Fail "$Pack must be in the same folder as this installer." }
+if (-not (Test-Path -LiteralPath $McDir)) { Fail "no Minecraft folder at $McDir. Install the Minecraft Launcher, start it once and log in, then run this again." }
+$ProfileFiles = @("launcher_profiles.json", "launcher_profiles_microsoft_store.json") |
+	ForEach-Object { Join-Path $McDir $_ } | Where-Object { Test-Path -LiteralPath $_ }
+if (@($ProfileFiles).Count -eq 0) { Fail "no launcher_profiles.json yet. Start the Minecraft Launcher once and log in, then run this again." }
+
+if (Get-Process -Name "MinecraftLauncher", "Minecraft" -ErrorAction SilentlyContinue) {
+	Say ""
+	Say "Please close the Minecraft Launcher first (it rewrites its profile list when it closes)."
+	Read-Host "Press Enter once it's closed" | Out-Null
+}
+
+# ---- Quality profile.
+if (-not $Choice) {
+	Say ""
+	Say "Which quality profile?"
+	Say "  1) POTATO  - Intel UHD 620 / HD 520, GT 1030 (DDR4), very old PCs"
+	Say "  2) LOW     - Intel Iris Xe, AMD Vega 8, GTX 750 Ti, RX 550"
+	Say "  3) MEDIUM  - GTX 1050 / 1050 Ti, RX 560, Radeon 680M"
+	Say "  4) HIGH    - GTX 1060 / RX 580 and faster"
+	$answer = Read-Host "Press Enter for LOW, or type 1-4"
+	switch ($answer.Trim()) {
+		"1" { $Choice = "POTATO" }
+		"2" { $Choice = "LOW" }
+		"3" { $Choice = "MEDIUM" }
+		"4" { $Choice = "HIGH" }
+		""  { $Choice = "LOW" }
+		default { $Choice = $answer.Trim() }
+	}
+}
+$Choice = $Choice.ToUpperInvariant()
+if (-not $ProfileOptions.ContainsKey($Choice)) { Fail "unknown profile '$Choice' (use POTATO, LOW, MEDIUM or HIGH)." }
+Say "Profile: $Choice"
+
+# ---- Fabric loader.
+Say ""
+Say "1/4  Fabric loader for Minecraft $McVersion..."
+$loadersFile = Join-Path $Tmp "loaders.json"
+if (-not (Fetch "$FabricMeta/v2/versions/loader" $loadersFile)) { Fail "could not reach meta.fabricmc.net (check your internet connection)." }
+$loaders = @(Read-JsonFile $loadersFile | Where-Object { $_ })
+if ($loaders.Count -eq 0) { Fail "unexpected answer from meta.fabricmc.net." }
+$stable = $loaders | Where-Object { $_.stable } | Select-Object -First 1
+if (-not $stable) { $stable = $loaders[0] }
+$loader = $stable.version
+$profileFile = Join-Path $Tmp "profile.json"
+if (-not (Fetch "$FabricMeta/v2/versions/loader/$McVersion/$loader/profile/json" $profileFile)) { Fail "Fabric doesn't support Minecraft $McVersion yet (or meta.fabricmc.net is unreachable)." }
+$versionId = (Read-JsonFile $profileFile).id
+if (-not $versionId) { Fail "the Fabric profile has no id." }
+$versionDir = Join-Path (Join-Path $McDir "versions") $versionId
+New-Item -ItemType Directory -Force -Path $versionDir | Out-Null
+Copy-Item -LiteralPath $profileFile -Destination (Join-Path $versionDir "$versionId.json") -Force
+# The Fabric installer leaves an empty jar next to the profile; the launcher expects it.
+$dummyJar = Join-Path $versionDir "$versionId.jar"
+if (-not (Test-Path -LiteralPath $dummyJar)) { [IO.File]::WriteAllBytes($dummyJar, [byte[]]@()) }
+Say "     $versionId"
+
+# ---- Mods: Iris and everything it requires (Sodium), from Modrinth. Everything is
+# downloaded and checked first; the mods folder changes only when all of it succeeded.
+Say "2/4  Iris and Sodium from Modrinth..."
+$dlDir = Join-Path $Tmp "mods"
+New-Item -ItemType Directory -Force -Path $dlDir | Out-Null
+$installed = New-Object System.Collections.Generic.List[string]
+$query = "loaders=%5B%22fabric%22%5D&game_versions=%5B%22$McVersion%22%5D"
+# Sodium is listed too in case Iris's metadata doesn't name it; a version Iris pins wins,
+# because dependencies are handled first and each project is installed once.
+$todo = New-Object System.Collections.Generic.List[string]
+$todo.Add("p:iris")
+$todo.Add("p:sodium")
+$seen = @{}
+$projects = @{}
+$count = 0
+while ($todo.Count -gt 0) {
+	$item = $todo[0]
+	$todo.RemoveAt(0)
+	if ($seen.ContainsKey($item)) { continue }
+	$seen[$item] = $true
+	$count++
+	if ($count -gt 12) { Fail "too many dependencies." }
+	$kind = $item.Substring(0, 1)
+	$id = $item.Substring(2)
+	$jsonFile = Join-Path $Tmp "modrinth.json"
+	if ($kind -eq "v") {
+		if (-not (Fetch "$ModrinthApi/v2/version/$id" $jsonFile)) { Fail "could not reach api.modrinth.com." }
+		$version = Read-JsonFile $jsonFile
+	} else {
+		if (-not (Fetch "$ModrinthApi/v2/project/$id/version?$query" $jsonFile)) { Fail "could not reach api.modrinth.com." }
+		$version = Select-ModrinthVersion (Read-JsonFile $jsonFile)
+		if (-not $version) { Fail "$id has no Fabric build for Minecraft $McVersion on Modrinth yet." }
+	}
+	$seen["p:" + $version.project_id] = $true
+	if ($projects.ContainsKey([string]$version.project_id)) { continue }
+	$projects[[string]$version.project_id] = $true
+	$file = $version.files | Where-Object { $_.primary } | Select-Object -First 1
+	if (-not $file) { $file = $version.files | Select-Object -First 1 }
+	if (-not $file) { Fail "Modrinth version $($version.id) has no files." }
+	$name = [string]$file.filename
+	if (-not $name -or $name.Contains("/") -or $name.Contains("\") -or $name.StartsWith("..")) { Fail "unexpected file name from Modrinth: $name" }
+	$download = Join-Path $dlDir $name
+	if (-not (Fetch $file.url $download)) { Fail "could not download $name." }
+	$hash = (Get-FileHash -Algorithm SHA512 -LiteralPath $download).Hash.ToLowerInvariant()
+	if ($hash -ne ([string]$file.hashes.sha512).ToLowerInvariant()) { Fail "$name failed its checksum; try again." }
+	$installed.Add($name)
+	Say "     $name"
+	$deps = New-Object System.Collections.Generic.List[string]
+	foreach ($dep in @($version.dependencies)) {
+		if (-not $dep -or $dep.dependency_type -ne "required") { continue }
+		if ($dep.version_id) { $deps.Add("v:" + $dep.version_id) }
+		elseif ($dep.project_id) { $deps.Add("p:" + $dep.project_id) }
+	}
+	$todo.InsertRange(0, $deps)
+}
+$modsDir = Join-Path $Instance "mods"
+New-Item -ItemType Directory -Force -Path $modsDir | Out-Null
+$manifest = Join-Path $modsDir ".kestrel-installed"
+if (Test-Path -LiteralPath $manifest) {
+	foreach ($old in [IO.File]::ReadAllLines($manifest)) {
+		if (-not $old -or $old.Contains("/") -or $old.Contains("\") -or $old.StartsWith("..")) { continue }
+		Remove-Item -LiteralPath (Join-Path $modsDir $old) -Force -ErrorAction SilentlyContinue
+	}
+}
+foreach ($name in $installed) {
+	Move-Item -LiteralPath (Join-Path $dlDir $name) -Destination (Join-Path $modsDir $name) -Force
+}
+Write-TextFile $manifest (($installed -join "`n") + "`n")
+
+# ---- Shader pack, switched on with the chosen profile.
+Say "3/4  Kestrel Shaders..."
+$packsDir = Join-Path $Instance "shaderpacks"
+$configDir = Join-Path $Instance "config"
+New-Item -ItemType Directory -Force -Path $packsDir, $configDir | Out-Null
+Copy-Item -LiteralPath (Join-Path $Here $Pack) -Destination (Join-Path $packsDir $Pack) -Force
+Write-TextFile (Join-Path $packsDir "$Pack.txt") $ProfileOptions[$Choice]
+$irisCfg = Join-Path $configDir "iris.properties"
+$lines = @()
+if (Test-Path -LiteralPath $irisCfg) {
+	$lines = @([IO.File]::ReadAllLines($irisCfg) | Where-Object { $_ -notmatch "^(shaderPack|enableShaders)=" })
+}
+$lines += "shaderPack=$Pack"
+$lines += "enableShaders=true"
+Write-TextFile $irisCfg (($lines -join "`n") + "`n")
+
+# ---- Launcher installation entry.
+Say "4/4  Launcher installation `"$ProfileName`"..."
+$now = [DateTime]::UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", [Globalization.CultureInfo]::InvariantCulture)
+foreach ($pf in $ProfileFiles) {
+	Copy-Item -LiteralPath $pf -Destination "$pf.kestrel-backup" -Force
+	try {
+		$data = Read-JsonFile $pf
+		if (-not $data.profiles) {
+			$data | Add-Member -NotePropertyName "profiles" -NotePropertyValue ([pscustomobject]@{}) -Force
+		}
+		$old = $data.profiles.$ProfileKey
+		$entry = [ordered]@{
+			name = $ProfileName
+			type = "custom"
+			created = $(if ($old -and $old.created) { $old.created } else { $now })
+			lastUsed = $now
+			icon = $(if ($old -and $old.icon) { $old.icon } else { "Furnace" })
+			lastVersionId = $versionId
+			gameDir = $Instance
+		}
+		if ($old -and $old.javaArgs) { $entry.javaArgs = $old.javaArgs }
+		$data.profiles | Add-Member -NotePropertyName $ProfileKey -NotePropertyValue ([pscustomobject]$entry) -Force
+		Write-TextFile $pf (($data | ConvertTo-Json -Depth 64) + "`n")
+	} catch {
+		Copy-Item -LiteralPath "$pf.kestrel-backup" -Destination $pf -Force
+		Fail "could not update $(Split-Path -Leaf $pf) (restored the backup): $($_.Exception.Message)"
+	}
+}
+Remove-Item -Recurse -Force -LiteralPath $Tmp -ErrorAction SilentlyContinue
+
+Say ""
+Say "All set!"
+Say ""
+Say "  1. Open the Minecraft Launcher, choose the `"$ProfileName`" installation and press Play."
+Say "     The first start downloads Minecraft $McVersion and Fabric, so give it a minute."
+Say "  2. If Iris says it can't run with Vulkan, accept the switch to OpenGL. The game closes;"
+Say "     start it again."
+Say "  3. In game, press I (or Options > Video Settings > Shader Packs) to change the profile."
+Say ""
+Say "This installation keeps its own worlds and settings in:"
+Say "  $Instance"
+Say "Copy a world folder into its 'saves' folder to play that world with the shaders."
+Say ""
+Say "Cheers, and enjoy the view."

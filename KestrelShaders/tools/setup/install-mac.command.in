@@ -1,0 +1,188 @@
+#!/bin/bash
+# Kestrel Shaders @VERSION@ - one-click setup for the official Minecraft Launcher on macOS.
+#
+# Creates a "Kestrel Shaders" installation with its own game folder, so your other
+# installations and mods are untouched:
+#   1. Fabric loader for Minecraft @MC_VERSION@ (the launcher fetches the rest on first start)
+#   2. Sodium and Iris, the newest Modrinth builds for @MC_VERSION@ (checksums verified)
+#   3. Kestrel Shaders, switched on, with a quality profile you pick
+#
+# Double-click this file (if macOS blocks it: right-click > Open), or run it in Terminal:
+#   bash "Install on Mac.command" [POTATO|LOW|MEDIUM|HIGH]
+# Run it again any time to update Fabric, Sodium and Iris.
+
+set -euo pipefail
+
+MC_VERSION="@MC_VERSION@"
+PACK="@PACK@"
+PROFILE_KEY="kestrel-shaders"
+PROFILE_NAME="Kestrel Shaders"
+UA="functionalaity-ai/KestrelShaders-Setup/@VERSION@"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+MC_DIR="${KESTREL_MC_DIR:-$HOME/Library/Application Support/minecraft}"
+INSTANCE="$MC_DIR/kestrel-shaders"
+FABRIC_META="${KESTREL_FABRIC_META:-https://meta.fabricmc.net}"
+MODRINTH_API="${KESTREL_MODRINTH_API:-https://api.modrinth.com}"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/kestrel-setup.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+say() { printf '%s\n' "$*"; }
+fail() {
+	printf '\nSetup stopped: %s\n' "$*" >&2
+	printf 'Your other installations, mods and worlds are untouched. Fix the problem and run this again.\n' >&2
+	exit 1
+}
+
+JSON_TOOL="$TMP/kestrel-json.js"
+cat > "$JSON_TOOL" <<'KESTREL_JS'
+@JS@
+KESTREL_JS
+json() { osascript -l JavaScript "$JSON_TOOL" "$@"; }
+
+fetch() { curl -fsSL --retry 3 --connect-timeout 20 -A "$UA" -o "$2" "$1"; }
+
+profile_options() {
+	case "$1" in
+@PROFILE_CASES@
+	*) return 1 ;;
+	esac
+}
+
+say "Kestrel Shaders @VERSION@ setup"
+say "==============================="
+
+[ -f "$HERE/$PACK" ] || fail "$PACK must be in the same folder as this installer."
+[ -d "$MC_DIR" ] || fail "no Minecraft folder at $MC_DIR. Install the Minecraft Launcher, start it once and log in, then run this again."
+PROFILES_FILE="$MC_DIR/launcher_profiles.json"
+[ -f "$PROFILES_FILE" ] || fail "no launcher_profiles.json yet. Start the Minecraft Launcher once and log in, then run this again."
+
+# The launcher runs as "Minecraft.app" (older builds: "Minecraft Launcher").
+if pgrep -if 'minecraft( launcher|\.app/contents/macos)' >/dev/null 2>&1; then
+	say ""
+	say "Please quit the Minecraft Launcher first (it rewrites its profile list when it closes)."
+	read -r -p "Press Enter once it's closed... " _ || true
+fi
+
+# ---- Quality profile.
+CHOICE="${1:-}"
+if [ -z "$CHOICE" ]; then
+	DEFAULT="LOW"
+	if [ "$(sysctl -n machdep.cpu.brand_string 2>/dev/null | grep -c Apple || true)" != "0" ]; then DEFAULT="MEDIUM"; fi
+	say ""
+	say "Which quality profile?"
+	say "  1) POTATO  - oldest and slowest computers"
+	say "  2) LOW     - Intel Macs and integrated graphics"
+	say "  3) MEDIUM  - Apple Silicon (M1 and newer)"
+	say "  4) HIGH    - fast dedicated graphics cards"
+	read -r -p "Press Enter for $DEFAULT, or type 1-4: " CHOICE || true
+	case "$CHOICE" in
+		1) CHOICE="POTATO" ;; 2) CHOICE="LOW" ;; 3) CHOICE="MEDIUM" ;; 4) CHOICE="HIGH" ;;
+		"") CHOICE="$DEFAULT" ;;
+	esac
+fi
+CHOICE="$(printf '%s' "$CHOICE" | tr '[:lower:]' '[:upper:]')"
+profile_options "$CHOICE" >/dev/null || fail "unknown profile '$CHOICE' (use POTATO, LOW, MEDIUM or HIGH)."
+say "Profile: $CHOICE"
+
+# ---- Fabric loader.
+say ""
+say "1/4  Fabric loader for Minecraft $MC_VERSION..."
+fetch "$FABRIC_META/v2/versions/loader" "$TMP/loaders.json" || fail "could not reach meta.fabricmc.net (check your internet connection)."
+LOADER="$(json fabric-loader "$TMP/loaders.json")" || fail "unexpected answer from meta.fabricmc.net."
+fetch "$FABRIC_META/v2/versions/loader/$MC_VERSION/$LOADER/profile/json" "$TMP/profile.json" \
+	|| fail "Fabric doesn't support Minecraft $MC_VERSION yet (or meta.fabricmc.net is unreachable)."
+VERSION_ID="$(json json-get "$TMP/profile.json" id)" || fail "the Fabric profile has no id."
+mkdir -p "$MC_DIR/versions/$VERSION_ID"
+cp "$TMP/profile.json" "$MC_DIR/versions/$VERSION_ID/$VERSION_ID.json"
+# The Fabric installer leaves an empty jar next to the profile; the launcher expects it.
+[ -f "$MC_DIR/versions/$VERSION_ID/$VERSION_ID.jar" ] || : > "$MC_DIR/versions/$VERSION_ID/$VERSION_ID.jar"
+say "     $VERSION_ID"
+
+# ---- Mods: Iris and everything it requires (Sodium), from Modrinth. Everything is
+# downloaded and checked first; the mods folder changes only when all of it succeeded.
+say "2/4  Iris and Sodium from Modrinth..."
+mkdir -p "$TMP/mods"
+: > "$TMP/manifest"
+QUERY="loaders=%5B%22fabric%22%5D&game_versions=%5B%22$MC_VERSION%22%5D"
+# Sodium is listed too in case Iris's metadata doesn't name it; a version Iris pins wins,
+# because dependencies are handled first and each project is installed once.
+TODO="p:iris p:sodium"
+SEEN=" "
+PROJECTS=" "
+COUNT=0
+while [ -n "$TODO" ]; do
+	ITEM="${TODO%% *}"
+	if [ "$ITEM" = "$TODO" ]; then TODO=""; else TODO="${TODO#* }"; fi
+	case "$SEEN" in *" $ITEM "*) continue ;; esac
+	SEEN="$SEEN$ITEM "
+	COUNT=$((COUNT + 1))
+	[ "$COUNT" -le 12 ] || fail "too many dependencies."
+	if [ "${ITEM%%:*}" = "v" ]; then
+		fetch "$MODRINTH_API/v2/version/${ITEM#v:}" "$TMP/version.json" || fail "could not reach api.modrinth.com."
+		LINE="$(json modrinth-version "$TMP/version.json")" || fail "unexpected answer from Modrinth."
+	else
+		fetch "$MODRINTH_API/v2/project/${ITEM#p:}/version?$QUERY" "$TMP/versions.json" || fail "could not reach api.modrinth.com."
+		LINE="$(json modrinth-pick "$TMP/versions.json")" || fail "${ITEM#p:} has no Fabric build for Minecraft $MC_VERSION on Modrinth yet."
+	fi
+	IFS=$'\t' read -r _ PROJECT FILE URL SHA DEPS <<< "$LINE"
+	SEEN="${SEEN}p:$PROJECT "
+	case "$PROJECTS" in *" $PROJECT "*) continue ;; esac
+	PROJECTS="$PROJECTS$PROJECT "
+	case "$FILE" in */*|..*|"") fail "unexpected file name from Modrinth: $FILE" ;; esac
+	fetch "$URL" "$TMP/mods/$FILE" || fail "could not download $FILE."
+	GOT="$(shasum -a 512 "$TMP/mods/$FILE" | cut -d' ' -f1)"
+	[ "$GOT" = "$SHA" ] || fail "$FILE failed its checksum; try again."
+	printf '%s\n' "$FILE" >> "$TMP/manifest"
+	say "     $FILE"
+	if [ "$DEPS" != "-" ]; then
+		TODO="$(printf '%s %s' "$(printf '%s' "$DEPS" | tr ',' ' ')" "$TODO" | sed 's/^ *//;s/ *$//')"
+	fi
+done
+mkdir -p "$INSTANCE/mods"
+MANIFEST="$INSTANCE/mods/.kestrel-installed"
+if [ -f "$MANIFEST" ]; then
+	while IFS= read -r old; do
+		case "$old" in */*|..*|"") continue ;; esac
+		rm -f "$INSTANCE/mods/$old"
+	done < "$MANIFEST"
+fi
+while IFS= read -r FILE; do
+	mv "$TMP/mods/$FILE" "$INSTANCE/mods/$FILE"
+done < "$TMP/manifest"
+cp "$TMP/manifest" "$MANIFEST"
+
+# ---- Shader pack, switched on with the chosen profile.
+say "3/4  Kestrel Shaders..."
+mkdir -p "$INSTANCE/shaderpacks" "$INSTANCE/config"
+cp "$HERE/$PACK" "$INSTANCE/shaderpacks/$PACK"
+profile_options "$CHOICE" > "$INSTANCE/shaderpacks/$PACK.txt"
+IRIS_CFG="$INSTANCE/config/iris.properties"
+if [ -f "$IRIS_CFG" ]; then
+	grep -v -e '^shaderPack=' -e '^enableShaders=' "$IRIS_CFG" > "$TMP/iris.properties" || true
+else
+	: > "$TMP/iris.properties"
+fi
+printf 'shaderPack=%s\nenableShaders=true\n' "$PACK" >> "$TMP/iris.properties"
+cp "$TMP/iris.properties" "$IRIS_CFG"
+
+# ---- Launcher installation entry.
+say "4/4  Launcher installation \"$PROFILE_NAME\"..."
+cp "$PROFILES_FILE" "$PROFILES_FILE.kestrel-backup"
+NOW="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
+json add-profile "$PROFILES_FILE" "$PROFILE_KEY" "$PROFILE_NAME" "$VERSION_ID" "$INSTANCE" "$NOW" >/dev/null \
+	|| { cp "$PROFILES_FILE.kestrel-backup" "$PROFILES_FILE"; fail "could not update launcher_profiles.json (restored the backup)."; }
+
+say ""
+say "All set!"
+say ""
+say "  1. Open the Minecraft Launcher, choose the \"$PROFILE_NAME\" installation and press Play."
+say "     The first start downloads Minecraft $MC_VERSION and Fabric, so give it a minute."
+say "  2. If Iris says it can't run with Vulkan, accept the switch to OpenGL. The game closes;"
+say "     start it again."
+say "  3. In game, press I (or Options > Video Settings > Shader Packs) to change the profile."
+say ""
+say "This installation keeps its own worlds and settings in:"
+say "  $INSTANCE"
+say "Copy a world folder into its 'saves' folder to play that world with the shaders."
+say ""
+say "Cheers, and enjoy the view."

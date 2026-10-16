@@ -22,6 +22,9 @@ First release.
 - Four profiles (POTATO, LOW, MEDIUM for the M1 Mac mini, HIGH) and automatic Mac clamps.
 - Tools: stub and noise generators, a glslang validator across profiles, dimensions and
   vendors, a static rule checker, a packager and a Mesa render harness.
+- One-click setup for the official launcher on macOS and Windows: Fabric, Sodium and Iris
+  from Modrinth (checksums verified), the pack switched on with a chosen profile, and a
+  separate "Kestrel Shaders" installation.
 
 Fixed before release, after three code reviews:
 

@@ -1,0 +1,48 @@
+Kestrel Shaders @VERSION@ - setup
+================================
+
+This folder sets up everything for the official Minecraft Launcher in one go:
+Fabric for Minecraft @MC_VERSION@, Sodium and Iris (downloaded from Modrinth, checksums
+checked), and Kestrel Shaders, switched on with the quality profile you choose. It adds a
+new "Kestrel Shaders" installation with its own game folder, so your other installations,
+mods and worlds are left alone.
+
+Before you start
+----------------
+- Install the Minecraft Launcher, start it once, log in, then QUIT it.
+- You need an internet connection while the installer runs.
+
+Mac (M1 Mac mini and other Macs)
+--------------------------------
+1. Double-click "Install on Mac.command".
+   If macOS won't open it ("unidentified developer"), use Terminal instead, which always
+   works: open Terminal, type  bash  and a space, drag "Install on Mac.command" into the
+   Terminal window, and press Return.
+2. Press Return to accept the suggested profile (MEDIUM on Apple Silicon).
+3. Open the Minecraft Launcher, pick "Kestrel Shaders", press Play.
+
+For the best frame rate on a Mac mini with a 4K screen, set the display to a "1x" mode
+first (System Settings > Displays).
+
+Windows
+-------
+1. Double-click "Install on Windows.bat".
+   If Windows SmartScreen appears: More info > Run anyway.
+2. Press Enter for LOW, or type 1-4 for another profile.
+3. Open the Minecraft Launcher, pick "Kestrel Shaders", press Play.
+
+Afterwards
+----------
+- The first start downloads Minecraft @MC_VERSION@ and Fabric; give it a minute.
+- If Iris says it can't run with Vulkan, accept the switch to OpenGL. The game closes;
+  start it again.
+- Change the profile in game: press I (or Options > Video Settings > Shader Packs).
+- Your worlds: the new installation has its own "saves" folder (the installer prints where).
+  Copy a world into it to play that world with the shaders.
+- Run the installer again any time to update Fabric, Sodium and Iris.
+
+Using the Modrinth App or Prism Launcher instead?
+-------------------------------------------------
+Create a Fabric @MC_VERSION@ instance, add Iris (it brings Sodium), and copy
+@PACK@ into the instance's "shaderpacks" folder. Then pick Kestrel Shaders in
+Options > Video Settings > Shader Packs.

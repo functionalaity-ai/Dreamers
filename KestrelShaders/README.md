@@ -31,6 +31,20 @@ Every effect can be switched off, and switching an effect off removes its cost c
 
 OptiFine isn't supported.
 
+## One-click setup (official Minecraft Launcher)
+
+`KestrelShaders-Setup-<version>.zip` does everything for you: it installs Fabric for 26.3,
+downloads Sodium and Iris from Modrinth (checksums verified), adds Kestrel switched on with
+a quality profile you pick, and creates a **Kestrel Shaders** installation in the launcher
+with its own game folder, so your other installations, mods and worlds are untouched.
+
+1. Install the Minecraft Launcher, start it once, log in, then quit it.
+2. Unzip the setup and run **Install on Mac.command** or **Install on Windows.bat**
+   (`HOW-TO-INSTALL.txt` inside covers macOS and Windows security prompts).
+3. Open the launcher, pick **Kestrel Shaders**, press Play.
+
+Build it with `python3 tools/build_setup.py`. The manual routes below work too.
+
 ## Install on Windows
 
 Pick one of these:
