@@ -1,0 +1,179 @@
+# Kestrel Shaders - English option names and tooltips.
+
+# ---------------------------------------------------------------- Profiles
+profile=Profile
+profile.comment=POTATO: Intel UHD 620 / HD 520 at 720p. LOW: Iris Xe, Vega 8, GTX 750 Ti, RX 550. MEDIUM: recommended for the M1 Mac mini and GTX 1050-class cards. HIGH: GTX 1060 and up.
+profile.POTATO=Potato
+profile.LOW=Low
+profile.MEDIUM=Medium (M1)
+profile.HIGH=High
+
+# ---------------------------------------------------------------- Screens
+screen.LIGHTING=Lighting & Materials
+screen.LIGHTING.comment=Surface materials, block light, wetness and ambient occlusion.
+screen.SHADOWS=Shadows
+screen.SHADOWS.comment=Sun and moon shadow quality and range.
+screen.ATMOSPHERE=Sky & Atmosphere
+screen.ATMOSPHERE.comment=Sky, haze, fog, clouds and light shafts.
+screen.WATER=Water & Reflections
+screen.WATER.comment=Water waves, refraction, caustics and screen-space reflections.
+screen.CAMERA=Camera & Colour
+screen.CAMERA.comment=Exposure, tonemapping, colour grading, bloom and lens effects.
+screen.PERFORMANCE=Performance
+screen.PERFORMANCE.comment=Anti-aliasing and render scale, the biggest performance levers.
+screen.ADVANCED=Advanced
+screen.ADVANCED.comment=Mac overrides and debug views.
+
+# ---------------------------------------------------------------- Shadows
+option.SHADOWS=Shadows
+option.SHADOWS.comment=Real shadows from a shadow map. Off uses a cheap lightmap estimate. Cost: moderate to heavy (an extra geometry pass).
+option.shadowMapResolution=Shadow Resolution
+option.shadowMapResolution.comment=Sharpness of shadows. Cost grows with resolution. 1024 for Low, 1536 for the M1, 2048 for High.
+option.shadowDistance=Shadow Distance
+option.shadowDistance.comment=How far shadows reach, in blocks. Shorter is sharper and faster.
+suffix.shadowDistance= blocks
+option.SHADOW_FILTER=Shadow Softness
+option.SHADOW_FILTER.comment=Filtering of shadow edges. Contact-hardening needs the separate hardware samplers feature (Iris 1.6+).
+value.SHADOW_FILTER.0=Sharp (1 tap)
+value.SHADOW_FILTER.1=Soft (4 taps)
+value.SHADOW_FILTER.2=Softer (8 taps)
+value.SHADOW_FILTER.3=Contact-hardening
+option.COLORED_SHADOWS=Coloured Shadows
+option.COLORED_SHADOWS.comment=Stained glass and water tint the light that passes through. Cost: moderate. High profile only.
+option.ENTITY_SHADOWS=Entity Shadows
+option.ENTITY_SHADOWS.comment=Mobs, players and block entities cast shadows. Cost: low to moderate.
+option.CLOUD_SHADOWS=Cloud Shadows
+option.CLOUD_SHADOWS.comment=Clouds dim the sunlight on the ground as they pass. Cost: low.
+option.sunPathRotation=Sun Path Angle
+option.sunPathRotation.comment=Tilts the sun's path across the sky so shadows are never perfectly straight.
+suffix.sunPathRotation= deg
+
+# ---------------------------------------------------------------- Lighting
+option.PBR_MODE=Resource Pack PBR
+option.PBR_MODE.comment=Use labPBR normal and specular maps when the resource pack provides them. Free without such a pack.
+value.PBR_MODE.0=Off (built-in materials)
+value.PBR_MODE.1=labPBR 1.3
+option.BLOCKLIGHT_TEMPERATURE=Torch Light Colour
+option.BLOCKLIGHT_TEMPERATURE.comment=Colour temperature of torches and other block light. Lower is warmer.
+suffix.BLOCKLIGHT_TEMPERATURE= K
+option.HELD_LIGHT=Held Light
+option.HELD_LIGHT.comment=A torch or glowing item in your hand lights the area around you. Cost: free.
+option.WETNESS=Rain Wetness
+option.WETNESS.comment=Rain darkens porous surfaces and makes them slightly glossy. Cost: free.
+option.PUDDLES=Puddles
+option.PUDDLES.comment=Rain forms reflective puddles with ripples on flat open ground. Needs Opaque Reflections. Cost: low.
+option.SSAO=Ambient Occlusion
+option.SSAO.comment=Soft contact shadows in corners and under objects, at half resolution. Cost: moderate.
+option.AO_QUALITY=AO Quality
+option.AO_QUALITY.comment=Quality of the ambient occlusion.
+value.AO_QUALITY.1=Low (SSAO, 4 samples)
+value.AO_QUALITY.2=Medium (GTAO 2x3)
+value.AO_QUALITY.3=High (GTAO 3x4)
+option.ambientOcclusionLevel=Vanilla AO Strength
+option.ambientOcclusionLevel.comment=Strength of Minecraft's own corner darkening. Lower it when Ambient Occlusion is on.
+option.WAVING_FOLIAGE=Waving Plants
+option.WAVING_FOLIAGE.comment=Grass, flowers, crops, leaves and vines move in the wind. Cost: free.
+option.WIND_STRENGTH=Wind Strength
+option.WIND_STRENGTH.comment=How strongly plants move. Storms make it stronger.
+
+# ---------------------------------------------------------------- Atmosphere
+option.ATMOSPHERE_STEPS=Sky Quality
+option.ATMOSPHERE_STEPS.comment=Ray-march steps for the physical sky, computed once per frame in a small texture. Cost: very low.
+option.ATMOSPHERE_DENSITY=Air Haze
+option.ATMOSPHERE_DENSITY.comment=Amount of fine haze in the sky. Higher gives paler skies and redder sunsets.
+option.FOG_DENSITY=Fog Density
+option.FOG_DENSITY.comment=Distance haze and valley fog over the land. 0 turns it off.
+option.CLOUD_LAYERS=Cloud Layers
+option.CLOUD_LAYERS.comment=Low cumulus only, or cumulus plus high cirrus. Cost: low.
+value.CLOUD_LAYERS.1=Cumulus
+value.CLOUD_LAYERS.2=Cumulus + Cirrus
+option.VOLUMETRIC_LIGHT=Light Shafts
+option.VOLUMETRIC_LIGHT.comment=Sun and moon rays through the air, at half resolution. Cost: low to moderate.
+option.VL_MODE=Light Shaft Type
+option.VL_MODE.comment=Screen-space rays are cheap; shadow-map rays are physically shaped and work when the sun is off screen. Shadow-map rays need Shadows.
+value.VL_MODE.0=Screen-space
+value.VL_MODE.1=Shadow-map
+option.VL_STEPS=Light Shaft Steps
+option.VL_STEPS.comment=Samples per light-shaft ray. More is smoother and slower.
+
+# ---------------------------------------------------------------- Water
+option.WATER_ADVANCED=Advanced Water
+option.WATER_ADVANCED.comment=Refraction, depth-based colour and screen-space reflections on water. Cost: low to moderate.
+option.WATER_WAVE_OCTAVES=Wave Detail
+option.WATER_WAVE_OCTAVES.comment=Number of wave layers on the water surface.
+option.WAVING_WATER=Moving Water Surface
+option.WAVING_WATER.comment=The water surface geometry rises and falls with the waves. Cost: free.
+option.CAUSTICS=Caustics
+option.CAUSTICS.comment=Animated light patterns on surfaces under water. Cost: low.
+option.SSR_STEPS=Reflection Quality
+option.SSR_STEPS.comment=Ray-march steps for screen-space reflections. More finds thinner objects.
+option.SSR_OPAQUE=Opaque Reflections
+option.SSR_OPAQUE.comment=Screen-space reflections on puddles, metals and polished blocks; sky reflections on everything. Cost: moderate. Medium and High.
+
+# ---------------------------------------------------------------- Camera
+option.TONEMAP=Tonemapper
+option.TONEMAP.comment=How bright light is compressed for the screen. AgX is natural, ACES is punchier, Neutral keeps colours closest to the textures.
+value.TONEMAP.0=AgX (natural)
+value.TONEMAP.1=ACES (punchy)
+value.TONEMAP.2=Khronos Neutral
+option.AUTO_EXPOSURE=Eye Adaptation
+option.AUTO_EXPOSURE.comment=Exposure follows the average scene brightness, like your eyes. Off uses a simple day/night/cave estimate. Cost: very low.
+option.EXPOSURE_BIAS=Exposure
+option.EXPOSURE_BIAS.comment=Makes the whole image brighter or darker.
+suffix.EXPOSURE_BIAS= EV
+option.WHITE_BALANCE_K=White Balance
+option.WHITE_BALANCE_K.comment=Higher makes the image warmer, lower makes it cooler. 6500 is neutral.
+suffix.WHITE_BALANCE_K= K
+option.SATURATION=Saturation
+option.SATURATION.comment=Colour intensity.
+option.CONTRAST=Contrast
+option.CONTRAST.comment=Contrast around mid-grey.
+option.BLOOM=Bloom
+option.BLOOM.comment=Bright lights, the sun and lava glow softly. Cost: low.
+option.BLOOM_LEVELS=Bloom Size
+option.BLOOM_LEVELS.comment=Number of blur levels. More levels give a wider glow.
+option.BLOOM_STRENGTH=Bloom Strength
+option.BLOOM_STRENGTH.comment=How much of the glow is mixed in.
+option.VIGNETTE=Vignette
+option.VIGNETTE.comment=Darkens the corners of the image slightly.
+option.FILM_GRAIN=Film Grain
+option.FILM_GRAIN.comment=Subtle animated grain.
+option.PURKINJE=Night Vision Shift
+option.PURKINJE.comment=In dim moonlight colours fade and shift towards blue, as human eyes do.
+option.PURKINJE_STRENGTH=Night Shift Strength
+option.PURKINJE_STRENGTH.comment=How strong the night colour shift is.
+
+# ---------------------------------------------------------------- Performance
+option.TAA=Temporal Anti-Aliasing
+option.TAA.comment=Smooth, stable edges using previous frames. Also enables render scale. Cost: low.
+option.FXAA=FXAA
+option.FXAA.comment=Cheap edge smoothing, used only when Temporal Anti-Aliasing is off. Cost: very low.
+option.RENDER_SCALE_MODE=Render Scale Mode
+option.RENDER_SCALE_MODE.comment=Auto renders at the target height below and upscales with TAA. Fixed uses the Render Scale value.
+value.RENDER_SCALE_MODE.0=Fixed
+value.RENDER_SCALE_MODE.1=Auto (target height)
+option.RENDER_SCALE=Render Scale
+option.RENDER_SCALE.comment=Fraction of the screen resolution the world is rendered at in Fixed mode. Needs TAA.
+option.AUTO_TARGET_HEIGHT=Target Height
+option.AUTO_TARGET_HEIGHT.comment=Auto mode renders about this many lines and upscales. On a 4K or Retina screen, 1080 halves the work in each direction.
+suffix.AUTO_TARGET_HEIGHT=p
+option.CAS_STRENGTH=Sharpening
+option.CAS_STRENGTH.comment=Contrast-adaptive sharpening after TAA.
+
+# ---------------------------------------------------------------- Advanced
+option.MAC_ALLOW_HEAVY=Allow Heavy Effects on Mac
+option.MAC_ALLOW_HEAVY.comment=On Macs, contact-hardening shadows, 24-step reflections, 12+ step light shafts and the highest AO are clamped for speed. Turn this on to remove the clamps.
+option.DEBUG_VIEW=Debug View
+option.DEBUG_VIEW.comment=Shows internal data for troubleshooting.
+value.DEBUG_VIEW.0=Off
+value.DEBUG_VIEW.1=Lighting only
+value.DEBUG_VIEW.2=Normals
+value.DEBUG_VIEW.3=Lightmap
+value.DEBUG_VIEW.4=Material IDs
+value.DEBUG_VIEW.5=Ambient occlusion
+value.DEBUG_VIEW.6=Shadows
+value.DEBUG_VIEW.7=Light shafts
+value.DEBUG_VIEW.8=Sky LUT
+value.DEBUG_VIEW.9=Bloom atlas
+value.DEBUG_VIEW.10=Exposure heatmap
+value.DEBUG_VIEW.11=NaN / Inf detector
