@@ -38,9 +38,10 @@ vec3 lightIrradiance() {
 
 // Sky irradiance onto a surface with player-space normal n (unoccluded).
 vec3 skyIrradiance(vec3 nPlayer) {
-	vec3 up = skyConst(SKYC_E_UP).rgb;
-	vec3 side = skyConst(SKYC_E_SIDE).rgb;
 	vec3 down = skyConst(SKYC_E_DOWN).rgb;
+	// Up-facing surfaces also receive some light bounced from the sunlit surroundings.
+	vec3 up = skyConst(SKYC_E_UP).rgb + 0.25 * down;
+	vec3 side = skyConst(SKYC_E_SIDE).rgb;
 	float y = nPlayer.y;
 	return y >= 0.0 ? mix(side, up, y) : mix(side, down, -y);
 }
@@ -56,12 +57,14 @@ float daylightFactor() { return skyConst(SKYC_FLAGS).x; }
 
 #else
 
+// Ambient radiance of the dimension's air: the Nether takes the biome's fog colour (crimson,
+// warped, soul sand valley, basalt deltas), the End is a dim violet.
 vec3 dimensionFogColor() {
 #ifdef DIM_NETHER
 	vec3 f = srgbToLinear(fogColor);
-	return f / max(maxOf(f), 0.05) * 0.04 + vec3(0.004, 0.0015, 0.001);
+	return f / max(maxOf(f), 0.05) * 0.022 + vec3(0.0025, 0.0010, 0.0007);
 #else
-	return vec3(0.010, 0.008, 0.016);
+	return vec3(0.0075, 0.0060, 0.0115);
 #endif
 }
 
@@ -71,10 +74,12 @@ vec3 moonIrradiance() { return vec3(0.0); }
 vec3 horizonRadiance() { return dimensionFogColor(); }
 vec3 lightIrradiance() { return vec3(0.0); }
 vec3 skyIrradiance(vec3 nPlayer) {
-	// Nether and End have no sky; this is the dimension's ambient light.
-	return dimensionFogColor() * (2.6 + 0.6 * nPlayer.y);
+	// Nether and End have no sky: ambient irradiance from the surrounding air, slightly
+	// stronger from above.
+	return dimensionFogColor() * PI * (0.85 + 0.15 * nPlayer.y);
 }
-vec3 fogRadiance(vec3 dirPlayer) { return dimensionFogColor(); }
+// In-scattered fog radiance: the air's albedo (~0.6) times its ambient radiance.
+vec3 fogRadiance(vec3 dirPlayer) { return dimensionFogColor() * 0.6; }
 float daylightFactor() { return 0.0; }
 
 #endif

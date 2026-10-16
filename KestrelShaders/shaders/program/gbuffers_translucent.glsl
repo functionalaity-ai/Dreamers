@@ -162,7 +162,8 @@ void main() {
 		// Light reaching the water volume, used for its in-scattered colour.
 		vec3 Edir = directLight(playerPos, geoNPlayer, dot(geoN, Lv), sky);
 		vec3 Eamb = skyIrradiance(vec3(0.0, 1.0, 0.0)) * skyLightCurve(sky) + blockIrradiance(lm.x) + vec3(KS_MIN_AMBIENT_E);
-		vec3 inscatter = (Edir * clamp01(dot(Lv, upDirView())) * 0.06 + Eamb * 0.05) * vec3(0.10, 0.42, 0.50) * mix(vec3(1.0), tint * 2.0, 0.35);
+		// Water-leaving radiance from scattering inside the volume: a few percent of the light.
+		vec3 inscatter = (Edir * clamp01(dot(Lv, upDirView())) * 0.016 + Eamb * 0.022) * vec3(0.10, 0.42, 0.50) * mix(vec3(1.0), tint * 2.0, 0.35);
 
 		vec3 refracted;
 	#ifdef KS_WATER_FULL

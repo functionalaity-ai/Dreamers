@@ -45,8 +45,9 @@ vec3 applyAtmosphere(vec3 color, vec3 playerPos, bool isSky) {
 		float outdoor = outdoorFactor();
 		float rain = rainStrength;
 		float biome = 1.0 + 1.5 * ksBiomeSwamp + 0.5 * ksBiomeDesert + 0.6 * ksBiomeSnowy + 0.4 * ksBiomeJungle;
+		// Clear-day transmittance ~0.8 at 128 blocks; valley fog thickens toward sea level.
 		float haze = 0.0011 * (1.0 + 3.0 * rain) * biome;
-		float od = haze * dist + heightFogDepth(playerPos, 0.010 * (1.0 + 2.0 * rain) * biome, 0.07, 62.0);
+		float od = haze * dist + heightFogDepth(playerPos, 0.0035 * (1.0 + 4.0 * rain) * biome, 0.08, 62.0);
 		od *= FOG_DENSITY * mix(0.3, 1.0, outdoor);
 		vec3 fogCol = fogRadiance(dir) * mix(0.08, 1.0, outdoor * outdoor);
 		fogCol = mix(fogCol, fogCol * vec3(0.75, 1.0, 0.7), ksBiomeSwamp * 0.6);
@@ -56,16 +57,17 @@ vec3 applyAtmosphere(vec3 color, vec3 playerPos, bool isSky) {
 		float border = isSky ? 0.0 : smoothstep(far * 0.72, far * 0.98, length(playerPos.xz));
 		color = mix(color, fogRadiance(dir), border);
 #elif defined(DIM_NETHER)
-		float od = (0.016 + 0.012 * clamp01(1.0 - abs(playerPos.y + eyeAltitude - 64.0) / 64.0)) * dist * FOG_DENSITY;
+		// Visibility ~40-60 blocks, thickest around the lava sea level.
+		float od = (0.006 + 0.010 * clamp01(1.0 - abs(playerPos.y + eyeAltitude - 40.0) / 60.0)) * dist * FOG_DENSITY;
 		vec3 T = vec3(exp(-od));
-		vec3 fogCol = dimensionFogColor() * 1.4;
+		vec3 fogCol = fogRadiance(dir);
 		if (!isSky) color = color * T + fogCol * (1.0 - T);
 		float border = isSky ? 0.0 : smoothstep(far * 0.6, far * 0.95, dist);
 		color = mix(color, fogCol, border);
 #else
-		float od = 0.004 * dist * FOG_DENSITY;
+		float od = 0.003 * dist * FOG_DENSITY;
 		vec3 T = vec3(exp(-od));
-		vec3 fogCol = dimensionFogColor() * 1.2;
+		vec3 fogCol = fogRadiance(dir);
 		if (!isSky) color = color * T + fogCol * (1.0 - T);
 		float border = isSky ? 0.0 : smoothstep(far * 0.7, far * 0.98, dist);
 		color = mix(color, fogCol, border);

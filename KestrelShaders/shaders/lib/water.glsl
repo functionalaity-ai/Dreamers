@@ -64,6 +64,6 @@ float waterCaustics(vec3 worldPos) {
 // Per-channel absorption of water per block, tinted toward the biome water colour.
 vec3 waterAbsorption(vec3 biomeTintLinear) {
 	vec3 base = vec3(0.32, 0.065, 0.04);
-	vec3 tintAbs = -log(clamp(biomeTintLinear, vec3(0.05), vec3(1.0))) * 0.06;
+	vec3 tintAbs = -log(clamp(biomeTintLinear, vec3(0.05), vec3(1.0))) * 0.15;
 	return base + tintAbs;
 }

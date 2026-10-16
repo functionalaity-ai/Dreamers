@@ -237,15 +237,39 @@ void main() {
 
 	float wrap = s.sss * 0.4;
 	float NdotLd = clamp01((NdotL + wrap) / (1.0 + wrap));
-	float transl = s.sss * clamp01(-NdotL) * (0.3 + 0.7 * pow(clamp01(dot(-V, Lv)), 6.0)) * 0.55;
-	vec3 diffuseDirect = s.albedo * RCP_PI * Edirect * (NdotLd + transl);
+	vec3 diffuseDirect = s.albedo * RCP_PI * Edirect * NdotLd;
+
+	// Light through thin foliage: on the side facing away from the light, test whether the
+	// light reaches the lit side of the block (one block toward the light), so the outer layer
+	// of a canopy glows green when back-lit instead of shadowing itself.
+	if (s.sss > 0.0 && NdotLgeo < 0.0 && maxOf(lightE) > 0.0) {
+		vec3 Lp = lightDirPlayer();
+		vec3 through;
+	#ifdef KS_SHADOWS_ACTIVE
+		float fadeT;
+		// 1.1 blocks clears the block's own lit face.
+		through = sampleShadow(playerPos + Lp * 1.1, Lp, 1.0, gl_FragCoord.xy, false, fadeT);
+		through = mix(through, vec3(fakeShadow(sky)), fadeT);
+	#else
+		through = vec3(fakeShadow(sky));
+	#endif
+		// Light scattered through several leaf layers keeps an outer canopy faintly lit.
+		through = max(through, vec3(0.3 * smoothstep(0.7, 1.0, sky)));
+	#ifdef KS_SKY_LUT
+		through *= skyLeakFactor(sky);
+	#endif
+		float forward = 0.35 + 0.65 * pow(clamp01(dot(-V, Lv)), 4.0);
+		diffuseDirect += s.albedo * RCP_PI * lightE * through * (s.sss * clamp01(-NdotL) * forward * 0.6);
+	}
 	vec3 specDirect = specularGGX(s.normal, V, Lv, s.roughness, s.f0) * Edirect;
 
 	// ---- Ambient (sky, block light, held light, floor).
+	// Foliage receives sky light from many directions through and around itself.
+	vec3 nAmb = s.sss > 0.0 ? normalize(mix(nPlayer, vec3(0.0, 1.0, 0.0), 0.5 * s.sss)) : nPlayer;
 #ifdef KS_SKY_LUT
-	vec3 Esky = skyIrradiance(nPlayer) * skyLightCurve(sky);
+	vec3 Esky = skyIrradiance(nAmb) * skyLightCurve(sky);
 #else
-	vec3 Esky = skyIrradiance(nPlayer);
+	vec3 Esky = skyIrradiance(nAmb);
 #endif
 	vec3 Eblock = blockIrradiance(lm.x) + heldLightIrradiance(vViewPos, s.normal);
 	vec3 Efloor = vec3(KS_MIN_AMBIENT_E + nightVision * KS_NIGHT_VISION_E);

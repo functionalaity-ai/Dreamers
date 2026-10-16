@@ -122,6 +122,14 @@ void main() {
 		color = applyAtmosphere(skyC, dir * far, true);
 	} else {
 		// ---- Opaque surfaces.
+#if DEBUG_VIEW == 6
+		// Raw shadow visibility from the gbuffers: no AO, reflections or fog on top.
+		outColor = vec4(color, 1.0);
+	#ifdef KS_WATER_ADVANCED
+		outOpaque = vec4(color, 1.0);
+	#endif
+		return;
+#endif
 #ifdef KS_GBUFFER_DATA
 		vec4 data = texture(colortex1, bufUV);
 		int code = decodeMaterial(data.b);

@@ -52,8 +52,10 @@ vec3 cloudLighting(float density, float lightDensity, float cosTheta, float ambi
 	float phase = mix(phaseHG(cosTheta, 0.6), phaseHG(cosTheta, -0.25), 0.3);
 	float beer = exp(-lightDensity * 3.2);
 	float powder = 1.0 - exp(-density * 4.0);
-	vec3 direct = lightE * phase * beer * mix(1.0, powder, 0.6) * 1.6;
-	vec3 ambient = skyIrradiance(vec3(0.0, 1.0, 0.0)) * (RCP_PI * 0.55) * ambientScale;
+	// Clouds scatter light many times inside: approximate with a brightened, partly
+	// isotropic direct term plus sky and ground ambient.
+	vec3 direct = lightE * (phase + 0.08) * beer * mix(1.0, powder, 0.5) * 3.0;
+	vec3 ambient = (skyIrradiance(vec3(0.0, 1.0, 0.0)) * 1.1 + skyIrradiance(vec3(0.0, -1.0, 0.0)) * 0.6) * RCP_PI * ambientScale;
 	return direct + ambient;
 }
 

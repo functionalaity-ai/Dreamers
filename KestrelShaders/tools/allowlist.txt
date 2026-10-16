@@ -1,0 +1,87 @@
+# Uniforms, attributes and samplers the pack may declare. Every entry is provided by Iris 26.3
+# (net/irisshaders/iris/uniforms/*.java, samplers/IrisSamplers.java, the attribute transformers)
+# or is a Kestrel custom uniform defined in shaders.properties.
+# name   reference
+gbufferModelView            MatrixUniforms
+gbufferModelViewInverse     MatrixUniforms
+gbufferProjection           MatrixUniforms
+gbufferProjectionInverse    MatrixUniforms
+gbufferPreviousModelView    MatrixUniforms
+gbufferPreviousProjection   MatrixUniforms
+shadowModelView             MatrixUniforms
+shadowModelViewInverse      MatrixUniforms
+shadowProjection            MatrixUniforms
+shadowProjectionInverse     MatrixUniforms
+cameraPosition              CameraUniforms
+previousCameraPosition      CameraUniforms
+cameraPositionInt           CameraUniforms (Iris 1.7+)
+cameraPositionFract         CameraUniforms (Iris 1.7+)
+previousCameraPositionInt   CameraUniforms (Iris 1.7+)
+previousCameraPositionFract CameraUniforms (Iris 1.7+)
+sunPosition                 CelestialUniforms
+moonPosition                CelestialUniforms
+shadowLightPosition         CelestialUniforms
+upPosition                  CelestialUniforms
+sunAngle                    CelestialUniforms
+viewWidth                   ViewportUniforms
+viewHeight                  ViewportUniforms
+aspectRatio                 ViewportUniforms
+near                        CommonUniforms
+far                         CommonUniforms
+frameCounter                SystemTimeUniforms
+frameTime                   SystemTimeUniforms
+frameTimeCounter            SystemTimeUniforms
+worldTime                   WorldTimeUniforms
+worldDay                    WorldTimeUniforms
+moonPhase                   WorldTimeUniforms
+rainStrength                CommonUniforms
+wetness                     CommonUniforms
+thunderStrength             IrisExclusiveUniforms
+isEyeInWater                CommonUniforms
+eyeBrightnessSmooth         CommonUniforms
+eyeAltitude                 CommonUniforms
+nightVision                 CommonUniforms
+blindness                   CommonUniforms
+darknessFactor              CommonUniforms
+screenBrightness            CommonUniforms
+fogColor                    CommonUniforms
+skyColor                    CommonUniforms
+heldBlockLightValue         CommonUniforms
+heldBlockLightValue2        CommonUniforms
+renderStage                 CommonUniforms
+alphaTestRef                CommonUniforms
+entityColor                 CommonUniforms / EntityPatcher
+hasSkylight                 IrisExclusiveUniforms
+cloudHeight                 IrisExclusiveUniforms
+cloudTime                   IrisExclusiveUniforms
+endFlashIntensity           IrisExclusiveUniforms
+lightningBoltPosition       IrisExclusiveUniforms
+ksBiomeSwamp                shaders.properties custom uniform
+ksBiomeDesert               shaders.properties custom uniform
+ksBiomeSnowy                shaders.properties custom uniform
+ksBiomeJungle               shaders.properties custom uniform
+# Samplers (IrisSamplers)
+gtexture                    IrisSamplers.addLevelSamplers
+normals                     IrisSamplers.addLevelSamplers (labPBR)
+specular                    IrisSamplers.addLevelSamplers (labPBR)
+noisetex                    IrisSamplers.addNoiseSampler
+depthtex0                   IrisSamplers.addWorldDepthSamplers / addCompositeSamplers
+depthtex1                   IrisSamplers.addWorldDepthSamplers / addCompositeSamplers
+colortex0                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
+colortex1                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
+colortex2                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
+colortex3                   IrisSamplers.addRenderTargetSamplers (fullscreen only)
+colortex4                   IrisSamplers.addRenderTargetSamplers
+colortex5                   IrisSamplers.addRenderTargetSamplers
+colortex6                   IrisSamplers.addRenderTargetSamplers
+colortex7                   IrisSamplers.addRenderTargetSamplers
+shadowtex0                  IrisSamplers.addShadowSamplers
+shadowtex1                  IrisSamplers.addShadowSamplers
+shadowtex0HW                IrisSamplers.addShadowSamplers (SEPARATE_HARDWARE_SAMPLERS)
+shadowtex1HW                IrisSamplers.addShadowSamplers (SEPARATE_HARDWARE_SAMPLERS)
+shadowcolor0                IrisSamplers.addShadowSamplers
+# Vertex attributes
+mc_Entity                   SodiumTransformer / VanillaTransformer
+at_midBlock                 CommonTransformer (Iris 1.7+ w = emission)
+at_tangent                  SodiumTransformer / VanillaTransformer
+mc_midTexCoord              SodiumTransformer

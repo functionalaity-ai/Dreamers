@@ -12,7 +12,7 @@ float shaftDensity(float y) {
 	float rain = rainStrength;
 	float biome = 1.0 + 1.5 * ksBiomeSwamp + 0.5 * ksBiomeDesert;
 	float haze = 0.0011 * (1.0 + 3.0 * rain) * biome;
-	float height = 0.010 * (1.0 + 2.0 * rain) * biome * exp(-0.07 * max(y - 62.0, -30.0));
+	float height = 0.0035 * (1.0 + 4.0 * rain) * biome * exp(-0.08 * max(y - 62.0, -30.0));
 	return (haze + min(height, 0.05)) * FOG_DENSITY;
 }
 

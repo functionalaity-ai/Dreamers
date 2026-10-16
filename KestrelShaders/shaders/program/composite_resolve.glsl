@@ -47,7 +47,11 @@ void main() {
 		}
 	}
 	float avgLum = exp2(logSum / wSum);
-	float targetEV = clamp(ev100FromLuminance(avgLum), KS_EV_MIN, KS_EV_MAX);
+	// Scene key: dim scenes (night, caves, the Nether) are exposed darker than mid-grey, as an
+	// eye or camera would, instead of being lifted to daylight brightness.
+	float measuredEV = ev100FromLuminance(avgLum);
+	float key = 2.4 * (1.0 - smoothstep(5.0, 11.5, measuredEV));
+	float targetEV = clamp(measuredEV + key, KS_EV_MIN, KS_EV_MAX);
 	if (prevEV <= 0.0 || isnan(prevEV) || isinf(prevEV)) {
 		vEV = targetEV;
 	} else {

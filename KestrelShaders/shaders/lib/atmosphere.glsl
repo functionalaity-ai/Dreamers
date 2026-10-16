@@ -11,8 +11,11 @@
 #define ATM_TOP_RADIUS 6460e3
 #define ATM_RAYLEIGH_SCATTER vec3(5.802e-6, 13.558e-6, 33.1e-6)
 #define ATM_RAYLEIGH_HEIGHT 8000.0
-#define ATM_MIE_SCATTER 3.996e-6
-#define ATM_MIE_ABSORB 4.40e-6
+// Mie: Hillaire's clean-air scattering raised ~3x toward a typical clear day (aerosol optical
+// depth ~0.015); absorption = extinction 4.44e-6 - scattering 3.996e-6 in the reference,
+// i.e. single-scattering albedo ~0.9.
+#define ATM_MIE_SCATTER 1.2e-5
+#define ATM_MIE_ABSORB 1.33e-6
 #define ATM_MIE_HEIGHT 1200.0
 #define ATM_MIE_G 0.78
 #define ATM_OZONE_ABSORB vec3(0.650e-6, 1.881e-6, 0.085e-6)
@@ -146,8 +149,8 @@ vec3 integrateScattering(vec3 origin, vec3 dir, vec3 sunDir, float sunE, vec3 mo
 		// once, proportional to the local total scattering and to the light's elevation
 		// (non-zero slightly below the horizon, which gives the twilight glow).
 		vec3 scatterTotal = a.rayleighScatter + vec3(a.mieScatter);
-		float msS = 0.24 * clamp01(dot(up, sunDir) + 0.18);
-		float msM = 0.24 * clamp01(dot(up, moonDir) + 0.18);
+		float msS = 0.55 * clamp01(dot(up, sunDir) + 0.18);
+		float msM = 0.55 * clamp01(dot(up, moonDir) + 0.18);
 		vec3 ms = scatterTotal * (msS * sunE + msM * moonE) * (1.0 / (4.0 * PI));
 
 		vec3 S = (scatterS * Ts * sunE + scatterM * Tm * moonE) + ms;

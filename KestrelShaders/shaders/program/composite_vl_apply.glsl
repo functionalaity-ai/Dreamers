@@ -52,7 +52,9 @@ void main() {
 		}
 	}
 	vec4 vl = acc / wsum;
+	#if DEBUG_VIEW != 5 && DEBUG_VIEW != 6
 	color = color * vl.a + vl.rgb;
+	#endif
 	#if DEBUG_VIEW == 7
 	color = vl.rgb / (vl.rgb + 0.02);
 	#endif
